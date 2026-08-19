@@ -3,6 +3,7 @@ from __future__ import annotations
 import subprocess
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from PIL import Image
@@ -39,6 +40,18 @@ def test_image_worker_applies_resize_quality_and_rounding(tmp_path: Path) -> Non
     with Image.open(plan.final_output) as converted:
         assert converted.size == (60, 40)
         assert converted.convert("RGBA").getpixel((0, 0))[3] == 0
+
+
+def test_macos_video_profiles_do_not_require_gpl_encoders(tmp_path: Path) -> None:
+    source = tmp_path / "source.mov"
+    source.write_bytes(b"placeholder")
+    adapter = FfmpegAdapter(executable=Path("/runtime/ffmpeg"))
+    with patch("wemute.engine.platform.system", return_value="Darwin"):
+        mkv = adapter._encoding_arguments(make_job(source, MediaKind.VIDEO, "MKV (H.264)"), "MKV (H.264)")
+        prores = adapter._encoding_arguments(make_job(source, MediaKind.VIDEO, "MOV (ProRes)"), "MOV (ProRes)")
+    assert "h264_videotoolbox" in mkv
+    assert "prores_videotoolbox" in prores
+    assert "libx264" not in mkv
 
 
 @pytest.mark.skipif(resolve_engine("ffmpeg") is None, reason="FFmpeg is unavailable")

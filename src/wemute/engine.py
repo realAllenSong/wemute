@@ -109,8 +109,11 @@ class FfmpegAdapter:
                 args += ["-b:v", "6M"] if is_macos else ["-crf", "24", "-preset", "medium"]
                 return args + ["-tag:v", "hvc1", "-c:a", "aac", "-b:a", "192k"]
             if label == "MOV (ProRes)":
-                return ["-c:v", "prores_ks", "-profile:v", "3", "-c:a", "pcm_s24le"]
+                codec = "prores_videotoolbox" if is_macos else "prores_ks"
+                return ["-c:v", codec, "-profile:v", "3", "-c:a", "pcm_s24le"]
             if label == "MKV (H.264)":
+                if is_macos:
+                    return ["-c:v", "h264_videotoolbox", "-b:v", "8M", "-c:a", "aac"]
                 return ["-c:v", "libx264", "-crf", "20", "-preset", "medium", "-c:a", "aac"]
             if label == "WebM (VP9)":
                 return ["-c:v", "libvpx-vp9", "-crf", "30", "-b:v", "0", "-c:a", "libopus"]

@@ -7,6 +7,9 @@ cd "$PROJECT_DIR"
 
 uv sync --dev
 "$PROJECT_DIR/scripts/build-macos-icon.sh"
+if [[ "${WEMUTE_SKIP_BUNDLED_FFMPEG:-0}" != "1" ]]; then
+  "$PROJECT_DIR/scripts/build-ffmpeg-macos.sh"
+fi
 APP_VERSION="$(uv run python -c 'from wemute import __version__; print(__version__)')"
 uv run pyinstaller \
   --noconfirm \
@@ -36,6 +39,12 @@ uv run pyinstaller \
   /usr/libexec/PlistBuddy -c "Set :LSApplicationCategoryType public.app-category.utilities" dist/Wemute.app/Contents/Info.plist
 /usr/libexec/PlistBuddy -c "Add :NSHumanReadableCopyright string 'Copyright © 2026 Wemute. All rights reserved.'" dist/Wemute.app/Contents/Info.plist 2>/dev/null || \
   /usr/libexec/PlistBuddy -c "Set :NSHumanReadableCopyright 'Copyright © 2026 Wemute. All rights reserved.'" dist/Wemute.app/Contents/Info.plist
+
+RUNTIME_DIR="$PROJECT_DIR/build/runtime/macos-arm64"
+if [[ -d "$RUNTIME_DIR" ]]; then
+  mkdir -p dist/Wemute.app/Contents/Resources/wemute/runtime
+  ditto "$RUNTIME_DIR" dist/Wemute.app/Contents/Resources/wemute/runtime
+fi
 codesign --force --deep --sign - dist/Wemute.app
 
 echo "Built $PROJECT_DIR/dist/Wemute.app"

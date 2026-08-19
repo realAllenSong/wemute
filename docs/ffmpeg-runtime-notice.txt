@@ -1,0 +1,28 @@
+Wemute FFmpeg runtime notice
+============================
+
+This runtime uses an unmodified FFmpeg 8.1.2 source release under the GNU
+Lesser General Public License version 2.1 or later. It is configured without
+GPL and nonfree components. The exact configure flags, source URL, SHA-256,
+and build date are recorded in BUILD_INFO.txt beside this notice.
+
+Corresponding source:
+https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz
+
+Build instructions:
+https://github.com/realAllenSong/wemute/blob/main/scripts/build-ffmpeg-macos.sh
+
+Enabled external libraries:
+
+- LAME / libmp3lame — LGPL-2.0-or-later
+  https://sourceforge.net/projects/lame/files/lame/
+- Opus — BSD-3-Clause
+  https://github.com/xiph/opus
+- libvpx — BSD-3-Clause
+  https://chromium.googlesource.com/webm/libvpx
+
+Wemute invokes FFmpeg and FFprobe as separate executables. Wemute does not
+modify FFmpeg. Replacement runtime binaries can be placed in Wemute's bundled
+runtime directory or selected through WEMUTE_FFMPEG and WEMUTE_FFPROBE.
+
+The complete LGPL-2.1 text is included as licenses/FFmpeg-LGPL-2.1.txt.
