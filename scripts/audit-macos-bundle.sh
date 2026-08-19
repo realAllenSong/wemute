@@ -52,6 +52,7 @@ if "$ffmpeg" -hide_banner -buildconf 2>&1 | grep -Eq -- '--enable-(gpl|nonfree)'
 fi
 
 codesign --verify --deep --strict "$APP_PATH"
+"$APP_PATH/Contents/MacOS/Wemute" --audio-runtime-smoke-test
 
 if [[ "$MODE" == "signed" || "$MODE" == "notarized" ]]; then
   if ! /usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$APP_PATH/Contents/Info.plist" >/dev/null 2>&1; then

@@ -4,6 +4,7 @@ from PyInstaller.utils.hooks import (
     collect_data_files,
     collect_dynamic_libs,
     collect_submodules,
+    copy_metadata,
 )
 
 
@@ -16,3 +17,4 @@ for package in _PACKAGES:
     hiddenimports += collect_submodules(package)
     datas += collect_data_files(package, include_py_files=False)
     binaries += collect_dynamic_libs(package)
+    datas += copy_metadata(package)

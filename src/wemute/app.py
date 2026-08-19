@@ -55,6 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--image-worker", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--ai-worker", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--ai-worker-server", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--audio-runtime-smoke-test", action="store_true", help=argparse.SUPPRESS)
     return parser
 
 
@@ -102,6 +103,13 @@ def main(argv: list[str] | None = None) -> int:
         from wemute.ai_worker import serve as ai_worker_serve
 
         return ai_worker_serve()
+    if arguments.audio_runtime_smoke_test:
+        import demucs_mlx  # noqa: F401
+        import mlx_audio_io as mac
+        import mlx_spectro  # noqa: F401
+
+        mac.supports_soxr()
+        return 0
     os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
     QQuickStyle.setStyle("Basic")
     QApplication.setHighDpiScaleFactorRoundingPolicy(

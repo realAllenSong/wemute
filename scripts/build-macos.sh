@@ -65,5 +65,11 @@ if [[ -d "$SPARKLE_RUNTIME/Sparkle.framework" ]]; then
   cp "$SPARKLE_RUNTIME/LICENSE.txt" "$SPARKLE_RUNTIME/BUILD_INFO.txt" dist/Wemute.app/Contents/Resources/wemute/sparkle/
 fi
 codesign --force --deep --sign - dist/Wemute.app
+# PyInstaller and codesign rewrite Mach-O load commands/signatures after wheel
+# installation, so mlx-audio-io's original RECORD digest is intentionally no
+# longer correct. Seal the signed binary's digest, then re-sign only the outer
+# bundle so runtime tamper verification and the app resource seal both agree.
+uv run python "$PROJECT_DIR/scripts/refresh-mlx-audio-record.py" dist/Wemute.app
+codesign --force --sign - dist/Wemute.app
 
 echo "Built $PROJECT_DIR/dist/Wemute.app"
