@@ -56,6 +56,22 @@
         "models/realesrgan-x4plus-anime.bin",
         "models/realesrgan-x4plus-anime.param"
       ]
+    },
+    {
+      "id": "lama",
+      "name": "Object & Mark Erase",
+      "version": "2025jan",
+      "capability": "erase-object",
+      "filename": "inpainting_lama_2025jan.onnx",
+      "download_url": "https://huggingface.co/opencv/inpainting_lama/resolve/main/inpainting_lama_2025jan.onnx",
+      "sha256": "7df918ac3921d3daf0aae1d219776cf0dc4e4935f035af81841b40adcf74fdf2",
+      "size_bytes": 92591623,
+      "license": "Apache-2.0",
+      "license_url": "https://huggingface.co/opencv/inpainting_lama/blob/main/LICENSE",
+      "backend": "onnxruntime-lama",
+      "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
+      "minimum_memory_gb": 8,
+      "description": "A local brush-based tool for removing objects or marks you have the right to edit."
     }
   ]
 }

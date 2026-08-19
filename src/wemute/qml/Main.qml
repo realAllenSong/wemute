@@ -28,6 +28,13 @@ ApplicationWindow {
         onActivated: jobController.quickLookSelected()
     }
 
+    Connections {
+        target: jobController
+        function onEraseMaskRequested(jobId, sourceUrl, applyGroup) {
+            eraseMaskPopup.openFor(jobId, sourceUrl, applyGroup)
+        }
+    }
+
     function tr(key) {
         i18n.language
         return i18n.t(key)
@@ -278,6 +285,220 @@ ApplicationWindow {
                 font.pixelSize: 12
                 Layout.leftMargin: 96
                 Layout.topMargin: -8
+            }
+        }
+    }
+
+    Popup {
+        id: eraseMaskPopup
+        objectName: "eraseMaskPopup"
+        property string jobId: ""
+        property url sourceUrl
+        property bool applyGroup: false
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(920, window.width - 64)
+        height: Math.min(720, window.height - 64)
+        padding: 0
+        modal: true
+        focus: true
+        closePolicy: Popup.CloseOnEscape
+
+        function openFor(id, url, group) {
+            jobId = id
+            sourceUrl = url
+            applyGroup = group
+            maskCanvas.strokes = []
+            brushSlider.value = 34
+            open()
+            maskCanvas.requestPaint()
+        }
+
+        background: Rectangle {
+            color: "#202529"
+            border.width: 1
+            border.color: Theme.border
+            radius: 16
+        }
+
+        Overlay.modal: Rectangle { color: "#B3000000" }
+
+        contentItem: ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 22
+            spacing: 16
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 3
+                    Text {
+                        text: window.tr("erase_title")
+                        color: Theme.text
+                        font.pixelSize: 19
+                        font.weight: Font.Medium
+                    }
+                    Text {
+                        text: window.tr("erase_hint")
+                        color: Theme.secondaryText
+                        font.pixelSize: 13
+                    }
+                }
+                WButton {
+                    width: 34
+                    height: 34
+                    quiet: true
+                    text: "×"
+                    onClicked: eraseMaskPopup.close()
+                    Accessible.name: window.tr("cancel")
+                }
+            }
+
+            Rectangle {
+                id: eraseStage
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                color: "#101214"
+                radius: 12
+                clip: true
+
+                Image {
+                    id: eraseSourceImage
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    source: eraseMaskPopup.sourceUrl
+                    fillMode: Image.PreserveAspectFit
+                    asynchronous: true
+                    cache: false
+                }
+
+                Canvas {
+                    id: maskCanvas
+                    property var strokes: []
+                    x: eraseSourceImage.x + (eraseSourceImage.width - eraseSourceImage.paintedWidth) / 2
+                    y: eraseSourceImage.y + (eraseSourceImage.height - eraseSourceImage.paintedHeight) / 2
+                    width: eraseSourceImage.paintedWidth
+                    height: eraseSourceImage.paintedHeight
+                    opacity: 0.58
+                    renderTarget: Canvas.Image
+                    antialiasing: true
+
+                    onPaint: {
+                        var context = getContext("2d")
+                        context.reset()
+                        context.clearRect(0, 0, width, height)
+                        context.strokeStyle = "#FFFFFF"
+                        context.fillStyle = "#FFFFFF"
+                        context.lineCap = "round"
+                        context.lineJoin = "round"
+                        for (var strokeIndex = 0; strokeIndex < strokes.length; strokeIndex++) {
+                            var stroke = strokes[strokeIndex]
+                            var points = stroke.points
+                            context.lineWidth = stroke.width
+                            if (points.length === 0)
+                                continue
+                            if (points.length === 1) {
+                                context.beginPath()
+                                context.arc(points[0].x, points[0].y, stroke.width / 2, 0, Math.PI * 2)
+                                context.fill()
+                                continue
+                            }
+                            context.beginPath()
+                            context.moveTo(points[0].x, points[0].y)
+                            for (var pointIndex = 1; pointIndex < points.length; pointIndex++)
+                                context.lineTo(points[pointIndex].x, points[pointIndex].y)
+                            context.stroke()
+                        }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.CrossCursor
+                        onPressed: function(mouse) {
+                            var updated = maskCanvas.strokes.slice()
+                            updated.push({
+                                "width": brushSlider.value,
+                                "points": [{"x": mouse.x, "y": mouse.y}]
+                            })
+                            maskCanvas.strokes = updated
+                            maskCanvas.requestPaint()
+                        }
+                        onPositionChanged: function(mouse) {
+                            if (!pressed || maskCanvas.strokes.length === 0)
+                                return
+                            maskCanvas.strokes[maskCanvas.strokes.length - 1].points.push(
+                                {"x": mouse.x, "y": mouse.y}
+                            )
+                            maskCanvas.requestPaint()
+                        }
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+                Text {
+                    text: window.tr("brush_size")
+                    color: Theme.secondaryText
+                    font.pixelSize: 13
+                }
+                Slider {
+                    id: brushSlider
+                    Layout.preferredWidth: 180
+                    from: 10
+                    to: 90
+                    value: 34
+                    stepSize: 2
+                    onMoved: maskCanvas.requestPaint()
+                }
+                WButton {
+                    width: 76
+                    height: 38
+                    quiet: true
+                    text: window.tr("undo")
+                    enabled: maskCanvas.strokes.length > 0
+                    onClicked: {
+                        var updated = maskCanvas.strokes.slice()
+                        updated.pop()
+                        maskCanvas.strokes = updated
+                        maskCanvas.requestPaint()
+                    }
+                }
+                WButton {
+                    width: 76
+                    height: 38
+                    quiet: true
+                    text: window.tr("clear")
+                    enabled: maskCanvas.strokes.length > 0
+                    onClicked: {
+                        maskCanvas.strokes = []
+                        maskCanvas.requestPaint()
+                    }
+                }
+                Item { Layout.fillWidth: true }
+                WButton {
+                    width: eraseMaskPopup.applyGroup ? 176 : 116
+                    height: 44
+                    primary: true
+                    text: eraseMaskPopup.applyGroup
+                        ? window.tr("apply_to_all")
+                        : window.tr("apply")
+                    enabled: maskCanvas.strokes.length > 0
+                    onClicked: {
+                        var path = jobController.eraseMaskPath(eraseMaskPopup.jobId)
+                        if (path.length > 0 && maskCanvas.save(path)) {
+                            jobController.completeEraseMask(
+                                eraseMaskPopup.jobId,
+                                path,
+                                eraseMaskPopup.applyGroup
+                            )
+                            eraseMaskPopup.close()
+                        }
+                    }
+                }
             }
         }
     }

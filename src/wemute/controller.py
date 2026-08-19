@@ -19,8 +19,15 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QDesktopServices, QGuiApplication
 
-from wemute.capabilities import apply_choice, default_target, is_choice_compatible
-from wemute.domain import ConversionPlan, FileDescriptor, JobRecord, JobStatus, MediaKind
+from wemute.capabilities import ACTIONS, apply_choice, default_target, is_choice_compatible
+from wemute.domain import (
+    ConversionPlan,
+    FileDescriptor,
+    JobRecord,
+    JobStatus,
+    MediaKind,
+    OperationKind,
+)
 from wemute.ai_engine import AIEngineAdapter
 from wemute.engine import FfmpegAdapter, finalize_output, remove_partial_output
 from wemute.model_packages import ModelPackageManager
@@ -37,6 +44,7 @@ class JobController(QObject):
     destinationChanged = Signal()
     errorChanged = Signal()
     imageSettingsChanged = Signal()
+    eraseMaskRequested = Signal(str, str, bool)
     _probeReady = Signal(object, str)
 
     def __init__(
@@ -246,6 +254,11 @@ class JobController(QObject):
             job.source.kind, target, self.model.enabled_ai_actions
         ):
             return
+        if target == ACTIONS[OperationKind.ERASE_OBJECT].label:
+            self.eraseMaskRequested.emit(
+                job.id, QUrl.fromLocalFile(job.source.path).toString(), False
+            )
+            return
         previous = (job.operation, job.target_format, dict(job.operation_options))
         if not apply_choice(job, target):
             return
@@ -262,6 +275,20 @@ class JobController(QObject):
         except ValueError:
             return
         if not is_choice_compatible(kind, target, self.model.enabled_ai_actions):
+            return
+        if target == ACTIONS[OperationKind.ERASE_OBJECT].label:
+            first = next(
+                (
+                    job
+                    for job in self.model.jobs
+                    if job.source.kind == kind and job.status != JobStatus.RUNNING
+                ),
+                None,
+            )
+            if first:
+                self.eraseMaskRequested.emit(
+                    first.id, QUrl.fromLocalFile(first.source.path).toString(), True
+                )
             return
         changed = False
         for job in self.model.jobs:
@@ -425,6 +452,37 @@ class JobController(QObject):
         self.model.refresh()
         self._persist()
         self.imageSettingsChanged.emit()
+
+    @Slot(str, result=str)
+    def eraseMaskPath(self, job_id: str) -> str:
+        job = self._editable_image_job(job_id)
+        if not job:
+            return ""
+        masks = CACHE_ROOT / "masks"
+        masks.mkdir(parents=True, exist_ok=True)
+        return str(masks / f"{job.id}.png")
+
+    @Slot(str, str, bool)
+    def completeEraseMask(self, job_id: str, mask_path: str, apply_group: bool) -> None:
+        source_job = self._editable_image_job(job_id)
+        mask = Path(mask_path)
+        if not source_job or not mask.is_file():
+            self._set_error("The erase mask could not be saved. Try drawing it again.")
+            return
+        jobs = self._image_jobs() if apply_group else [source_job]
+        changed = False
+        for job in jobs:
+            if job.status == JobStatus.RUNNING:
+                continue
+            if not apply_choice(job, ACTIONS[OperationKind.ERASE_OBJECT].label):
+                continue
+            job.operation_options["mask_path"] = str(mask)
+            self._reset_job(job)
+            changed = True
+        if changed:
+            self._set_error("")
+            self.model.refresh()
+            self._persist()
 
     @Slot(str)
     def selectJob(self, job_id: str) -> None:

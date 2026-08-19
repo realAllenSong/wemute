@@ -150,6 +150,32 @@ def test_group_ai_action_keeps_per_file_conversion_override(tmp_path: Path) -> N
     controller.shutdown()
 
 
+def test_erase_action_requests_a_mask_before_changing_the_job(tmp_path: Path) -> None:
+    app = QCoreApplication.instance() or QCoreApplication([])
+    del app
+    source = tmp_path / "source.png"
+    Image.new("RGB", (80, 60), "navy").save(source)
+    job = JobRecord("first", probe_file(source, create_preview=False), "WebP")
+    model = QueueModel([job])
+    controller = JobController(model, QueueStore(tmp_path / "queue.json"))
+    model.set_enabled_ai_actions({OperationKind.ERASE_OBJECT})
+    requested: list[tuple[str, str, bool]] = []
+    controller.eraseMaskRequested.connect(
+        lambda job_id, source_url, group: requested.append((job_id, source_url, group))
+    )
+
+    controller.setTargetFormat(job.id, "Erase Object")
+    assert requested == [(job.id, source.as_uri(), False)]
+    assert job.operation == OperationKind.CONVERT
+
+    mask = tmp_path / "mask.png"
+    Image.new("L", (80, 60), 255).save(mask)
+    controller.completeEraseMask(job.id, str(mask), False)
+    assert job.operation == OperationKind.ERASE_OBJECT
+    assert job.operation_options == {"mask_path": str(mask)}
+    controller.shutdown()
+
+
 def test_controller_reuses_one_ai_worker_for_a_batch(tmp_path: Path) -> None:
     app = QCoreApplication.instance() or QCoreApplication([])
     del app

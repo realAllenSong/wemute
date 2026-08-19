@@ -91,6 +91,12 @@ THIRD_PARTY_COMPONENTS: tuple[dict[str, str], ...] = (
         "license": "BSD-3-Clause",
         "url": "https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE",
     },
+    {
+        "name": "OpenCV LaMa optional model",
+        "version": "2025jan",
+        "license": "Apache-2.0",
+        "url": "https://huggingface.co/opencv/inpainting_lama/blob/main/LICENSE",
+    },
 )
 
 

@@ -11,7 +11,7 @@ from typing import TextIO
 
 import numpy as np
 import onnxruntime as ort
-from PIL import Image, ImageOps
+from PIL import Image, ImageFilter, ImageOps
 
 
 ProgressCallback = Callable[[float], None]
@@ -58,7 +58,15 @@ class InferenceSessionCache:
         key = (model.resolve(), backend)
         session = self._sessions.get(key)
         if session is None:
-            session = ort.InferenceSession(str(model), providers=_providers(model))
+            providers = _providers(model)
+            try:
+                session = ort.InferenceSession(str(model), providers=providers)
+            except Exception:
+                if "CPUExecutionProvider" not in ort.get_available_providers():
+                    raise
+                session = ort.InferenceSession(
+                    str(model), providers=["CPUExecutionProvider"]
+                )
             self._sessions[key] = session
         return session
 
@@ -166,6 +174,60 @@ def upscale_image(
     progress(1.0)
 
 
+def erase_object(
+    source: Path,
+    destination: Path,
+    model: Path,
+    backend: str,
+    options: dict[str, object],
+    sessions: InferenceSessionCache,
+    progress: ProgressCallback = _progress,
+) -> None:
+    mask_value = options.get("mask_path")
+    if not mask_value:
+        raise ValueError("Draw a mask before starting object erase.")
+    mask_path = Path(str(mask_value))
+    if not mask_path.is_file():
+        raise FileNotFoundError("The erase mask is missing. Draw it again.")
+    with Image.open(source) as opened:
+        image = ImageOps.exif_transpose(opened).convert("RGBA")
+    with Image.open(mask_path) as opened_mask:
+        mask_rgba = opened_mask.convert("RGBA")
+        alpha = mask_rgba.getchannel("A")
+        has_transparency = "A" in opened_mask.getbands() and alpha.getextrema() != (255, 255)
+        mask = alpha if has_transparency else opened_mask.convert("L")
+    progress(0.12)
+    rgb = image.convert("RGB")
+    resized = rgb.resize((512, 512), Image.Resampling.LANCZOS)
+    image_array = np.asarray(resized, dtype=np.float32)[..., ::-1] / 255.0
+    image_tensor = np.transpose(image_array, (2, 0, 1))[None, ...].copy()
+    mask_resized = mask.resize((512, 512), Image.Resampling.NEAREST)
+    mask_tensor = (np.asarray(mask_resized, dtype=np.float32) > 0).astype(np.float32)
+    mask_tensor = mask_tensor[None, None, ...]
+    session = sessions.session(model, backend)
+    progress(0.3)
+    output = session.run(
+        None,
+        {
+            session.get_inputs()[0].name: image_tensor,
+            session.get_inputs()[1].name: mask_tensor,
+        },
+    )[0]
+    progress(0.84)
+    result_array = np.transpose(output[0], (1, 2, 0))[..., ::-1]
+    result = Image.fromarray(np.uint8(np.clip(result_array, 0, 255)), mode="RGB")
+    result = result.resize(image.size, Image.Resampling.LANCZOS)
+    composite_mask = mask.resize(image.size, Image.Resampling.LANCZOS).filter(
+        ImageFilter.GaussianBlur(radius=1.0)
+    )
+    composed = Image.composite(result, rgb, composite_mask)
+    if image.getchannel("A").getextrema() != (255, 255):
+        composed.putalpha(image.getchannel("A"))
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    composed.save(destination, "PNG", optimize=True)
+    progress(1.0)
+
+
 def run(
     operation: str,
     source: Path,
@@ -186,6 +248,9 @@ def run(
         return
     if operation == "upscale" and backend == "realesrgan-ncnn-vulkan":
         upscale_image(source, destination, model, options, progress)
+        return
+    if operation == "erase-object" and backend == "onnxruntime-lama":
+        erase_object(source, destination, model, backend, options, sessions, progress)
         return
     raise ValueError(f"Unsupported AI worker operation/backend: {operation}/{backend}")
 

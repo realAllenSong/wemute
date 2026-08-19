@@ -6,7 +6,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from wemute.ai_worker import InferenceSessionCache, serve, upscale_image
+import numpy as np
+from PIL import Image
+
+from wemute.ai_worker import InferenceSessionCache, erase_object, serve, upscale_image
 
 
 def test_inference_session_cache_loads_each_model_once(tmp_path: Path) -> None:
@@ -92,3 +95,41 @@ def test_upscale_worker_selects_scale_and_illustration_model(tmp_path: Path) -> 
     assert destination.read_bytes() == b"upscaled"
     assert commands[0][commands[0].index("-s") + 1] == "4"
     assert commands[0][commands[0].index("-n") + 1] == "realesrgan-x4plus-anime"
+
+
+def test_erase_worker_changes_only_the_masked_area(tmp_path: Path) -> None:
+    source = tmp_path / "source.png"
+    mask = tmp_path / "mask.png"
+    output = tmp_path / "output.png"
+    Image.new("RGB", (64, 48), (220, 40, 30)).save(source)
+    mask_image = Image.new("L", (64, 48), 0)
+    for x in range(24, 40):
+        for y in range(16, 32):
+            mask_image.putpixel((x, y), 255)
+    mask_image.save(mask)
+
+    class FakeInput:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+    class FakeSession:
+        def get_inputs(self):  # noqa: ANN201
+            return [FakeInput("image"), FakeInput("mask")]
+
+        def run(self, *_args):  # noqa: ANN002, ANN201
+            return [np.zeros((1, 3, 512, 512), dtype=np.float32)]
+
+    sessions = InferenceSessionCache()
+    with patch.object(sessions, "session", return_value=FakeSession()):
+        erase_object(
+            source,
+            output,
+            tmp_path / "lama.onnx",
+            "onnxruntime-lama",
+            {"mask_path": str(mask)},
+            sessions,
+        )
+
+    with Image.open(output) as result:
+        assert result.convert("RGB").getpixel((0, 0)) == (220, 40, 30)
+        assert max(result.convert("RGB").getpixel((32, 24))) < 10

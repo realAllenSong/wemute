@@ -49,6 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--screenshot", type=Path, help="Save the rendered app window")
     parser.add_argument("--show-image-options", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--show-ai-tools", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--show-erase-editor", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--show-about", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--require-updater", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--image-worker", action="store_true", help=argparse.SUPPRESS)
@@ -161,6 +162,19 @@ def main(argv: list[str] | None = None) -> int:
         popup = root.findChild(QObject, "aiToolsPopup")
         if popup:
             QTimer.singleShot(350, popup.open)
+    if arguments.show_erase_editor:
+        image_job = next(
+            (job for job in model.jobs if job.source.kind.value == "image"), None
+        )
+        if image_job:
+            QTimer.singleShot(
+                350,
+                lambda: controller.eraseMaskRequested.emit(
+                    image_job.id,
+                    QUrl.fromLocalFile(image_job.source.path).toString(),
+                    False,
+                ),
+            )
     if arguments.show_about:
         popup = root.findChild(QObject, "aboutPopup")
         if popup:
