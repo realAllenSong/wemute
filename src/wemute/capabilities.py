@@ -179,9 +179,16 @@ def is_compatible(kind: MediaKind, target: str) -> bool:
     return bool(definition and definition.kind == kind)
 
 
-def unique_output_path(source: Path, destination: Path, extension: str) -> Path:
+def unique_output_path(
+    source: Path,
+    destination: Path,
+    extension: str,
+    suffix: str | None = None,
+) -> Path:
     same_extension = source.suffix.lower() == extension.lower()
-    base = f"{source.stem} converted" if same_extension else source.stem
+    base = f"{source.stem}{suffix}" if suffix else (
+        f"{source.stem} converted" if same_extension else source.stem
+    )
     candidate = destination / f"{base}{extension}"
     number = 2
     while candidate.exists() or candidate.resolve() == source.resolve():

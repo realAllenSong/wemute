@@ -1,0 +1,69 @@
+from __future__ import annotations
+
+import hashlib
+from pathlib import Path
+
+import pytest
+
+from wemute.ai_engine import AIEngineAdapter, AIEngineUnavailableError
+from wemute.domain import FileDescriptor, JobRecord, MediaKind, OperationKind
+from wemute.model_packages import ModelManifest, ModelPackageManager
+
+
+def make_manifest(payload: bytes) -> ModelManifest:
+    return ModelManifest(
+        id="u2net",
+        name="Background Removal · Fast",
+        version="test",
+        capability="remove-background",
+        filename="u2netp.onnx",
+        download_url="memory://u2netp",
+        sha256=hashlib.sha256(payload).hexdigest(),
+        size_bytes=len(payload),
+        license="Apache-2.0",
+        license_url="https://example.com/license",
+        backend="onnxruntime-u2net",
+    )
+
+
+def make_job(source: Path) -> JobRecord:
+    return JobRecord(
+        "job-1",
+        FileDescriptor(
+            path=str(source),
+            name=source.name,
+            suffix=source.suffix,
+            kind=MediaKind.IMAGE,
+        ),
+        "PNG",
+        operation=OperationKind.REMOVE_BACKGROUND,
+    )
+
+
+def test_background_removal_plan_uses_verified_active_model(tmp_path: Path) -> None:
+    payload = b"model"
+    manifest = make_manifest(payload)
+    packages = ModelPackageManager(tmp_path / "models", [manifest])
+    model_path = packages.package_path(manifest)
+    model_path.parent.mkdir(parents=True)
+    model_path.write_bytes(payload)
+    packages.activate(manifest)
+    source = tmp_path / "portrait.jpg"
+    source.write_bytes(b"image")
+
+    plan = AIEngineAdapter(packages).plan(make_job(source), tmp_path / "out")
+
+    assert model_path.as_posix() in plan.command
+    assert "remove-background" in plan.command
+    assert plan.final_output.name == "portrait remove-background.png"
+    assert plan.temporary_output.name.startswith(".portrait remove-background.wemute-")
+
+
+def test_ai_plan_refuses_uninstalled_package(tmp_path: Path) -> None:
+    manifest = make_manifest(b"model")
+    packages = ModelPackageManager(tmp_path / "models", [manifest])
+    source = tmp_path / "portrait.jpg"
+    source.write_bytes(b"image")
+
+    with pytest.raises(AIEngineUnavailableError, match="Install"):
+        AIEngineAdapter(packages).plan(make_job(source), tmp_path / "out")

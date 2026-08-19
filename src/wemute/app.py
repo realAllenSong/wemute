@@ -12,11 +12,14 @@ from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtWidgets import QApplication
 
 from wemute.controller import JobController
+from wemute.ai_packages_qt import AIModelController
 from wemute.i18n import I18n
 from wemute.icon_provider import NativeIconProvider
 from wemute.paths import QML_ROOT
 from wemute.probe import probe_file
 from wemute.queue_model import QueueModel
+from wemute.model_packages import ModelPackageManager
+from wemute import __version__
 
 
 class WemuteApplication(QApplication):
@@ -43,7 +46,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--demo-dir", type=Path, help="Load a fixed visual QA queue")
     parser.add_argument("--screenshot", type=Path, help="Save the rendered app window")
     parser.add_argument("--show-image-options", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--show-ai-tools", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--image-worker", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--ai-worker", action="store_true", help=argparse.SUPPRESS)
     return parser
 
 
@@ -81,6 +86,12 @@ def main(argv: list[str] | None = None) -> int:
         from wemute.image_worker import main as image_worker_main
 
         return image_worker_main(arguments.paths)
+    if arguments.ai_worker:
+        if len(arguments.paths) != 6:
+            return 2
+        from wemute.ai_worker import main as ai_worker_main
+
+        return ai_worker_main(arguments.paths)
     os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
     QQuickStyle.setStyle("Basic")
     QApplication.setHighDpiScaleFactorRoundingPolicy(
@@ -90,11 +101,13 @@ def main(argv: list[str] | None = None) -> int:
     app.setQuitOnLastWindowClosed(not (arguments.smoke_test or arguments.screenshot))
     app.setApplicationName("Wemute")
     app.setOrganizationName("Wemute")
-    app.setApplicationVersion("0.2.0")
+    app.setApplicationVersion(__version__)
     app.setPalette(_dark_palette())
 
     model = QueueModel()
-    controller = JobController(model)
+    packages = ModelPackageManager()
+    controller = JobController(model, packages=packages)
+    ai_model_controller = AIModelController(packages, model.set_enabled_ai_actions)
     i18n = I18n()
 
     if arguments.demo_dir:
@@ -114,6 +127,7 @@ def main(argv: list[str] | None = None) -> int:
     context = engine.rootContext()
     context.setContextProperty("queueModel", model)
     context.setContextProperty("jobController", controller)
+    context.setContextProperty("aiModelController", ai_model_controller)
     context.setContextProperty("i18n", i18n)
     engine.load(QUrl.fromLocalFile(str(QML_ROOT / "Main.qml")))
     if not engine.rootObjects():
@@ -123,6 +137,10 @@ def main(argv: list[str] | None = None) -> int:
     root = engine.rootObjects()[0]
     if arguments.show_image_options:
         popup = root.findChild(QObject, "imageOptionsPopup")
+        if popup:
+            QTimer.singleShot(350, popup.open)
+    if arguments.show_ai_tools:
+        popup = root.findChild(QObject, "aiToolsPopup")
         if popup:
             QTimer.singleShot(350, popup.open)
 
@@ -142,6 +160,7 @@ def main(argv: list[str] | None = None) -> int:
         QTimer.singleShot(2200 if arguments.screenshot else 300, capture_and_maybe_quit)
 
     app.aboutToQuit.connect(controller.shutdown)
+    app.aboutToQuit.connect(ai_model_controller.shutdown)
     return app.exec()
 
 

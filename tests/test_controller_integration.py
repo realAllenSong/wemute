@@ -101,8 +101,8 @@ def test_group_ai_action_keeps_per_file_conversion_override(tmp_path: Path) -> N
         JobRecord("second", probe_file(second, create_preview=False), "JPEG"),
     ]
     model = QueueModel(jobs)
-    model.set_enabled_ai_actions({OperationKind.REMOVE_BACKGROUND})
     controller = JobController(model, QueueStore(tmp_path / "queue.json"))
+    model.set_enabled_ai_actions({OperationKind.REMOVE_BACKGROUND})
 
     controller.setGroupTargetFormat(MediaKind.IMAGE.value, "Remove Background")
     assert all(job.operation == OperationKind.REMOVE_BACKGROUND for job in jobs)

@@ -9,7 +9,8 @@ from dataclasses import asdict
 from pathlib import Path
 
 from wemute.capabilities import target_definition, unique_output_path
-from wemute.domain import ConversionPlan, JobRecord, MediaKind
+from wemute.domain import ConversionPlan, JobRecord, MediaKind, OperationKind
+from wemute.ai_engine import AIEngineAdapter
 from wemute.paths import resolve_engine
 
 
@@ -18,8 +19,13 @@ class EngineUnavailableError(RuntimeError):
 
 
 class FfmpegAdapter:
-    def __init__(self, executable: Path | None = None) -> None:
+    def __init__(
+        self,
+        executable: Path | None = None,
+        ai_adapter: AIEngineAdapter | None = None,
+    ) -> None:
         self.executable = executable or resolve_engine("ffmpeg")
+        self.ai_adapter = ai_adapter or AIEngineAdapter()
 
     @property
     def available(self) -> bool:
@@ -28,6 +34,8 @@ class FfmpegAdapter:
         return True
 
     def plan(self, job: JobRecord, destination: Path) -> ConversionPlan:
+        if job.operation != OperationKind.CONVERT:
+            return self.ai_adapter.plan(job, destination)
         definition = target_definition(job.target_format)
         destination.mkdir(parents=True, exist_ok=True)
         source = Path(job.source.path)

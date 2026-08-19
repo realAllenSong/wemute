@@ -166,6 +166,153 @@ ApplicationWindow {
         }
     }
 
+    Popup {
+        id: aiToolsPopup
+        objectName: "aiToolsPopup"
+        parent: Overlay.overlay
+        x: Theme.pageMargin + 340
+        y: window.height - bottomBar.height - height - 12
+        width: 460
+        height: 244
+        padding: 0
+        modal: false
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+        background: Rectangle {
+            color: "#22272C"
+            border.width: 1
+            border.color: Theme.border
+            radius: 12
+        }
+
+        contentItem: ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 18
+            spacing: 8
+
+            Text {
+                text: window.tr("on_device_ai")
+                color: Theme.text
+                font.family: Qt.platform.os === "osx" ? ".AppleSystemUIFont" : "Inter"
+                font.pixelSize: 16
+                font.weight: Font.Medium
+            }
+
+            Text {
+                text: window.tr("ai_local_hint")
+                color: Theme.secondaryText
+                font.pixelSize: 13
+                Layout.bottomMargin: 6
+            }
+
+            Repeater {
+                model: aiModelController.catalog
+
+                Rectangle {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 126
+                    radius: 10
+                    color: Theme.surface
+                    border.width: 1
+                    border.color: Theme.border
+
+                    Text {
+                        id: modelName
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.leftMargin: 14
+                        anchors.topMargin: 13
+                        text: parent.modelData.name
+                        color: Theme.text
+                        font.pixelSize: 14
+                        font.weight: Font.Medium
+                    }
+
+                    Text {
+                        anchors.left: modelName.left
+                        anchors.top: modelName.bottom
+                        anchors.topMargin: 5
+                        text: parent.modelData.sizeLabel + "  ·  " + parent.modelData.license
+                        color: Theme.secondaryText
+                        font.pixelSize: 12
+                    }
+
+                    Text {
+                        anchors.left: modelName.left
+                        anchors.right: modelAction.left
+                        anchors.rightMargin: 18
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 14
+                        text: parent.modelData.installed
+                            ? window.tr("model_ready")
+                            : parent.modelData.description
+                        color: Theme.tertiaryText
+                        font.pixelSize: 12
+                        elide: Text.ElideRight
+                    }
+
+                    WButton {
+                        id: modelAction
+                        anchors.right: parent.right
+                        anchors.rightMargin: 14
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 92
+                        height: 36
+                        quiet: parent.modelData.installed
+                        text: parent.modelData.installing
+                            ? window.tr("cancel")
+                            : (parent.modelData.installed
+                                ? window.tr("remove_model")
+                                : window.tr("get_model"))
+                        onClicked: {
+                            if (parent.modelData.installing) {
+                                aiModelController.cancelInstall()
+                            } else if (parent.modelData.installed) {
+                                aiModelController.removePackage(parent.modelData.id)
+                            } else {
+                                aiModelController.installPackage(parent.modelData.id)
+                            }
+                        }
+                    }
+
+                    Item {
+                        anchors.left: modelName.left
+                        anchors.right: modelAction.left
+                        anchors.rightMargin: 18
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 16
+                        height: 3
+                        visible: parent.modelData.installing
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 2
+                            color: Theme.border
+                        }
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            width: parent.width * parent.parent.modelData.progress
+                            radius: 2
+                            color: Theme.accent
+                        }
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: aiModelController.lastError
+                color: Theme.error
+                font.pixelSize: 11
+                elide: Text.ElideRight
+                visible: text.length > 0
+            }
+        }
+    }
+
     Rectangle {
         id: topRule
         anchors.left: parent.left
@@ -656,6 +803,21 @@ ApplicationWindow {
             visible: jobController.hasImageJobs
             enabled: !jobController.busy
             onClicked: imageOptionsPopup.open()
+            Accessible.name: text
+        }
+
+        WButton {
+            id: aiToolsButton
+            anchors.left: imageOptionsButton.visible ? imageOptionsButton.right : destinationButton.right
+            anchors.leftMargin: 12
+            anchors.verticalCenter: parent.verticalCenter
+            height: 42
+            width: 104
+            quiet: true
+            text: window.tr("ai_tools")
+            visible: jobController.hasImageJobs
+            enabled: !jobController.busy
+            onClicked: aiToolsPopup.open()
             Accessible.name: text
         }
 

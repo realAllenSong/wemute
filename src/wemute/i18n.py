@@ -36,6 +36,13 @@ TRANSLATIONS = {
         "none": "None",
         "soft_corners": "24 px",
         "round_corners": "64 px",
+        "ai_tools": "AI Tools",
+        "on_device_ai": "On-device AI",
+        "ai_local_hint": "Optional models run entirely on this Mac.",
+        "get_model": "Get",
+        "remove_model": "Remove",
+        "model_downloading": "Downloading",
+        "model_ready": "Ready · appears in output menus",
     },
     "zh": {
         "files": "{count} 个文件",
@@ -69,6 +76,13 @@ TRANSLATIONS = {
         "none": "无",
         "soft_corners": "24 像素",
         "round_corners": "64 像素",
+        "ai_tools": "AI 工具",
+        "on_device_ai": "设备端 AI",
+        "ai_local_hint": "可选模型完全在这台 Mac 上运行。",
+        "get_model": "获取",
+        "remove_model": "删除",
+        "model_downloading": "正在下载",
+        "model_ready": "已就绪 · 会出现在输出菜单中",
     },
 }
 

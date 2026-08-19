@@ -20,7 +20,9 @@ from PySide6.QtGui import QDesktopServices, QGuiApplication
 
 from wemute.capabilities import apply_choice, default_target, is_choice_compatible
 from wemute.domain import ConversionPlan, FileDescriptor, JobRecord, JobStatus, MediaKind
+from wemute.ai_engine import AIEngineAdapter
 from wemute.engine import FfmpegAdapter, finalize_output, remove_partial_output
+from wemute.model_packages import ModelPackageManager
 from wemute.persistence import QueueStore
 from wemute.paths import CACHE_ROOT
 from wemute.probe import expand_paths, probe_file
@@ -36,11 +38,19 @@ class JobController(QObject):
     imageSettingsChanged = Signal()
     _probeReady = Signal(object, str)
 
-    def __init__(self, model: QueueModel, store: QueueStore | None = None) -> None:
+    def __init__(
+        self,
+        model: QueueModel,
+        store: QueueStore | None = None,
+        packages: ModelPackageManager | None = None,
+    ) -> None:
         super().__init__()
         self.model = model
         self.store = store or QueueStore()
-        self.adapter = FfmpegAdapter()
+        self.packages = packages or ModelPackageManager()
+        self.ai_adapter = AIEngineAdapter(self.packages)
+        self.adapter = FfmpegAdapter(ai_adapter=self.ai_adapter)
+        self.model.set_enabled_ai_actions(self.ai_adapter.enabled_actions())
         self.settings = QSettings("Wemute", "Wemute")
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
         self._probing = False
@@ -440,7 +450,15 @@ class JobController(QObject):
         changed = False
         for line in lines:
             key, _, raw = line.partition("=")
-            if key in {"out_time_us", "out_time_ms"} and duration:
+            if key == "wemute_progress":
+                try:
+                    self._active_job.progress = max(
+                        self._active_job.progress, min(0.99, float(raw))
+                    )
+                    changed = True
+                except ValueError:
+                    continue
+            elif key in {"out_time_us", "out_time_ms"} and duration:
                 try:
                     micros = int(raw)
                     self._active_job.progress = max(

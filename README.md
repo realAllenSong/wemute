@@ -1,6 +1,6 @@
 # Wemute
 
-Wemute 0.2 is a local-first desktop conversion workspace. Drop files in, choose
+Wemute 0.3 is a local-first desktop conversion workspace. Drop files in, choose
 what they should become, and convert them without uploading anything.
 
 ## Run on macOS
