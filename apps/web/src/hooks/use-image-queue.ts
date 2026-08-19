@@ -10,9 +10,9 @@ function createId(): string {
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-export function useImageQueue(options: ConversionOptions) {
+export function useImageQueue(options: ConversionOptions, initialFormat: OutputFormat = "webp") {
   const [items, setItems] = useState<QueueImage[]>([]);
-  const [groupFormat, setGroupFormatState] = useState<OutputFormat>("webp");
+  const [groupFormat, setGroupFormatState] = useState<OutputFormat>(initialFormat);
   const [isConverting, setIsConverting] = useState(false);
   const itemsRef = useRef<QueueImage[]>([]);
 

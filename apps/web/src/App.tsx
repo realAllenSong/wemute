@@ -1,13 +1,15 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faGear, faLayerGroup, faShieldHalved, faTrashCan } from "@fortawesome/free-solid-svg-icons";
 import { AppHeader } from "./components/AppHeader";
-import { EmptyDropState } from "./components/EmptyDropState";
 import { FileRow } from "./components/FileRow";
 import { FormatSelect } from "./components/FormatSelect";
+import { HomePage } from "./components/HomePage";
 import { OptionsPopover } from "./components/OptionsPopover";
+import { ToolLandingPage } from "./components/ToolLandingPage";
 import { useImageQueue } from "./hooks/use-image-queue";
 import { defaultLocale, t } from "./i18n";
+import { safePath, toolFromPath } from "./site";
 import type { ConversionOptions, Locale } from "./types";
 
 const INITIAL_OPTIONS: ConversionOptions = {
@@ -19,11 +21,13 @@ const INITIAL_OPTIONS: ConversionOptions = {
 
 export function App() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [pathname, setPathname] = useState(() => safePath(window.location.pathname));
   const [locale, setLocale] = useState<Locale>(() => defaultLocale());
-  const [options, setOptions] = useState(INITIAL_OPTIONS);
+  const selectedTool = useMemo(() => toolFromPath(pathname), [pathname]);
+  const [options, setOptions] = useState<ConversionOptions>(() => selectedTool?.options ?? INITIAL_OPTIONS);
   const [showOptions, setShowOptions] = useState(false);
   const [dragDepth, setDragDepth] = useState(0);
-  const queue = useImageQueue(options);
+  const queue = useImageQueue(options, selectedTool?.format);
   const allDone = queue.items.length > 0 && queue.items.every((item) => item.status === "done");
 
   const chooseFiles = () => inputRef.current?.click();
@@ -32,9 +36,33 @@ export function App() {
     setDragDepth(0);
   };
 
+  const navigate = useCallback((destination: string) => {
+    const [nextPath, hash = ""] = destination.split("#");
+    const normalizedPath = safePath(nextPath || window.location.pathname);
+    window.history.pushState({}, "", `${normalizedPath}${hash ? `#${hash}` : ""}`);
+    setPathname(normalizedPath);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (hash) window.setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: "smooth" }), 0);
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => setPathname(safePath(window.location.pathname));
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (queue.items.length > 0) return;
+    const nextTool = toolFromPath(pathname);
+    setOptions(nextTool?.options ?? INITIAL_OPTIONS);
+    queue.setGroupFormat(nextTool?.format ?? "webp");
+  }, [pathname]);
+
+  const hasFiles = queue.items.length > 0;
+
   return (
     <div
-      className={`app-shell${dragDepth > 0 ? " app-shell--dragging" : ""}`}
+      className={`app-shell${hasFiles ? " app-shell--workspace" : " app-shell--marketing"}${dragDepth > 0 ? " app-shell--dragging" : ""}`}
       onDragEnter={(event) => {
         event.preventDefault();
         setDragDepth((depth) => depth + 1);
@@ -49,7 +77,12 @@ export function App() {
         addDroppedFiles(event.dataTransfer.files);
       }}
     >
-      <AppHeader locale={locale} onToggleLocale={() => setLocale(locale === "en" ? "zh" : "en")} />
+      <AppHeader
+        locale={locale}
+        compact={hasFiles}
+        onNavigate={navigate}
+        onToggleLocale={() => setLocale(locale === "en" ? "zh" : "en")}
+      />
       <input
         ref={inputRef}
         className="visually-hidden"
@@ -62,10 +95,23 @@ export function App() {
         }}
       />
 
-      {queue.items.length === 0 ? (
-        <main className="workspace workspace--empty">
-          <EmptyDropState locale={locale} dragging={dragDepth > 0} onChoose={chooseFiles} />
-        </main>
+      {!hasFiles ? (
+        selectedTool ? (
+          <ToolLandingPage
+            tool={selectedTool}
+            locale={locale}
+            dragging={dragDepth > 0}
+            onChoose={chooseFiles}
+            onNavigate={navigate}
+          />
+        ) : (
+          <HomePage
+            locale={locale}
+            dragging={dragDepth > 0}
+            onChoose={chooseFiles}
+            onNavigate={navigate}
+          />
+        )
       ) : (
         <>
           <main className="workspace">
