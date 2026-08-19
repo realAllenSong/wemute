@@ -25,6 +25,8 @@ DATA_ROOT.mkdir(parents=True, exist_ok=True)
 CACHE_ROOT.mkdir(parents=True, exist_ok=True)
 THUMBNAIL_ROOT = CACHE_ROOT / "thumbnails"
 THUMBNAIL_ROOT.mkdir(parents=True, exist_ok=True)
+MODEL_ROOT = DATA_ROOT / "models"
+MODEL_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 def _candidate_engine_paths(name: str) -> list[Path]:
