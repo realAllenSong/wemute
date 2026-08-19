@@ -4,6 +4,7 @@ import hashlib
 import io
 import threading
 import urllib.request
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -122,3 +123,37 @@ def test_multiple_installed_versions_support_rollback(tmp_path: Path) -> None:
     manager.activate(first)
     assert manager.active_manifest(first.id) == first
     assert manager.installed_versions(first.id) == ["1.0", "2.0"]
+
+
+def test_verified_archive_extracts_only_declared_runtime_members(tmp_path: Path) -> None:
+    archive_buffer = io.BytesIO()
+    with zipfile.ZipFile(archive_buffer, "w") as archive:
+        archive.writestr("helper", b"executable")
+        archive.writestr("models/photo.bin", b"model")
+        archive.writestr("README.md", b"not part of the runtime")
+    payload = archive_buffer.getvalue()
+    manifest = ModelManifest(
+        id="archive-model",
+        name="Archive Model",
+        version="1.0",
+        capability="upscale",
+        filename="runtime.zip",
+        download_url="memory://runtime",
+        sha256=hashlib.sha256(payload).hexdigest(),
+        size_bytes=len(payload),
+        license="BSD-3-Clause",
+        license_url="https://example.com/license",
+        backend="native-helper",
+        archive_format="zip",
+        runtime_members=("helper", "models/photo.bin"),
+        runtime_executable="helper",
+    )
+    manager = ModelPackageManager(tmp_path, [manifest])
+
+    manager.install(manifest, opener=lambda _url: BytesResponse(payload))
+    runtime = manager.runtime_path(manifest)
+
+    assert (runtime / "helper").stat().st_mode & 0o100
+    assert (runtime / "models/photo.bin").read_bytes() == b"model"
+    assert not (runtime / "README.md").exists()
+    assert (runtime / ".wemute-package-sha256").read_text().strip() == manifest.sha256

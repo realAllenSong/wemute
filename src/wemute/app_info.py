@@ -79,6 +79,18 @@ THIRD_PARTY_COMPONENTS: tuple[dict[str, str], ...] = (
         "license": "Apache-2.0",
         "url": "https://github.com/xuebinqin/U-2-Net/blob/master/LICENSE",
     },
+    {
+        "name": "BiRefNet optional model",
+        "version": "general-lite-232",
+        "license": "MIT",
+        "url": "https://github.com/ZhengPeng7/BiRefNet/blob/main/LICENSE",
+    },
+    {
+        "name": "Real-ESRGAN / ncnn optional runtime",
+        "version": "0.2.5.0",
+        "license": "BSD-3-Clause",
+        "url": "https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE",
+    },
 )
 
 

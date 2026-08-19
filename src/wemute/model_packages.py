@@ -3,8 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
+import stat
 import threading
+import tempfile
 import urllib.request
+import zipfile
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,6 +48,9 @@ class ModelManifest:
     platforms: tuple[str, ...] = ()
     minimum_memory_gb: int = 8
     description: str = ""
+    archive_format: str = ""
+    runtime_members: tuple[str, ...] = ()
+    runtime_executable: str = ""
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "ModelManifest":
@@ -62,6 +69,9 @@ class ModelManifest:
             platforms=tuple(str(value) for value in payload.get("platforms", [])),
             minimum_memory_gb=int(payload.get("minimum_memory_gb", 8)),
             description=str(payload.get("description", "")),
+            archive_format=str(payload.get("archive_format", "")),
+            runtime_members=tuple(str(value) for value in payload.get("runtime_members", [])),
+            runtime_executable=str(payload.get("runtime_executable", "")),
         )
         manifest.validate()
         return manifest
@@ -75,6 +85,18 @@ class ModelManifest:
             raise ValueError(f"Invalid SHA-256 for {self.id}@{self.version}.")
         if self.size_bytes <= 0:
             raise ValueError("Model package size must be positive.")
+        if self.archive_format not in {"", "zip"}:
+            raise ValueError(f"Unsupported archive format for {self.id}: {self.archive_format}")
+        for member in (*self.runtime_members, self.runtime_executable):
+            if not member:
+                continue
+            path = Path(member)
+            if path.is_absolute() or ".." in path.parts:
+                raise ValueError(f"Unsafe runtime member for {self.id}: {member}")
+        if self.archive_format and not self.runtime_members:
+            raise ValueError(f"Archive package {self.id} must declare runtime members.")
+        if self.runtime_executable and self.runtime_executable not in self.runtime_members:
+            raise ValueError(f"Runtime executable is not declared for {self.id}.")
 
 
 def load_manifests(path: Path | None = None) -> list[ModelManifest]:
@@ -121,6 +143,22 @@ class ModelPackageManager:
     def partial_path(self, manifest: ModelManifest) -> Path:
         destination = self.package_path(manifest)
         return destination.with_suffix(destination.suffix + ".part")
+
+    def runtime_path(self, manifest: ModelManifest) -> Path:
+        if not manifest.archive_format:
+            return self.package_path(manifest)
+        if not self.installed(manifest):
+            raise ModelPackageError(f"Model package is not installed: {manifest.name}")
+        runtime = self.package_path(manifest).parent / "runtime"
+        marker = runtime / ".wemute-package-sha256"
+        try:
+            ready = marker.read_text(encoding="utf-8").strip() == manifest.sha256
+        except OSError:
+            ready = False
+        if ready and all((runtime / member).is_file() for member in manifest.runtime_members):
+            return runtime
+        self._extract_runtime(manifest, runtime)
+        return runtime
 
     def partial_size(self, manifest: ModelManifest) -> int:
         partial = self.partial_path(manifest)
@@ -215,6 +253,8 @@ class ModelPackageManager:
                 raise ChecksumMismatch(f"SHA-256 verification failed: {manifest.name}")
             partial.replace(destination)
             self._verified_paths.add(destination)
+            if manifest.archive_format:
+                self.runtime_path(manifest)
             self.activate(manifest)
             return destination
         except (ChecksumMismatch,):
@@ -251,6 +291,9 @@ class ModelPackageManager:
     def remove(self, manifest: ModelManifest) -> None:
         self.package_path(manifest).unlink(missing_ok=True)
         self.partial_path(manifest).unlink(missing_ok=True)
+        runtime = self.package_path(manifest).parent / "runtime"
+        if runtime.exists():
+            shutil.rmtree(runtime)
         self._verified_paths.discard(self.package_path(manifest))
         active = self._read_active()
         if active.get(manifest.id) == manifest.version:
@@ -283,3 +326,47 @@ class ModelPackageManager:
         temporary = self._active_path.with_suffix(".json.tmp")
         temporary.write_text(json.dumps(active, indent=2, sort_keys=True), encoding="utf-8")
         temporary.replace(self._active_path)
+
+    def _extract_runtime(self, manifest: ModelManifest, runtime: Path) -> None:
+        if manifest.archive_format != "zip":
+            raise ModelPackageError(f"Unsupported archive format: {manifest.archive_format}")
+        archive_path = self.package_path(manifest)
+        temporary = Path(
+            tempfile.mkdtemp(prefix=".runtime-", dir=str(archive_path.parent))
+        )
+        try:
+            with zipfile.ZipFile(archive_path) as archive:
+                for member in manifest.runtime_members:
+                    try:
+                        info = archive.getinfo(member)
+                    except KeyError as exc:
+                        raise ModelPackageError(
+                            f"Missing runtime member in {manifest.name}: {member}"
+                        ) from exc
+                    mode = info.external_attr >> 16
+                    if info.is_dir() or stat.S_ISLNK(mode):
+                        raise ModelPackageError(
+                            f"Unsafe runtime member in {manifest.name}: {member}"
+                        )
+                    destination = (temporary / member).resolve()
+                    try:
+                        destination.relative_to(temporary.resolve())
+                    except ValueError as exc:
+                        raise ModelPackageError(
+                            f"Unsafe runtime member in {manifest.name}: {member}"
+                        ) from exc
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    with archive.open(info) as source, destination.open("wb") as output:
+                        shutil.copyfileobj(source, output)
+            if manifest.runtime_executable:
+                executable = temporary / manifest.runtime_executable
+                executable.chmod(executable.stat().st_mode | stat.S_IXUSR)
+            (temporary / ".wemute-package-sha256").write_text(
+                manifest.sha256 + "\n", encoding="utf-8"
+            )
+            if runtime.exists():
+                shutil.rmtree(runtime)
+            temporary.replace(runtime)
+        except Exception:
+            shutil.rmtree(temporary, ignore_errors=True)
+            raise

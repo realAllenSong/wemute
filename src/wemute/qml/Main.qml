@@ -289,7 +289,7 @@ ApplicationWindow {
         x: Theme.pageMargin + 340
         y: window.height - bottomBar.height - height - 12
         width: 460
-        height: 244
+        height: Math.min(520, window.height - bottomBar.height - 72)
         padding: 0
         modal: false
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -321,13 +321,19 @@ ApplicationWindow {
                 Layout.bottomMargin: 6
             }
 
-            Repeater {
+            ListView {
+                id: aiPackageList
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                spacing: 8
                 model: aiModelController.catalog
+                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
-                Rectangle {
+                delegate: Rectangle {
                     required property var modelData
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 126
+                    width: aiPackageList.width
+                    height: 126
                     radius: 10
                     color: Theme.surface
                     border.width: 1

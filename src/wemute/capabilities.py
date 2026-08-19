@@ -63,7 +63,49 @@ ACTIONS: dict[OperationKind, ActionDefinition] = {
     ),
 }
 
-ACTION_BY_LABEL = {definition.label: definition for definition in ACTIONS.values()}
+ACTION_CHOICES: tuple[ActionDefinition, ...] = (
+    ACTIONS[OperationKind.REMOVE_BACKGROUND],
+    ActionDefinition(
+        OperationKind.UPSCALE,
+        "Upscale Photo 2×",
+        MediaKind.IMAGE,
+        ".png",
+        ("realesrgan-photo",),
+        "PNG",
+        (("scale", 2), ("style", "photo")),
+    ),
+    ActionDefinition(
+        OperationKind.UPSCALE,
+        "Upscale Photo 4×",
+        MediaKind.IMAGE,
+        ".png",
+        ("realesrgan-photo",),
+        "PNG",
+        (("scale", 4), ("style", "photo")),
+    ),
+    ActionDefinition(
+        OperationKind.UPSCALE,
+        "Upscale Illustration 2×",
+        MediaKind.IMAGE,
+        ".png",
+        ("realesrgan-photo",),
+        "PNG",
+        (("scale", 2), ("style", "illustration")),
+    ),
+    ActionDefinition(
+        OperationKind.UPSCALE,
+        "Upscale Illustration 4×",
+        MediaKind.IMAGE,
+        ".png",
+        ("realesrgan-photo",),
+        "PNG",
+        (("scale", 4), ("style", "illustration")),
+    ),
+    ACTIONS[OperationKind.ERASE_OBJECT],
+    ACTIONS[OperationKind.SEPARATE_VOCALS],
+)
+
+ACTION_BY_LABEL = {definition.label: definition for definition in ACTION_CHOICES}
 
 
 TARGETS: dict[str, TargetDefinition] = {
@@ -118,9 +160,11 @@ def options_for(
 ) -> list[str]:
     options = list(OPTIONS_BY_KIND.get(kind, []))
     for action in enabled_actions or set():
-        definition = ACTIONS.get(action)
-        if definition and definition.kind == kind:
-            options.append(definition.label)
+        options.extend(
+            definition.label
+            for definition in ACTION_CHOICES
+            if definition.id == action and definition.kind == kind
+        )
     return options
 
 
@@ -129,6 +173,18 @@ def display_choice(operation: OperationKind, target_format: str) -> str:
         return target_format
     definition = ACTIONS.get(operation)
     return definition.label if definition else target_format
+
+
+def display_job_choice(job) -> str:  # noqa: ANN001 - avoids a circular type import
+    if job.operation == OperationKind.CONVERT:
+        return job.target_format
+    for definition in ACTION_CHOICES:
+        if (
+            definition.id == job.operation
+            and dict(definition.default_options) == job.operation_options
+        ):
+            return definition.label
+    return display_choice(job.operation, job.target_format)
 
 
 def apply_choice(job, choice: str) -> bool:  # noqa: ANN001 - avoids a circular type import

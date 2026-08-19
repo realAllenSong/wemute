@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import math
+import subprocess
 import sys
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import TextIO
@@ -109,6 +111,61 @@ def remove_background(
     progress(1.0)
 
 
+def upscale_image(
+    source: Path,
+    destination: Path,
+    runtime: Path,
+    options: dict[str, object],
+    progress: ProgressCallback = _progress,
+) -> None:
+    executable = runtime / "realesrgan-ncnn-vulkan"
+    models = runtime / "models"
+    if not executable.is_file() or not models.is_dir():
+        raise FileNotFoundError("The Real-ESRGAN runtime is incomplete. Reinstall the AI package.")
+    scale = int(options.get("scale", 2))
+    if scale not in {2, 4}:
+        raise ValueError("Real-ESRGAN scale must be 2 or 4.")
+    style = str(options.get("style", "photo"))
+    model_name = (
+        "realesrgan-x4plus-anime" if style == "illustration" else "realesrgan-x4plus"
+    )
+    progress(0.06)
+    with tempfile.TemporaryDirectory(prefix="wemute-upscale-") as temporary_directory:
+        normalized = Path(temporary_directory) / "input.png"
+        from wemute.image_worker import convert_image
+
+        convert_image(source, normalized, "PNG")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        progress(0.12)
+        result = subprocess.run(
+            [
+                str(executable),
+                "-i",
+                str(normalized),
+                "-o",
+                str(destination),
+                "-s",
+                str(scale),
+                "-m",
+                str(models),
+                "-n",
+                model_name,
+                "-f",
+                "png",
+            ],
+            cwd=runtime,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    if result.returncode != 0:
+        message = (result.stderr or result.stdout).strip()
+        raise RuntimeError(message.splitlines()[-1] if message else "Real-ESRGAN failed.")
+    if not destination.is_file():
+        raise RuntimeError("Real-ESRGAN did not produce an output image.")
+    progress(1.0)
+
+
 def run(
     operation: str,
     source: Path,
@@ -119,13 +176,16 @@ def run(
     sessions: InferenceSessionCache | None = None,
     progress: ProgressCallback = _progress,
 ) -> None:
-    del options
+    options = options or {}
     sessions = sessions or InferenceSessionCache()
     if operation == "remove-background" and backend in {
         "onnxruntime-u2net",
         "onnxruntime-birefnet",
     }:
         remove_background(source, destination, model, backend, sessions, progress)
+        return
+    if operation == "upscale" and backend == "realesrgan-ncnn-vulkan":
+        upscale_image(source, destination, model, options, progress)
         return
     raise ValueError(f"Unsupported AI worker operation/backend: {operation}/{backend}")
 

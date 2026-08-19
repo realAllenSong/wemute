@@ -59,11 +59,12 @@ class AIEngineAdapter:
             suffix=f" {job.operation.value}",
         )
         temporary = final.with_name(f".{final.stem}.wemute-{job.id[:8]}{final.suffix}")
+        runtime_path = self.packages.runtime_path(manifest)
         worker_arguments = [
             job.operation.value,
             str(source),
             str(temporary),
-            str(self.packages.package_path(manifest)),
+            str(runtime_path),
             manifest.backend,
             json.dumps(job.operation_options, separators=(",", ":")),
         ]
@@ -78,7 +79,7 @@ class AIEngineAdapter:
             "operation": job.operation.value,
             "source": str(source),
             "destination": str(temporary),
-            "model": str(self.packages.package_path(manifest)),
+            "model": str(runtime_path),
             "backend": manifest.backend,
             "options": job.operation_options,
         }

@@ -4,7 +4,7 @@ from collections.abc import Iterable
 
 from PySide6.QtCore import QAbstractListModel, QByteArray, QLocale, QModelIndex, Qt
 
-from wemute.capabilities import display_choice, options_for
+from wemute.capabilities import display_job_choice, options_for
 from wemute.domain import JobRecord, JobStatus, MediaKind, OperationKind
 from wemute.presentation import (
     GROUP_LABELS,
@@ -81,7 +81,7 @@ class QueueModel(QAbstractListModel):
             kind = payload
             assert isinstance(kind, MediaKind)
             group_jobs = [job for job in self._jobs if job.source.kind == kind]
-            group_targets = {display_choice(job.operation, job.target_format) for job in group_jobs}
+            group_targets = {display_job_choice(job) for job in group_jobs}
             if role == self.GroupLabelRole:
                 return GROUP_LABELS[self._language][kind]
             header_values = {
@@ -101,7 +101,7 @@ class QueueModel(QAbstractListModel):
             self.SourcePathRole: job.source.path,
             self.MetadataRole: metadata_line(job.source),
             self.ThumbnailRole: thumbnail_url(job.source),
-            self.TargetFormatRole: display_choice(job.operation, job.target_format),
+            self.TargetFormatRole: display_job_choice(job),
             self.TargetOptionsRole: options_for(job.source.kind, self._enabled_ai_actions),
             self.StatusRole: job.status.value,
             self.StatusTitleRole: status_title(job.status, self._language),

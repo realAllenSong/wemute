@@ -31,6 +31,31 @@
       "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
       "minimum_memory_gb": 16,
       "description": "A larger local model for fine hair, translucent edges, and difficult subjects. Nothing is uploaded."
+    },
+    {
+      "id": "realesrgan-photo",
+      "name": "Image Upscale · Photo & Illustration",
+      "version": "0.2.5.0-macos",
+      "capability": "upscale",
+      "filename": "realesrgan-ncnn-vulkan-20220424-macos.zip",
+      "download_url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesrgan-ncnn-vulkan-20220424-macos.zip",
+      "sha256": "e0ad05580abfeb25f8d8fb55aaf7bedf552c375b5b4d9bd3c8d59764d2cc333a",
+      "size_bytes": 51817124,
+      "license": "BSD-3-Clause",
+      "license_url": "https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE",
+      "backend": "realesrgan-ncnn-vulkan",
+      "platforms": ["macos-arm64"],
+      "minimum_memory_gb": 8,
+      "description": "Local 2× and 4× enhancement tuned for photos or illustrations.",
+      "archive_format": "zip",
+      "runtime_executable": "realesrgan-ncnn-vulkan",
+      "runtime_members": [
+        "realesrgan-ncnn-vulkan",
+        "models/realesrgan-x4plus.bin",
+        "models/realesrgan-x4plus.param",
+        "models/realesrgan-x4plus-anime.bin",
+        "models/realesrgan-x4plus-anime.param"
+      ]
     }
   ]
 }
