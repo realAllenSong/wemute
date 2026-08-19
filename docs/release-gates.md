@@ -13,6 +13,10 @@
 - Bundle an audited LGPL-compatible FFmpeg/FFprobe runtime and required notices.
 - Add application icon, Developer ID signing, hardened runtime, notarization and a DMG.
 - Produce a dependency/license inventory and source-offer material where required.
+- Replace the public macOS build's current `pillow-heif` wheel: its arm64 wheel
+  bundles GPL x265 4.2. Use a separately audited non-GPL HEIF path (for example,
+  decoder-only libheif plus a compatible encoder) and fail release validation
+  whenever a bundled `libx265` is detected.
 - Validate outputs in QuickTime, Preview, VLC/IINA and a fresh ffprobe pass.
 - Add update signing, rollback and a crash-safe migration for queue/settings data.
 

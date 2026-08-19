@@ -67,6 +67,11 @@ ApplicationWindow {
             text: window.tr("clear_all")
             onTriggered: jobController.clearAll()
         }
+        MenuSeparator { }
+        MenuItem {
+            text: window.tr("about_wemute")
+            onTriggered: aboutPopup.open()
+        }
     }
 
     Popup {
@@ -309,6 +314,181 @@ ApplicationWindow {
                 font.pixelSize: 11
                 elide: Text.ElideRight
                 visible: text.length > 0
+            }
+        }
+    }
+
+    Popup {
+        id: aboutPopup
+        objectName: "aboutPopup"
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(560, window.width - 48)
+        height: Math.min(630, window.height - 56)
+        padding: 0
+        modal: true
+        focus: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+        background: Rectangle {
+            color: "#202529"
+            border.width: 1
+            border.color: Theme.border
+            radius: 16
+        }
+
+        Overlay.modal: Rectangle { color: "#B3000000" }
+
+        contentItem: ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 24
+            spacing: 0
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 18
+
+                Image {
+                    source: "../assets/brand/wemute-app-icon-1024.png"
+                    sourceSize: Qt.size(82, 82)
+                    Layout.preferredWidth: 82
+                    Layout.preferredHeight: 82
+                    mipmap: true
+                    smooth: true
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 5
+                    Text {
+                        text: "Wemute"
+                        color: Theme.text
+                        font.family: Qt.platform.os === "osx" ? ".AppleSystemUIFont" : "Inter"
+                        font.pixelSize: 27
+                        font.weight: Font.DemiBold
+                    }
+                    Text {
+                        text: window.tr("about_tagline")
+                        color: Theme.secondaryText
+                        font.pixelSize: 14
+                    }
+                    Text {
+                        text: window.tr("version") + " " + appInfoController.version
+                        color: Theme.tertiaryText
+                        font.pixelSize: 12
+                    }
+                }
+
+                WButton {
+                    width: 34
+                    height: 34
+                    quiet: true
+                    text: "×"
+                    onClicked: aboutPopup.close()
+                    Accessible.name: window.tr("cancel")
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.topMargin: 22
+                Layout.bottomMargin: 22
+                text: window.tr("privacy_note")
+                color: Theme.secondaryText
+                font.pixelSize: 13
+                wrapMode: Text.WordWrap
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                height: 1
+                color: Theme.divider
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.topMargin: 20
+                Layout.bottomMargin: 12
+                text: window.tr("third_party")
+                color: Theme.text
+                font.pixelSize: 15
+                font.weight: Font.Medium
+            }
+
+            ScrollView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+                Column {
+                    width: parent.width
+
+                    Repeater {
+                        model: appInfoController.thirdParty
+
+                        Rectangle {
+                            required property var modelData
+                            width: parent.width
+                            height: 65
+                            color: Theme.transparent
+
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                height: 1
+                                color: Theme.divider
+                            }
+
+                            Text {
+                                id: componentName
+                                anchors.left: parent.left
+                                anchors.right: licenseButton.left
+                                anchors.rightMargin: 12
+                                anchors.top: parent.top
+                                anchors.topMargin: 11
+                                text: parent.modelData.name + "  " + parent.modelData.version
+                                color: Theme.text
+                                font.pixelSize: 13
+                                font.weight: Font.Medium
+                                elide: Text.ElideRight
+                            }
+
+                            Text {
+                                anchors.left: parent.left
+                                anchors.right: licenseButton.left
+                                anchors.rightMargin: 12
+                                anchors.top: componentName.bottom
+                                anchors.topMargin: 6
+                                text: parent.modelData.license
+                                color: Theme.tertiaryText
+                                font.pixelSize: 11
+                                elide: Text.ElideRight
+                            }
+
+                            WButton {
+                                id: licenseButton
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 78
+                                height: 32
+                                quiet: true
+                                text: window.tr("view_license")
+                                onClicked: appInfoController.openUrl(parent.modelData.url)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.topMargin: 14
+                text: window.tr("about_copyright")
+                horizontalAlignment: Text.AlignHCenter
+                color: Theme.tertiaryText
+                font.pixelSize: 11
             }
         }
     }

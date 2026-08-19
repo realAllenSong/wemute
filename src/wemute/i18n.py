@@ -43,6 +43,13 @@ TRANSLATIONS = {
         "remove_model": "Remove",
         "model_downloading": "Downloading",
         "model_ready": "Ready · appears in output menus",
+        "about_wemute": "About Wemute",
+        "about_tagline": "Simple tools. Local by default.",
+        "version": "Version",
+        "privacy_note": "No account, uploads, telemetry, or hidden cloud processing.",
+        "third_party": "Third-party components",
+        "view_license": "License",
+        "about_copyright": "© 2026 Wemute. All rights reserved.",
     },
     "zh": {
         "files": "{count} 个文件",
@@ -83,6 +90,13 @@ TRANSLATIONS = {
         "remove_model": "删除",
         "model_downloading": "正在下载",
         "model_ready": "已就绪 · 会出现在输出菜单中",
+        "about_wemute": "关于 Wemute",
+        "about_tagline": "简单工具，默认本地。",
+        "version": "版本",
+        "privacy_note": "无需账号，不上传文件，不收集遥测，也没有隐藏的云端处理。",
+        "third_party": "第三方组件",
+        "view_license": "许可证",
+        "about_copyright": "© 2026 Wemute。保留所有权利。",
     },
 }
 
