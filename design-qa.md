@@ -1,4 +1,4 @@
-# Wemute 0.2 design QA
+# Wemute 0.3 design QA
 
 **Evidence**
 
@@ -56,3 +56,21 @@ The five-image batch capture verifies the new group control in its intended high
 - P3: once native UI automation is added, capture keyboard focus rings and every open ComboBox state in CI.
 
 Final result: passed
+
+## Web W1 addendum
+
+The browser workspace was compared beside the same approved queue reference at
+1487 × 1058, then exercised with real local images through ready, converting,
+completed and ZIP-download states. A second pass covered 390 × 844 with loaded
+rows and the fixed action bar.
+
+No remaining P0, P1 or P2 visual issue was found. The web build retains the
+graphite hierarchy, restrained separators, one blue primary action, group output
+control, row-level override and requested linear progress. The browser-only
+image scope intentionally produces one Images section instead of empty audio or
+video chrome. The compact mobile layout moves source details and output controls
+into a two-column row without horizontal overflow.
+
+Interaction checks passed for multi-file selection, drag/drop, group format,
+single-file override, option changes, conversion, repeated download and clear.
+The browser console was clean during the completed-state capture.

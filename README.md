@@ -42,6 +42,22 @@ uv run pytest
 uv run python -m wemute --smoke-test
 ```
 
+## Web workspace
+
+The first web edition lives in `apps/web`. It keeps the same quiet queue and
+group/per-file override behavior, but limits its promise to browser-native image
+work: PNG, JPEG and WebP conversion, resize, quality, rounded corners and batch
+ZIP download. File bytes never leave the browser.
+
+```bash
+cd apps/web
+npm install
+npm run dev
+```
+
+Web verification runs with `npm run typecheck`, `npm test`, `npm run build` and
+`npm run test:sites`.
+
 ## Build a development `.app`
 
 ```bash

@@ -1,5 +1,18 @@
 # Wemute Web product strategy
 
+## W1 implementation status
+
+W1 is now implemented in `apps/web` as a responsive React/TypeScript workspace.
+It performs PNG, JPEG and WebP conversion in Canvas, applies resize, quality and
+rounded corners, preserves the desktop app's group-level output plus per-file
+override model, and downloads a collision-safe batch ZIP. English and Simplified
+Chinese follow the browser locale and can be switched in place.
+
+The production build and static-hosting worker are ready, but deployment and ads
+are intentionally not enabled. The workspace remains ad-free, account-free and
+upload-free. Browser HEIC decoding and metadata retention remain capability
+limits rather than claims Wemute hides.
+
 ## Product decision
 
 Build the web edition, but do not make it a server-hosted clone of the desktop app.
@@ -73,7 +86,7 @@ Web runtime order:
 
 ## Suggested sequence
 
-- W1: image-only web workspace and capability detection.
+- W1: image-only web workspace and capability detection. **Implemented.**
 - W2: SEO/content shell, privacy pages, analytics without file metadata, and restrained AdSense experiment.
 - W3: small audio/video worker beta with explicit limits.
 - W4: desktop deep links, Pro purchase path and optional AI packs.
