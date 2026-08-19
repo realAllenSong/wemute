@@ -42,6 +42,7 @@ class AIModelController(QObject):
         for manifest in self.packages.manifests:
             installed = self.packages.installed(manifest)
             installing = manifest.id == self._active_id
+            partial_size = self.packages.partial_size(manifest)
             rows.append(
                 {
                     "id": manifest.id,
@@ -52,10 +53,15 @@ class AIModelController(QObject):
                     "licenseUrl": manifest.license_url,
                     "installed": installed,
                     "installing": installing,
+                    "resumable": not installed and partial_size > 0,
                     "progress": (
                         self._completed / self._total
                         if installing and self._total
-                        else (1.0 if installed else 0.0)
+                        else (
+                            1.0
+                            if installed
+                            else partial_size / manifest.size_bytes
+                        )
                     ),
                 }
             )

@@ -272,10 +272,12 @@ ApplicationWindow {
                         height: 36
                         quiet: parent.modelData.installed
                         text: parent.modelData.installing
-                            ? window.tr("cancel")
+                            ? window.tr("pause")
                             : (parent.modelData.installed
                                 ? window.tr("remove_model")
-                                : window.tr("get_model"))
+                                : (parent.modelData.resumable
+                                    ? window.tr("resume")
+                                    : window.tr("get_model")))
                         onClicked: {
                             if (parent.modelData.installing) {
                                 aiModelController.cancelInstall()

@@ -3,7 +3,9 @@ from __future__ import annotations
 import hashlib
 import io
 import threading
+import urllib.request
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -81,6 +83,30 @@ def test_cancelled_download_is_recoverable(tmp_path: Path) -> None:
         manager.install(manifest, cancel=cancel, opener=lambda _url: BytesResponse(payload))
 
     assert not manager.package_path(manifest).exists()
+    assert manager.partial_path(manifest).exists()
+
+
+def test_interrupted_download_resumes_with_http_range(tmp_path: Path) -> None:
+    payload = b"verified-resumable-model"
+    manifest = manifest_for(payload)
+    manager = ModelPackageManager(tmp_path, [manifest])
+    partial = manager.partial_path(manifest)
+    partial.parent.mkdir(parents=True)
+    partial.write_bytes(payload[:9])
+
+    response = BytesResponse(payload[9:])
+    response.status = 206  # type: ignore[attr-defined]
+
+    def open_range(request: object) -> BytesResponse:
+        assert isinstance(request, urllib.request.Request)
+        assert request.get_header("Range") == "bytes=9-"
+        return response
+
+    with patch("wemute.model_packages.urllib.request.urlopen", side_effect=open_range):
+        installed = manager.install(manifest)
+
+    assert installed.read_bytes() == payload
+    assert not partial.exists()
 
 
 def test_multiple_installed_versions_support_rollback(tmp_path: Path) -> None:

@@ -22,7 +22,7 @@ class ActionDefinition:
     label: str
     kind: MediaKind
     output_extension: str
-    package_id: str
+    package_ids: tuple[str, ...]
     target_format: str
     default_options: tuple[tuple[str, object], ...] = ()
 
@@ -33,7 +33,7 @@ ACTIONS: dict[OperationKind, ActionDefinition] = {
         "Remove Background",
         MediaKind.IMAGE,
         ".png",
-        "u2net",
+        ("birefnet", "u2net"),
         "PNG",
     ),
     OperationKind.UPSCALE: ActionDefinition(
@@ -41,7 +41,7 @@ ACTIONS: dict[OperationKind, ActionDefinition] = {
         "Upscale 2×",
         MediaKind.IMAGE,
         ".png",
-        "realesrgan-photo",
+        ("realesrgan-photo",),
         "PNG",
         (("scale", 2),),
     ),
@@ -50,7 +50,7 @@ ACTIONS: dict[OperationKind, ActionDefinition] = {
         "Erase Object",
         MediaKind.IMAGE,
         ".png",
-        "lama",
+        ("lama",),
         "PNG",
     ),
     OperationKind.SEPARATE_VOCALS: ActionDefinition(
@@ -58,7 +58,7 @@ ACTIONS: dict[OperationKind, ActionDefinition] = {
         "Separate Vocals",
         MediaKind.AUDIO,
         ".wav",
-        "mlx-audio-separator",
+        ("mlx-audio-separator",),
         "WAV",
     ),
 }

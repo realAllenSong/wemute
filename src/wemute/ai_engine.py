@@ -20,11 +20,7 @@ class AIEngineAdapter:
     def enabled_actions(self) -> set[OperationKind]:
         enabled: set[OperationKind] = set()
         for operation, definition in ACTIONS.items():
-            try:
-                manifest = self.packages.active_manifest(definition.package_id)
-            except (KeyError, ValueError):
-                continue
-            if manifest:
+            if any(self.packages.active_manifest(package_id) for package_id in definition.package_ids):
                 enabled.add(operation)
         return enabled
 
@@ -34,13 +30,25 @@ class AIEngineAdapter:
         definition = ACTIONS.get(job.operation)
         if not definition or definition.kind != job.source.kind:
             raise ValueError(f"Unsupported AI action: {job.operation.value}")
-        try:
-            manifest = self.packages.manifest(definition.package_id)
-        except KeyError as exc:
-            raise AIEngineUnavailableError(f"AI package is not available: {definition.label}") from exc
-        if not self.packages.installed(manifest):
+        manifest = next(
+            (
+                candidate
+                for package_id in definition.package_ids
+                if (candidate := self.packages.active_manifest(package_id)) is not None
+            ),
+            None,
+        )
+        if manifest is None:
+            names: list[str] = []
+            for package_id in definition.package_ids:
+                try:
+                    names.append(self.packages.manifest(package_id).name)
+                except KeyError:
+                    continue
+            if not names:
+                names.append(definition.label)
             raise AIEngineUnavailableError(
-                f"Install {manifest.name} from AI Tools before starting this action."
+                f"Install {' or '.join(names)} from AI Tools before starting this action."
             )
         source = Path(job.source.path)
         destination.mkdir(parents=True, exist_ok=True)

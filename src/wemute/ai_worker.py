@@ -93,7 +93,10 @@ def run(
     options: dict[str, object] | None = None,
 ) -> None:
     del options
-    if operation == "remove-background" and backend == "onnxruntime-u2net":
+    if operation == "remove-background" and backend in {
+        "onnxruntime-u2net",
+        "onnxruntime-birefnet",
+    }:
         remove_background(source, destination, model)
         return
     raise ValueError(f"Unsupported AI worker operation/backend: {operation}/{backend}")

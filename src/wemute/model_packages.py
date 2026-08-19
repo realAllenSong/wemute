@@ -100,6 +100,7 @@ class ModelPackageManager:
         self.root.mkdir(parents=True, exist_ok=True)
         self._manifests = list(manifests) if manifests is not None else load_manifests()
         self._active_path = self.root / "active.json"
+        self._verified_paths: set[Path] = set()
 
     @property
     def manifests(self) -> tuple[ModelManifest, ...]:
@@ -117,13 +118,29 @@ class ModelPackageManager:
     def package_path(self, manifest: ModelManifest) -> Path:
         return self.root / manifest.id / manifest.version / manifest.filename
 
+    def partial_path(self, manifest: ModelManifest) -> Path:
+        destination = self.package_path(manifest)
+        return destination.with_suffix(destination.suffix + ".part")
+
+    def partial_size(self, manifest: ModelManifest) -> int:
+        partial = self.partial_path(manifest)
+        try:
+            return min(partial.stat().st_size, manifest.size_bytes)
+        except OSError:
+            return 0
+
     def installed(self, manifest: ModelManifest, verify: bool = True) -> bool:
         path = self.package_path(manifest)
         if not path.is_file():
             return False
         if path.stat().st_size != manifest.size_bytes:
             return False
-        return not verify or self._digest(path) == manifest.sha256
+        if not verify or path in self._verified_paths:
+            return True
+        if self._digest(path) != manifest.sha256:
+            return False
+        self._verified_paths.add(path)
+        return True
 
     def install(
         self,
@@ -140,14 +157,44 @@ class ModelPackageManager:
 
         destination = self.package_path(manifest)
         destination.parent.mkdir(parents=True, exist_ok=True)
-        partial = destination.with_suffix(destination.suffix + ".part")
-        partial.unlink(missing_ok=True)
-        downloaded = 0
+        partial = self.partial_path(manifest)
+        downloaded = self.partial_size(manifest)
+        if downloaded >= manifest.size_bytes:
+            partial.unlink(missing_ok=True)
+            downloaded = 0
         digest = hashlib.sha256()
-        open_stream = opener or urllib.request.urlopen
+        if downloaded:
+            with partial.open("rb") as existing:
+                while chunk := existing.read(1024 * 1024):
+                    digest.update(chunk)
+
+        if opener is not None:
+            # Custom openers are primarily used by deterministic tests and may
+            # not implement HTTP Range. Restart conservatively in that case.
+            if downloaded:
+                partial.unlink(missing_ok=True)
+                downloaded = 0
+                digest = hashlib.sha256()
+            response = opener(manifest.download_url)
+        else:
+            request: str | urllib.request.Request = manifest.download_url
+            if downloaded:
+                request = urllib.request.Request(
+                    manifest.download_url,
+                    headers={"Range": f"bytes={downloaded}-"},
+                )
+            response = urllib.request.urlopen(request)
+            if downloaded and getattr(response, "status", None) != 206:
+                response.close()
+                partial.unlink(missing_ok=True)
+                downloaded = 0
+                digest = hashlib.sha256()
+                response = urllib.request.urlopen(manifest.download_url)
 
         try:
-            with open_stream(manifest.download_url) as response, partial.open("wb") as output:
+            if progress:
+                progress(downloaded, manifest.size_bytes)
+            with response, partial.open("ab" if downloaded else "wb") as output:
                 while chunk := response.read(1024 * 1024):
                     if cancel and cancel.is_set():
                         raise DownloadCancelled(f"Download cancelled: {manifest.name}")
@@ -167,10 +214,19 @@ class ModelPackageManager:
             if digest.hexdigest() != manifest.sha256:
                 raise ChecksumMismatch(f"SHA-256 verification failed: {manifest.name}")
             partial.replace(destination)
+            self._verified_paths.add(destination)
             self.activate(manifest)
             return destination
-        except Exception:
+        except (ChecksumMismatch,):
             partial.unlink(missing_ok=True)
+            raise
+        except Exception:
+            # Keep a valid prefix for pause/resume and transient network errors.
+            try:
+                if partial.stat().st_size > manifest.size_bytes:
+                    partial.unlink(missing_ok=True)
+            except OSError:
+                pass
             raise
 
     def activate(self, manifest: ModelManifest) -> None:
@@ -194,6 +250,8 @@ class ModelPackageManager:
 
     def remove(self, manifest: ModelManifest) -> None:
         self.package_path(manifest).unlink(missing_ok=True)
+        self.partial_path(manifest).unlink(missing_ok=True)
+        self._verified_paths.discard(self.package_path(manifest))
         active = self._read_active()
         if active.get(manifest.id) == manifest.version:
             active.pop(manifest.id, None)

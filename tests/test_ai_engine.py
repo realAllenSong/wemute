@@ -10,9 +10,13 @@ from wemute.domain import FileDescriptor, JobRecord, MediaKind, OperationKind
 from wemute.model_packages import ModelManifest, ModelPackageManager
 
 
-def make_manifest(payload: bytes) -> ModelManifest:
+def make_manifest(
+    payload: bytes,
+    package_id: str = "u2net",
+    backend: str = "onnxruntime-u2net",
+) -> ModelManifest:
     return ModelManifest(
-        id="u2net",
+        id=package_id,
         name="Background Removal · Fast",
         version="test",
         capability="remove-background",
@@ -22,7 +26,7 @@ def make_manifest(payload: bytes) -> ModelManifest:
         size_bytes=len(payload),
         license="Apache-2.0",
         license_url="https://example.com/license",
-        backend="onnxruntime-u2net",
+        backend=backend,
     )
 
 
@@ -67,3 +71,23 @@ def test_ai_plan_refuses_uninstalled_package(tmp_path: Path) -> None:
 
     with pytest.raises(AIEngineUnavailableError, match="Install"):
         AIEngineAdapter(packages).plan(make_job(source), tmp_path / "out")
+
+
+def test_background_removal_prefers_installed_high_quality_model(tmp_path: Path) -> None:
+    fast_payload = b"fast-model"
+    quality_payload = b"quality-model"
+    fast = make_manifest(fast_payload)
+    quality = make_manifest(quality_payload, "birefnet", "onnxruntime-birefnet")
+    packages = ModelPackageManager(tmp_path / "models", [fast, quality])
+    for manifest, payload in ((fast, fast_payload), (quality, quality_payload)):
+        path = packages.package_path(manifest)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+        packages.activate(manifest)
+    source = tmp_path / "portrait.jpg"
+    source.write_bytes(b"image")
+
+    plan = AIEngineAdapter(packages).plan(make_job(source), tmp_path / "out")
+
+    assert str(packages.package_path(quality)) in plan.command
+    assert "onnxruntime-birefnet" in plan.command
