@@ -4,8 +4,8 @@ from collections.abc import Iterable
 
 from PySide6.QtCore import QAbstractListModel, QByteArray, QLocale, QModelIndex, Qt
 
-from wemute.capabilities import options_for
-from wemute.domain import JobRecord, JobStatus, MediaKind
+from wemute.capabilities import display_choice, options_for
+from wemute.domain import JobRecord, JobStatus, MediaKind, OperationKind
 from wemute.presentation import (
     GROUP_LABELS,
     GROUP_ORDER,
@@ -39,6 +39,7 @@ class QueueModel(QAbstractListModel):
         super().__init__()
         self._jobs: list[JobRecord] = list(jobs or [])
         self._language = "zh" if QLocale.system().name().lower().startswith("zh") else "en"
+        self._enabled_ai_actions: set[OperationKind] = set()
         self._rows: list[tuple[str, MediaKind | JobRecord]] = []
         self._rebuild_rows()
 
@@ -80,13 +81,13 @@ class QueueModel(QAbstractListModel):
             kind = payload
             assert isinstance(kind, MediaKind)
             group_jobs = [job for job in self._jobs if job.source.kind == kind]
-            group_targets = {job.target_format for job in group_jobs}
+            group_targets = {display_choice(job.operation, job.target_format) for job in group_jobs}
             if role == self.GroupLabelRole:
                 return GROUP_LABELS[self._language][kind]
             header_values = {
                 self.TargetFormatRole: next(iter(group_targets)) if len(group_targets) == 1 else "",
-                self.TargetOptionsRole: options_for(kind),
-                self.CanConvertRole: bool(options_for(kind)),
+                self.TargetOptionsRole: options_for(kind, self._enabled_ai_actions),
+                self.CanConvertRole: bool(options_for(kind, self._enabled_ai_actions)),
                 self.MediaKindRole: kind.value,
                 self.GroupItemCountRole: len(group_jobs),
             }
@@ -100,14 +101,14 @@ class QueueModel(QAbstractListModel):
             self.SourcePathRole: job.source.path,
             self.MetadataRole: metadata_line(job.source),
             self.ThumbnailRole: thumbnail_url(job.source),
-            self.TargetFormatRole: job.target_format,
-            self.TargetOptionsRole: options_for(job.source.kind),
+            self.TargetFormatRole: display_choice(job.operation, job.target_format),
+            self.TargetOptionsRole: options_for(job.source.kind, self._enabled_ai_actions),
             self.StatusRole: job.status.value,
             self.StatusTitleRole: status_title(job.status, self._language),
             self.StatusSubtitleRole: output_summary(job, self._language),
             self.ProgressRole: job.progress,
             self.SelectedRole: job.selected,
-            self.CanConvertRole: bool(options_for(job.source.kind)),
+            self.CanConvertRole: bool(options_for(job.source.kind, self._enabled_ai_actions)),
             self.MediaKindRole: job.source.kind.value,
             self.GroupItemCountRole: 0,
         }
@@ -126,6 +127,16 @@ class QueueModel(QAbstractListModel):
 
     def find(self, job_id: str) -> JobRecord | None:
         return next((job for job in self._jobs if job.id == job_id), None)
+
+    def set_enabled_ai_actions(self, actions: set[OperationKind]) -> None:
+        if actions == self._enabled_ai_actions:
+            return
+        self._enabled_ai_actions = set(actions)
+        self.refresh()
+
+    @property
+    def enabled_ai_actions(self) -> set[OperationKind]:
+        return set(self._enabled_ai_actions)
 
     def _rebuild_rows(self) -> None:
         grouped: dict[MediaKind, list[JobRecord]] = {}

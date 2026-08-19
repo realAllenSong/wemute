@@ -22,6 +22,14 @@ class JobStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class OperationKind(StrEnum):
+    CONVERT = "convert"
+    REMOVE_BACKGROUND = "remove-background"
+    UPSCALE = "upscale"
+    ERASE_OBJECT = "erase-object"
+    SEPARATE_VOCALS = "separate-vocals"
+
+
 @dataclass(slots=True)
 class ImageOptions:
     scale_percent: int = 100
@@ -63,11 +71,14 @@ class JobRecord:
     selected: bool = False
     created_at: float = 0.0
     image_options: ImageOptions = field(default_factory=ImageOptions)
+    operation: OperationKind = OperationKind.CONVERT
+    operation_options: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         payload["source"]["kind"] = self.source.kind.value
         payload["status"] = self.status.value
+        payload["operation"] = self.operation.value
         return payload
 
     @classmethod
@@ -76,6 +87,10 @@ class JobRecord:
         source_payload["kind"] = MediaKind(source_payload["kind"])
         image_options = ImageOptions(**payload.get("image_options", {}))
         status = JobStatus(payload.get("status", JobStatus.QUEUED))
+        try:
+            operation = OperationKind(payload.get("operation", OperationKind.CONVERT))
+        except ValueError:
+            operation = OperationKind.CONVERT
         if status == JobStatus.RUNNING:
             status = JobStatus.QUEUED
         return cls(
@@ -90,6 +105,8 @@ class JobRecord:
             selected=bool(payload.get("selected", False)),
             created_at=float(payload.get("created_at", 0.0)),
             image_options=image_options,
+            operation=operation,
+            operation_options=dict(payload.get("operation_options", {})),
         )
 
 

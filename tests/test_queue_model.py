@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from wemute.domain import FileDescriptor, JobRecord, MediaKind
+from wemute.domain import FileDescriptor, JobRecord, MediaKind, OperationKind
 from wemute.queue_model import QueueModel
 
 
@@ -38,3 +38,12 @@ def test_group_header_exposes_shared_and_mixed_targets(tmp_path: Path) -> None:
     jobs[1].target_format = "WebP"
     model.refresh()
     assert model.data(model.index(0), model.TargetFormatRole) == ""
+
+
+def test_installed_ai_action_joins_the_existing_output_selector(tmp_path: Path) -> None:
+    jobs = [JobRecord("one", descriptor(tmp_path / "one.jpg", MediaKind.IMAGE), "PNG")]
+    model = QueueModel(jobs)
+    model.set_enabled_ai_actions({OperationKind.REMOVE_BACKGROUND})
+
+    options = model.data(model.index(0), model.TargetOptionsRole)
+    assert "Remove Background" in options

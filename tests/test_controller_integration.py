@@ -8,7 +8,7 @@ from PIL import Image
 from PySide6.QtCore import QCoreApplication, QEventLoop, QTimer
 
 from wemute.controller import JobController
-from wemute.domain import JobRecord, JobStatus, MediaKind
+from wemute.domain import JobRecord, JobStatus, MediaKind, OperationKind
 from wemute.persistence import QueueStore
 from wemute.probe import probe_file
 from wemute.queue_model import QueueModel
@@ -86,4 +86,30 @@ def test_group_target_and_image_presets_apply_in_one_action(tmp_path: Path) -> N
     assert all(job.image_options.scale_percent == 50 for job in jobs)
     assert all(job.image_options.quality == 72 for job in jobs)
     assert all(job.image_options.corner_radius == 24 for job in jobs)
+    controller.shutdown()
+
+
+def test_group_ai_action_keeps_per_file_conversion_override(tmp_path: Path) -> None:
+    app = QCoreApplication.instance() or QCoreApplication([])
+    del app
+    first = tmp_path / "first.png"
+    second = tmp_path / "second.png"
+    Image.new("RGB", (32, 24), "navy").save(first)
+    Image.new("RGB", (32, 24), "gold").save(second)
+    jobs = [
+        JobRecord("first", probe_file(first, create_preview=False), "WebP"),
+        JobRecord("second", probe_file(second, create_preview=False), "JPEG"),
+    ]
+    model = QueueModel(jobs)
+    model.set_enabled_ai_actions({OperationKind.REMOVE_BACKGROUND})
+    controller = JobController(model, QueueStore(tmp_path / "queue.json"))
+
+    controller.setGroupTargetFormat(MediaKind.IMAGE.value, "Remove Background")
+    assert all(job.operation == OperationKind.REMOVE_BACKGROUND for job in jobs)
+    assert all(job.target_format == "PNG" for job in jobs)
+
+    controller.setTargetFormat("second", "JPEG")
+    assert jobs[0].operation == OperationKind.REMOVE_BACKGROUND
+    assert jobs[1].operation == OperationKind.CONVERT
+    assert jobs[1].target_format == "JPEG"
     controller.shutdown()

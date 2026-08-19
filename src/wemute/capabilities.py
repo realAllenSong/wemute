@@ -4,7 +4,7 @@ import platform
 from dataclasses import dataclass
 from pathlib import Path
 
-from wemute.domain import MediaKind
+from wemute.domain import MediaKind, OperationKind
 
 
 @dataclass(frozen=True, slots=True)
@@ -14,6 +14,56 @@ class TargetDefinition:
     kind: MediaKind
     codec: str | None = None
     container: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ActionDefinition:
+    id: OperationKind
+    label: str
+    kind: MediaKind
+    output_extension: str
+    package_id: str
+    target_format: str
+    default_options: tuple[tuple[str, object], ...] = ()
+
+
+ACTIONS: dict[OperationKind, ActionDefinition] = {
+    OperationKind.REMOVE_BACKGROUND: ActionDefinition(
+        OperationKind.REMOVE_BACKGROUND,
+        "Remove Background",
+        MediaKind.IMAGE,
+        ".png",
+        "u2net",
+        "PNG",
+    ),
+    OperationKind.UPSCALE: ActionDefinition(
+        OperationKind.UPSCALE,
+        "Upscale 2×",
+        MediaKind.IMAGE,
+        ".png",
+        "realesrgan-photo",
+        "PNG",
+        (("scale", 2),),
+    ),
+    OperationKind.ERASE_OBJECT: ActionDefinition(
+        OperationKind.ERASE_OBJECT,
+        "Erase Object",
+        MediaKind.IMAGE,
+        ".png",
+        "lama",
+        "PNG",
+    ),
+    OperationKind.SEPARATE_VOCALS: ActionDefinition(
+        OperationKind.SEPARATE_VOCALS,
+        "Separate Vocals",
+        MediaKind.AUDIO,
+        ".wav",
+        "mlx-audio-separator",
+        "WAV",
+    ),
+}
+
+ACTION_BY_LABEL = {definition.label: definition for definition in ACTIONS.values()}
 
 
 TARGETS: dict[str, TargetDefinition] = {
@@ -62,8 +112,51 @@ DEFAULT_BY_KIND: dict[MediaKind, str] = {
 }
 
 
-def options_for(kind: MediaKind) -> list[str]:
-    return list(OPTIONS_BY_KIND.get(kind, []))
+def options_for(
+    kind: MediaKind,
+    enabled_actions: set[OperationKind] | None = None,
+) -> list[str]:
+    options = list(OPTIONS_BY_KIND.get(kind, []))
+    for action in enabled_actions or set():
+        definition = ACTIONS.get(action)
+        if definition and definition.kind == kind:
+            options.append(definition.label)
+    return options
+
+
+def display_choice(operation: OperationKind, target_format: str) -> str:
+    if operation == OperationKind.CONVERT:
+        return target_format
+    definition = ACTIONS.get(operation)
+    return definition.label if definition else target_format
+
+
+def apply_choice(job, choice: str) -> bool:  # noqa: ANN001 - avoids a circular type import
+    action = ACTION_BY_LABEL.get(choice)
+    if action:
+        if action.kind != job.source.kind:
+            return False
+        job.operation = action.id
+        job.target_format = action.target_format
+        job.operation_options = dict(action.default_options)
+        return True
+    if not is_compatible(job.source.kind, choice):
+        return False
+    job.operation = OperationKind.CONVERT
+    job.target_format = choice
+    job.operation_options = {}
+    return True
+
+
+def is_choice_compatible(
+    kind: MediaKind,
+    choice: str,
+    enabled_actions: set[OperationKind] | None = None,
+) -> bool:
+    action = ACTION_BY_LABEL.get(choice)
+    if action:
+        return action.kind == kind and action.id in (enabled_actions or set())
+    return is_compatible(kind, choice)
 
 
 def default_target(kind: MediaKind, source_suffix: str) -> str | None:

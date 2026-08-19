@@ -18,7 +18,7 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QDesktopServices, QGuiApplication
 
-from wemute.capabilities import default_target, is_compatible
+from wemute.capabilities import apply_choice, default_target, is_choice_compatible
 from wemute.domain import ConversionPlan, FileDescriptor, JobRecord, JobStatus, MediaKind
 from wemute.engine import FfmpegAdapter, finalize_output, remove_partial_output
 from wemute.persistence import QueueStore
@@ -219,11 +219,15 @@ class JobController(QObject):
     @Slot(str, str)
     def setTargetFormat(self, job_id: str, target: str) -> None:
         job = self.model.find(job_id)
-        if not job or not is_compatible(job.source.kind, target):
+        if not job or not is_choice_compatible(
+            job.source.kind, target, self.model.enabled_ai_actions
+        ):
             return
-        if job.target_format == target:
+        previous = (job.operation, job.target_format, dict(job.operation_options))
+        if not apply_choice(job, target):
             return
-        job.target_format = target
+        if previous == (job.operation, job.target_format, job.operation_options):
+            return
         self._reset_job(job)
         self.model.refresh()
         self._persist()
@@ -234,15 +238,17 @@ class JobController(QObject):
             kind = MediaKind(kind_value)
         except ValueError:
             return
-        if not is_compatible(kind, target):
+        if not is_choice_compatible(kind, target, self.model.enabled_ai_actions):
             return
         changed = False
         for job in self.model.jobs:
             if job.source.kind != kind or job.status == JobStatus.RUNNING:
                 continue
-            if job.target_format == target:
+            previous = (job.operation, job.target_format, dict(job.operation_options))
+            if not apply_choice(job, target):
                 continue
-            job.target_format = target
+            if previous == (job.operation, job.target_format, job.operation_options):
+                continue
             self._reset_job(job)
             changed = True
         if changed:
