@@ -44,6 +44,24 @@ def test_image_worker_applies_resize_quality_and_rounding(tmp_path: Path) -> Non
         assert converted.convert("RGBA").getpixel((0, 0))[3] == 0
 
 
+def test_image_worker_targets_a_maximum_file_size(tmp_path: Path) -> None:
+    source = tmp_path / "noise.png"
+    Image.effect_noise((1000, 750), 96).convert("RGB").save(source)
+    output = tmp_path / "target.jpg"
+
+    convert_image(
+        source,
+        output,
+        "JPEG",
+        {"quality": 92, "target_size_kb": 48},
+    )
+
+    assert 0 < output.stat().st_size <= 48 * 1024
+    with Image.open(output) as converted:
+        assert converted.width > 16
+        assert converted.height > 16
+
+
 @pytest.mark.skipif(platform.system() != "Darwin", reason="Uses the macOS ImageIO codec")
 def test_native_heic_roundtrip_does_not_require_a_bundled_hevc_library(tmp_path: Path) -> None:
     source = tmp_path / "source.png"

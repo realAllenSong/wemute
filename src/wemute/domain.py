@@ -36,6 +36,7 @@ class ImageOptions:
     max_edge: int | None = None
     quality: int = 84
     corner_radius: int = 0
+    target_size_kb: int | None = None
 
 
 @dataclass(slots=True)

@@ -115,6 +115,13 @@ class JobController(QObject):
             return "custom"
         return {0: "none", 24: "soft", 64: "round"}.get(next(iter(values)), "custom")
 
+    @Property(int, notify=imageSettingsChanged)
+    def imageTargetSizeKb(self) -> int:
+        values = {job.image_options.target_size_kb for job in self._image_jobs()}
+        if len(values) != 1:
+            return -1
+        return next(iter(values)) or 0
+
     @Property(bool, notify=busyChanged)
     def busy(self) -> bool:
         return self._busy
@@ -314,8 +321,105 @@ class JobController(QObject):
             self._reset_job(job)
         self._finish_image_settings_change()
 
+    @Slot(int)
+    def setImageTargetSizeKb(self, value: int) -> None:
+        target = max(0, min(1_000_000, value)) or None
+        for job in self._image_jobs():
+            if job.status == JobStatus.RUNNING:
+                continue
+            job.image_options.target_size_kb = target
+            self._reset_job(job)
+        self._finish_image_settings_change()
+
+    @Slot(str, result=str)
+    def imageResizePresetFor(self, job_id: str) -> str:
+        job = self._editable_image_job(job_id)
+        if not job:
+            return "custom"
+        return {
+            (100, None): "original",
+            (50, None): "half",
+            (100, 2048): "edge2048",
+            (100, 1080): "edge1080",
+        }.get((job.image_options.scale_percent, job.image_options.max_edge), "custom")
+
+    @Slot(str, result=str)
+    def imageQualityPresetFor(self, job_id: str) -> str:
+        job = self._editable_image_job(job_id)
+        return (
+            {72: "small", 84: "balanced", 92: "best"}.get(
+                job.image_options.quality, "custom"
+            )
+            if job
+            else "custom"
+        )
+
+    @Slot(str, result=str)
+    def imageCornerPresetFor(self, job_id: str) -> str:
+        job = self._editable_image_job(job_id)
+        return (
+            {0: "none", 24: "soft", 64: "round"}.get(
+                job.image_options.corner_radius, "custom"
+            )
+            if job
+            else "custom"
+        )
+
+    @Slot(str, result=int)
+    def imageTargetSizeKbFor(self, job_id: str) -> int:
+        job = self._editable_image_job(job_id)
+        return (job.image_options.target_size_kb or 0) if job else 0
+
+    @Slot(str, str)
+    def setJobImageResizePreset(self, job_id: str, preset: str) -> None:
+        values = {
+            "original": (100, None),
+            "half": (50, None),
+            "edge2048": (100, 2048),
+            "edge1080": (100, 1080),
+        }
+        job = self._editable_image_job(job_id)
+        if not job or preset not in values or job.status == JobStatus.RUNNING:
+            return
+        job.image_options.scale_percent, job.image_options.max_edge = values[preset]
+        self._reset_job(job)
+        self._finish_image_settings_change()
+
+    @Slot(str, str)
+    def setJobImageQualityPreset(self, job_id: str, preset: str) -> None:
+        values = {"small": 72, "balanced": 84, "best": 92}
+        job = self._editable_image_job(job_id)
+        if not job or preset not in values or job.status == JobStatus.RUNNING:
+            return
+        job.image_options.quality = values[preset]
+        self._reset_job(job)
+        self._finish_image_settings_change()
+
+    @Slot(str, str)
+    def setJobImageCornerPreset(self, job_id: str, preset: str) -> None:
+        values = {"none": 0, "soft": 24, "round": 64}
+        job = self._editable_image_job(job_id)
+        if not job or preset not in values or job.status == JobStatus.RUNNING:
+            return
+        job.image_options.corner_radius = values[preset]
+        self._reset_job(job)
+        self._finish_image_settings_change()
+
+    @Slot(str, int)
+    def setJobImageTargetSizeKb(self, job_id: str, value: int) -> None:
+        job = self._editable_image_job(job_id)
+        if not job or job.status == JobStatus.RUNNING:
+            return
+        job.image_options.target_size_kb = max(0, min(1_000_000, value)) or None
+        self._reset_job(job)
+        self._finish_image_settings_change()
+
     def _image_jobs(self) -> list[JobRecord]:
         return [job for job in self.model.jobs if job.source.kind == MediaKind.IMAGE]
+
+    def _editable_image_job(self, job_id: str) -> JobRecord | None:
+        job = self.model.find(job_id)
+        return job if job and job.source.kind == MediaKind.IMAGE else None
 
     def _finish_image_settings_change(self) -> None:
         self.model.refresh()

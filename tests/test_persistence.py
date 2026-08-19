@@ -26,7 +26,12 @@ def test_queue_round_trip_recovers_running_as_queued(tmp_path: Path) -> None:
         target_format="WebP",
         status=JobStatus.RUNNING,
         progress=0.42,
-        image_options=ImageOptions(scale_percent=50, quality=72, corner_radius=24),
+        image_options=ImageOptions(
+            scale_percent=50,
+            quality=72,
+            corner_radius=24,
+            target_size_kb=512,
+        ),
         operation=OperationKind.REMOVE_BACKGROUND,
     )
     store = QueueStore(tmp_path / "queue.json")
@@ -38,6 +43,7 @@ def test_queue_round_trip_recovers_running_as_queued(tmp_path: Path) -> None:
     assert loaded[0].image_options.scale_percent == 50
     assert loaded[0].image_options.quality == 72
     assert loaded[0].image_options.corner_radius == 24
+    assert loaded[0].image_options.target_size_kb == 512
     assert loaded[0].operation == OperationKind.REMOVE_BACKGROUND
 
 

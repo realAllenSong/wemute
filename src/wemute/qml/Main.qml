@@ -83,14 +83,49 @@ ApplicationWindow {
     Popup {
         id: imageOptionsPopup
         objectName: "imageOptionsPopup"
+        property string jobId: ""
+        property string displayName: ""
         parent: Overlay.overlay
         x: Theme.pageMargin + 196
         y: window.height - bottomBar.height - height - 12
         width: 380
-        height: 250
+        height: 322
         padding: 0
         modal: false
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+        function syncControls() {
+            var resizePreset = jobId.length > 0
+                ? jobController.imageResizePresetFor(jobId)
+                : jobController.imageResizePreset
+            var qualityPreset = jobId.length > 0
+                ? jobController.imageQualityPresetFor(jobId)
+                : jobController.imageQualityPreset
+            var cornerPreset = jobId.length > 0
+                ? jobController.imageCornerPresetFor(jobId)
+                : jobController.imageCornerPreset
+            var targetSize = jobId.length > 0
+                ? jobController.imageTargetSizeKbFor(jobId)
+                : jobController.imageTargetSizeKb
+            resizeControl.currentIndex = resizeControl.presetKeys.indexOf(resizePreset)
+            qualityControl.currentIndex = qualityControl.presetKeys.indexOf(qualityPreset)
+            cornerControl.currentIndex = cornerControl.presetKeys.indexOf(cornerPreset)
+            targetSizeField.text = targetSize > 0 ? String(targetSize) : ""
+        }
+
+        function openBatch() {
+            jobId = ""
+            displayName = window.tr("all_images")
+            syncControls()
+            open()
+        }
+
+        function openForJob(id, name) {
+            jobId = id
+            displayName = name
+            syncControls()
+            open()
+        }
 
         background: Rectangle {
             color: "#22272C"
@@ -105,7 +140,9 @@ ApplicationWindow {
             spacing: 10
 
             Text {
-                text: window.tr("image_options")
+                text: imageOptionsPopup.jobId.length > 0
+                    ? imageOptionsPopup.displayName
+                    : window.tr("image_options")
                 color: Theme.text
                 font.family: Qt.platform.os === "osx" ? ".AppleSystemUIFont" : "Inter"
                 font.pixelSize: 16
@@ -122,6 +159,7 @@ ApplicationWindow {
                     Layout.preferredWidth: 82
                 }
                 FormatCombo {
+                    id: resizeControl
                     Layout.fillWidth: true
                     height: 42
                     model: [
@@ -131,9 +169,14 @@ ApplicationWindow {
                         window.tr("long_edge_1080")
                     ]
                     property var presetKeys: ["original", "half", "edge2048", "edge1080"]
-                    currentIndex: presetKeys.indexOf(jobController.imageResizePreset)
+                    currentIndex: -1
                     placeholderText: window.tr("custom")
-                    onActivated: jobController.setImageResizePreset(presetKeys[index])
+                    onActivated: {
+                        if (imageOptionsPopup.jobId.length > 0)
+                            jobController.setJobImageResizePreset(imageOptionsPopup.jobId, presetKeys[index])
+                        else
+                            jobController.setImageResizePreset(presetKeys[index])
+                    }
                 }
             }
 
@@ -146,13 +189,19 @@ ApplicationWindow {
                     Layout.preferredWidth: 82
                 }
                 FormatCombo {
+                    id: qualityControl
                     Layout.fillWidth: true
                     height: 42
                     model: [window.tr("smaller"), window.tr("balanced"), window.tr("best_quality")]
                     property var presetKeys: ["small", "balanced", "best"]
-                    currentIndex: presetKeys.indexOf(jobController.imageQualityPreset)
+                    currentIndex: -1
                     placeholderText: window.tr("custom")
-                    onActivated: jobController.setImageQualityPreset(presetKeys[index])
+                    onActivated: {
+                        if (imageOptionsPopup.jobId.length > 0)
+                            jobController.setJobImageQualityPreset(imageOptionsPopup.jobId, presetKeys[index])
+                        else
+                            jobController.setImageQualityPreset(presetKeys[index])
+                    }
                 }
             }
 
@@ -165,14 +214,70 @@ ApplicationWindow {
                     Layout.preferredWidth: 82
                 }
                 FormatCombo {
+                    id: cornerControl
                     Layout.fillWidth: true
                     height: 42
                     model: [window.tr("none"), window.tr("soft_corners"), window.tr("round_corners")]
                     property var presetKeys: ["none", "soft", "round"]
-                    currentIndex: presetKeys.indexOf(jobController.imageCornerPreset)
+                    currentIndex: -1
                     placeholderText: window.tr("custom")
-                    onActivated: jobController.setImageCornerPreset(presetKeys[index])
+                    onActivated: {
+                        if (imageOptionsPopup.jobId.length > 0)
+                            jobController.setJobImageCornerPreset(imageOptionsPopup.jobId, presetKeys[index])
+                        else
+                            jobController.setImageCornerPreset(presetKeys[index])
+                    }
                 }
+            }
+
+            RowLayout {
+                spacing: 14
+                Text {
+                    text: window.tr("target_size")
+                    color: Theme.secondaryText
+                    font.pixelSize: 14
+                    Layout.preferredWidth: 82
+                }
+                TextField {
+                    id: targetSizeField
+                    Layout.fillWidth: true
+                    height: 42
+                    placeholderText: window.tr("off")
+                    color: Theme.text
+                    font.pixelSize: 15
+                    inputMethodHints: Qt.ImhDigitsOnly
+                    validator: IntValidator { bottom: 0; top: 1000000 }
+                    rightPadding: 48
+                    onEditingFinished: {
+                        var value = text.length > 0 ? parseInt(text) : 0
+                        if (imageOptionsPopup.jobId.length > 0)
+                            jobController.setJobImageTargetSizeKb(imageOptionsPopup.jobId, value)
+                        else
+                            jobController.setImageTargetSizeKb(value)
+                    }
+                    background: Rectangle {
+                        color: targetSizeField.hovered ? Theme.surfaceHover : Theme.surface
+                        radius: Theme.radius
+                        border.width: 1
+                        border.color: targetSizeField.activeFocus ? Theme.accent : Theme.border
+                    }
+                    Text {
+                        anchors.right: parent.right
+                        anchors.rightMargin: 14
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: window.tr("kb")
+                        color: Theme.tertiaryText
+                        font.pixelSize: 13
+                    }
+                }
+            }
+
+            Text {
+                text: window.tr("target_size_hint")
+                color: Theme.tertiaryText
+                font.pixelSize: 12
+                Layout.leftMargin: 96
+                Layout.topMargin: -8
             }
         }
     }
@@ -784,10 +889,31 @@ ApplicationWindow {
                     Accessible.name: "Output format for " + delegateRoot.sourceName
                 }
 
+                WButton {
+                    id: imageAdjustButton
+                    anchors.left: formatControl.right
+                    anchors.leftMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 72
+                    height: 36
+                    quiet: true
+                    text: window.tr("adjust")
+                    visible: delegateRoot.mediaKind === "image"
+                        && (delegateRoot.rowSelected || rowHover.hovered)
+                    enabled: delegateRoot.jobStatus !== "running"
+                    onClicked: {
+                        jobController.selectJob(delegateRoot.jobId)
+                        imageOptionsPopup.openForJob(delegateRoot.jobId, delegateRoot.sourceName)
+                    }
+                    Accessible.name: text + " " + delegateRoot.sourceName
+                }
+
                 Item {
                     id: statusArea
-                    anchors.left: formatControl.right
-                    anchors.leftMargin: 58
+                    anchors.left: delegateRoot.mediaKind === "image"
+                        ? imageAdjustButton.right
+                        : formatControl.right
+                    anchors.leftMargin: delegateRoot.mediaKind === "image" ? 20 : 58
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     height: delegateRoot.jobStatus === "running" ? 66 : 56
@@ -990,7 +1116,7 @@ ApplicationWindow {
             text: window.tr("image_options")
             visible: jobController.hasImageJobs
             enabled: !jobController.busy
-            onClicked: imageOptionsPopup.open()
+            onClicked: imageOptionsPopup.openBatch()
             Accessible.name: text
         }
 

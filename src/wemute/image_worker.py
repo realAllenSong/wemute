@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
+import shutil
 import sys
 import tempfile
 from contextlib import ExitStack
@@ -10,6 +12,140 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageDraw, ImageOps
 
 from wemute.native_images import HEIC_SUFFIXES, decode_heic, encode_heic
+
+
+LOSSY_TARGETS = {"JPEG", "WebP", "HEIC", "AVIF"}
+
+
+def _save_encoded(
+    image: Image.Image,
+    output: Path,
+    target: str,
+    quality: int,
+    icc: bytes | None,
+    exif: bytes | None,
+    stack: ExitStack,
+) -> None:
+    save_kwargs: dict[str, object] = {}
+    if icc:
+        save_kwargs["icc_profile"] = icc
+    if exif and target in {"JPEG", "TIFF", "WebP", "HEIC", "AVIF"}:
+        save_kwargs["exif"] = exif
+
+    if target == "JPEG":
+        if image.mode in {"RGBA", "LA"}:
+            rgba = image.convert("RGBA")
+            flattened = Image.new("RGB", rgba.size, "white")
+            flattened.paste(rgba, mask=rgba.getchannel("A"))
+            image = flattened
+        elif image.mode != "RGB":
+            image = image.convert("RGB")
+        save_kwargs.update(quality=quality, optimize=True, progressive=True, subsampling=0)
+        image.save(output, format="JPEG", **save_kwargs)
+    elif target == "PNG":
+        save_kwargs.update(optimize=True, compress_level=7)
+        image.save(output, format="PNG", **save_kwargs)
+    elif target == "WebP":
+        save_kwargs.update(quality=quality, method=6)
+        image.save(output, format="WEBP", **save_kwargs)
+    elif target == "HEIC":
+        temporary_directory = Path(
+            stack.enter_context(tempfile.TemporaryDirectory(prefix="wemute-heic-"))
+        )
+        intermediate = temporary_directory / "converted.png"
+        png_kwargs: dict[str, object] = {"compress_level": 3}
+        if icc:
+            png_kwargs["icc_profile"] = icc
+        if exif:
+            png_kwargs["exif"] = exif
+        image.save(intermediate, format="PNG", **png_kwargs)
+        encode_heic(intermediate, output, quality)
+    elif target == "AVIF":
+        save_kwargs.update(quality=quality)
+        image.save(output, format="AVIF", **save_kwargs)
+    elif target == "TIFF":
+        save_kwargs.update(compression="tiff_deflate")
+        image.save(output, format="TIFF", **save_kwargs)
+    elif target == "BMP":
+        if image.mode not in {"RGB", "RGBA"}:
+            image = image.convert("RGBA" if "transparency" in image.info else "RGB")
+        image.save(output, format="BMP")
+    elif target == "GIF":
+        image.convert("RGBA").save(output, format="GIF", optimize=True)
+    else:
+        raise ValueError(f"Unsupported image target: {target}")
+
+
+def _save_to_target_size(
+    image: Image.Image,
+    output: Path,
+    target: str,
+    quality: int,
+    target_bytes: int,
+    icc: bytes | None,
+    exif: bytes | None,
+    stack: ExitStack,
+) -> None:
+    candidates = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="wemute-size-")))
+    working = image
+    smallest: Path | None = None
+    smallest_size: int | None = None
+
+    for resize_round in range(10):
+        if target in LOSSY_TARGETS:
+            low, high = 5, max(5, quality)
+            best: Path | None = None
+            while low <= high:
+                candidate_quality = (low + high) // 2
+                candidate = candidates / (
+                    f"candidate-{resize_round}-{candidate_quality}{output.suffix}"
+                )
+                _save_encoded(
+                    working,
+                    candidate,
+                    target,
+                    candidate_quality,
+                    icc,
+                    exif,
+                    stack,
+                )
+                size = candidate.stat().st_size
+                if smallest_size is None or size < smallest_size:
+                    smallest, smallest_size = candidate, size
+                if size <= target_bytes:
+                    best = candidate
+                    low = candidate_quality + 1
+                else:
+                    high = candidate_quality - 1
+            if best is not None:
+                shutil.copyfile(best, output)
+                return
+        else:
+            candidate = candidates / f"candidate-{resize_round}{output.suffix}"
+            _save_encoded(working, candidate, target, quality, icc, exif, stack)
+            size = candidate.stat().st_size
+            if smallest_size is None or size < smallest_size:
+                smallest, smallest_size = candidate, size
+            if size <= target_bytes:
+                shutil.copyfile(candidate, output)
+                return
+
+        assert smallest_size is not None
+        if min(working.size) <= 16:
+            break
+        factor = math.sqrt(target_bytes / max(1, smallest_size)) * 0.96
+        factor = max(0.25, min(0.88, factor))
+        resized = (
+            max(1, round(working.width * factor)),
+            max(1, round(working.height * factor)),
+        )
+        if resized == working.size:
+            break
+        working = working.resize(resized, Image.Resampling.LANCZOS)
+
+    if smallest is None:
+        raise RuntimeError("Unable to create a size-targeted image.")
+    shutil.copyfile(smallest, output)
 
 
 def convert_image(
@@ -60,53 +196,23 @@ def convert_image(
         exif.pop(0x0112, None)  # Orientation is now physically applied.
         icc = image.info.get("icc_profile")
 
-        save_kwargs: dict[str, object] = {}
-        if icc:
-            save_kwargs["icc_profile"] = icc
-        if exif and target in {"JPEG", "TIFF", "WebP", "HEIC", "AVIF"}:
-            save_kwargs["exif"] = exif.tobytes()
-
         quality = max(1, min(100, int(options.get("quality", 84))))
-        if target == "JPEG":
-            if image.mode in {"RGBA", "LA"}:
-                rgba = image.convert("RGBA")
-                flattened = Image.new("RGB", rgba.size, "white")
-                flattened.paste(rgba, mask=rgba.getchannel("A"))
-                image = flattened
-            elif image.mode != "RGB":
-                image = image.convert("RGB")
-            save_kwargs.update(quality=quality, optimize=True, progressive=True, subsampling=0)
-            image.save(output, format="JPEG", **save_kwargs)
-        elif target == "PNG":
-            save_kwargs.update(optimize=True, compress_level=7)
-            image.save(output, format="PNG", **save_kwargs)
-        elif target == "WebP":
-            save_kwargs.update(quality=quality, method=6)
-            image.save(output, format="WEBP", **save_kwargs)
-        elif target == "HEIC":
-            temporary_directory = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="wemute-heic-")))
-            intermediate = temporary_directory / "converted.png"
-            png_kwargs: dict[str, object] = {"compress_level": 3}
-            if icc:
-                png_kwargs["icc_profile"] = icc
-            if exif:
-                png_kwargs["exif"] = exif.tobytes()
-            image.save(intermediate, format="PNG", **png_kwargs)
-            encode_heic(intermediate, output, quality)
-        elif target == "AVIF":
-            save_kwargs.update(quality=quality)
-            image.save(output, format="AVIF", **save_kwargs)
-        elif target == "TIFF":
-            save_kwargs.update(compression="tiff_deflate")
-            image.save(output, format="TIFF", **save_kwargs)
-        elif target == "BMP":
-            if image.mode not in {"RGB", "RGBA"}:
-                image = image.convert("RGBA" if "transparency" in image.info else "RGB")
-            image.save(output, format="BMP")
-        elif target == "GIF":
-            image.convert("RGBA").save(output, format="GIF", optimize=True)
+        exif_bytes = exif.tobytes() if exif else None
+        target_size_value = options.get("target_size_kb")
+        target_size_kb = max(0, int(target_size_value)) if target_size_value else 0
+        if target_size_kb:
+            _save_to_target_size(
+                image,
+                output,
+                target,
+                quality,
+                target_size_kb * 1024,
+                icc,
+                exif_bytes,
+                stack,
+            )
         else:
-            raise ValueError(f"Unsupported image target: {target}")
+            _save_encoded(image, output, target, quality, icc, exif_bytes, stack)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -8,7 +8,14 @@ from PIL import Image
 from PySide6.QtCore import QCoreApplication, QEventLoop, QTimer
 
 from wemute.controller import JobController
-from wemute.domain import ConversionPlan, JobRecord, JobStatus, MediaKind, OperationKind
+from wemute.domain import (
+    ConversionPlan,
+    ImageOptions,
+    JobRecord,
+    JobStatus,
+    MediaKind,
+    OperationKind,
+)
 from wemute.persistence import QueueStore
 from wemute.probe import probe_file
 from wemute.queue_model import QueueModel
@@ -86,6 +93,34 @@ def test_group_target_and_image_presets_apply_in_one_action(tmp_path: Path) -> N
     assert all(job.image_options.scale_percent == 50 for job in jobs)
     assert all(job.image_options.quality == 72 for job in jobs)
     assert all(job.image_options.corner_radius == 24 for job in jobs)
+    controller.shutdown()
+
+
+def test_per_file_image_settings_do_not_change_the_rest_of_the_batch(tmp_path: Path) -> None:
+    app = QCoreApplication.instance() or QCoreApplication([])
+    del app
+    first = tmp_path / "first.png"
+    second = tmp_path / "second.png"
+    Image.new("RGB", (80, 60), "navy").save(first)
+    Image.new("RGB", (80, 60), "gold").save(second)
+    jobs = [
+        JobRecord("first", probe_file(first, create_preview=False), "WebP"),
+        JobRecord("second", probe_file(second, create_preview=False), "WebP"),
+    ]
+    controller = JobController(QueueModel(jobs), QueueStore(tmp_path / "queue.json"))
+
+    controller.setJobImageResizePreset("first", "half")
+    controller.setJobImageQualityPreset("first", "best")
+    controller.setJobImageCornerPreset("first", "round")
+    controller.setJobImageTargetSizeKb("first", 320)
+
+    assert controller.imageResizePresetFor("first") == "half"
+    assert controller.imageQualityPresetFor("first") == "best"
+    assert controller.imageCornerPresetFor("first") == "round"
+    assert controller.imageTargetSizeKbFor("first") == 320
+    assert jobs[1].image_options == ImageOptions()
+    assert controller.imageResizePreset == "custom"
+    assert controller.imageTargetSizeKb == -1
     controller.shutdown()
 
 
