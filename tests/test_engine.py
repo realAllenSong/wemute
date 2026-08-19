@@ -9,8 +9,8 @@ from unittest.mock import patch
 import pytest
 from PIL import Image
 
-from wemute.domain import FileDescriptor, ImageOptions, JobRecord, MediaKind
-from wemute.engine import FfmpegAdapter, finalize_output
+from wemute.domain import ConversionPlan, FileDescriptor, ImageOptions, JobRecord, MediaKind
+from wemute.engine import FfmpegAdapter, finalize_output, remove_partial_output
 from wemute.image_worker import convert_image
 from wemute.paths import resolve_engine
 from wemute.probe import probe_file
@@ -60,6 +60,55 @@ def test_image_worker_targets_a_maximum_file_size(tmp_path: Path) -> None:
     with Image.open(output) as converted:
         assert converted.width > 16
         assert converted.height > 16
+
+
+def test_multi_output_finalization_verifies_every_file_before_moving(tmp_path: Path) -> None:
+    source = tmp_path / "source.wav"
+    source.write_bytes(b"source")
+    vocals_temporary = tmp_path / ".vocals.wav"
+    vocals_final = tmp_path / "Vocals.wav"
+    instrumental_temporary = tmp_path / ".instrumental.wav"
+    instrumental_final = tmp_path / "Instrumental.wav"
+    vocals_temporary.write_bytes(b"vocals")
+    plan = ConversionPlan(
+        "job",
+        source,
+        vocals_temporary,
+        vocals_final,
+        additional_outputs=[(instrumental_temporary, instrumental_final)],
+    )
+
+    with pytest.raises(RuntimeError, match="instrumental"):
+        finalize_output(plan)
+
+    assert vocals_temporary.exists()
+    assert not vocals_final.exists()
+
+    instrumental_temporary.write_bytes(b"instrumental")
+    assert finalize_output(plan) == len(b"vocals") + len(b"instrumental")
+    assert vocals_final.read_bytes() == b"vocals"
+    assert instrumental_final.read_bytes() == b"instrumental"
+
+
+def test_multi_output_cleanup_removes_all_temporary_files(tmp_path: Path) -> None:
+    source = tmp_path / "source.wav"
+    source.write_bytes(b"source")
+    first = tmp_path / ".first.wav"
+    second = tmp_path / ".second.wav"
+    first.write_bytes(b"partial")
+    second.write_bytes(b"partial")
+    plan = ConversionPlan(
+        "job",
+        source,
+        first,
+        tmp_path / "first.wav",
+        additional_outputs=[(second, tmp_path / "second.wav")],
+    )
+
+    remove_partial_output(plan)
+
+    assert not first.exists()
+    assert not second.exists()
 
 
 @pytest.mark.skipif(platform.system() != "Darwin", reason="Uses the macOS ImageIO codec")

@@ -12,6 +12,7 @@ dependencies = [
   "Pillow>=11.1,<13",
   "PySide6>=6.8,<6.11",
   "platformdirs>=4.3,<5",
+  "demucs-mlx==1.4.6 ; platform_machine == 'arm64' and sys_platform == 'darwin'",
 ]
 
 [project.gui-scripts]

@@ -127,20 +127,31 @@ class FfmpegAdapter:
 
 
 def finalize_output(plan: ConversionPlan) -> int:
-    if not plan.temporary_output.exists():
-        raise RuntimeError("The converter did not produce an output file.")
-    os.replace(plan.temporary_output, plan.final_output)
-    try:
-        shutil.copystat(plan.source, plan.final_output)
-    except OSError:
-        pass
-    return plan.final_output.stat().st_size
+    outputs = [(plan.temporary_output, plan.final_output), *plan.additional_outputs]
+    missing = [temporary.name for temporary, _final in outputs if not temporary.is_file()]
+    if missing:
+        raise RuntimeError(
+            "The converter did not produce all output files: " + ", ".join(missing)
+        )
+    total_size = 0
+    for temporary, final in outputs:
+        os.replace(temporary, final)
+        try:
+            shutil.copystat(plan.source, final)
+        except OSError:
+            pass
+        total_size += final.stat().st_size
+    return total_size
 
 
 def remove_partial_output(plan: ConversionPlan | None) -> None:
     if not plan:
         return
-    try:
-        plan.temporary_output.unlink(missing_ok=True)
-    except OSError:
-        pass
+    for temporary, _final in [
+        (plan.temporary_output, plan.final_output),
+        *plan.additional_outputs,
+    ]:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass

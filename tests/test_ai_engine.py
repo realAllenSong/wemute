@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import io
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -91,3 +93,57 @@ def test_background_removal_prefers_installed_high_quality_model(tmp_path: Path)
 
     assert str(packages.package_path(quality)) in plan.command
     assert "onnxruntime-birefnet" in plan.command
+
+
+def test_vocal_separation_plan_produces_two_unique_outputs(tmp_path: Path) -> None:
+    archive_buffer = io.BytesIO()
+    with zipfile.ZipFile(archive_buffer, "w") as archive:
+        archive.writestr("htdemucs.safetensors", b"weights")
+        archive.writestr("htdemucs_config.json", b"{}")
+        archive.writestr("demucs-license.txt", b"MIT")
+        archive.writestr("NOTICE.txt", b"notice")
+    payload = archive_buffer.getvalue()
+    manifest = ModelManifest(
+        id="mlx-audio-separator",
+        name="Vocal & Instrumental Separation",
+        version="test",
+        capability="separate-vocals",
+        filename="runtime.zip",
+        download_url="memory://separator",
+        sha256=hashlib.sha256(payload).hexdigest(),
+        size_bytes=len(payload),
+        license="MIT",
+        license_url="https://example.com/license",
+        backend="mlx-htdemucs",
+        archive_format="zip",
+        runtime_members=(
+            "htdemucs.safetensors",
+            "htdemucs_config.json",
+            "demucs-license.txt",
+            "NOTICE.txt",
+        ),
+    )
+    packages = ModelPackageManager(tmp_path / "models", [manifest])
+    packages.install(manifest, opener=lambda _url: io.BytesIO(payload))
+    source = tmp_path / "song.mp3"
+    source.write_bytes(b"audio")
+    job = JobRecord(
+        "job-separate",
+        FileDescriptor(
+            path=str(source),
+            name=source.name,
+            suffix=source.suffix,
+            kind=MediaKind.AUDIO,
+        ),
+        "WAV",
+        operation=OperationKind.SEPARATE_VOCALS,
+    )
+
+    plan = AIEngineAdapter(packages).plan(job, tmp_path / "out")
+
+    assert plan.final_output.name == "song Vocals.wav"
+    assert len(plan.additional_outputs) == 1
+    assert plan.additional_outputs[0][1].name == "song Instrumental.wav"
+    assert plan.worker_request["options"]["instrumental_destination"] == str(
+        plan.additional_outputs[0][0]
+    )

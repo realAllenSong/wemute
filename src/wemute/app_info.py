@@ -97,6 +97,30 @@ THIRD_PARTY_COMPONENTS: tuple[dict[str, str], ...] = (
         "license": "Apache-2.0",
         "url": "https://huggingface.co/opencv/inpainting_lama/blob/main/LICENSE",
     },
+    {
+        "name": "demucs-mlx",
+        "version": "1.4.6",
+        "license": "MIT",
+        "url": "https://github.com/ssmall256/demucs-mlx/blob/main/LICENSE",
+    },
+    {
+        "name": "Apple MLX",
+        "version": "0.31.2",
+        "license": "MIT",
+        "url": "https://github.com/ml-explore/mlx/blob/main/LICENSE",
+    },
+    {
+        "name": "mlx-audio-io / mlx-spectro",
+        "version": "1.3.11 / 0.7.0",
+        "license": "MIT with bundled third-party notices",
+        "url": "https://github.com/ssmall256/mlx-audio-io/blob/main/LICENSE",
+    },
+    {
+        "name": "HTDemucs optional model",
+        "version": "955717e8",
+        "license": "MIT",
+        "url": "https://github.com/facebookresearch/demucs/blob/main/LICENSE",
+    },
 )
 
 

@@ -9,7 +9,13 @@ from unittest.mock import patch
 import numpy as np
 from PIL import Image
 
-from wemute.ai_worker import InferenceSessionCache, erase_object, serve, upscale_image
+from wemute.ai_worker import (
+    InferenceSessionCache,
+    erase_object,
+    separate_vocals,
+    serve,
+    upscale_image,
+)
 
 
 def test_inference_session_cache_loads_each_model_once(tmp_path: Path) -> None:
@@ -27,6 +33,21 @@ def test_inference_session_cache_loads_each_model_once(tmp_path: Path) -> None:
     assert first is sentinel
     assert second is sentinel
     create.assert_called_once()
+
+
+def test_inference_cache_reuses_generic_resources() -> None:
+    cache = InferenceSessionCache()
+    created: list[object] = []
+
+    def factory() -> object:
+        value = object()
+        created.append(value)
+        return value
+
+    assert cache.resource(("separator", "model"), factory) is cache.resource(
+        ("separator", "model"), factory
+    )
+    assert len(created) == 1
 
 
 def test_worker_server_reuses_cache_across_requests() -> None:
@@ -133,3 +154,51 @@ def test_erase_worker_changes_only_the_masked_area(tmp_path: Path) -> None:
     with Image.open(output) as result:
         assert result.convert("RGB").getpixel((0, 0)) == (220, 40, 30)
         assert max(result.convert("RGB").getpixel((32, 24))) < 10
+
+
+def test_vocal_separation_writes_both_stems_and_reuses_model(tmp_path: Path) -> None:
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    (runtime / "htdemucs.safetensors").write_bytes(b"weights")
+    (runtime / "htdemucs_config.json").write_text("{}")
+    source = tmp_path / "mix.wav"
+    source.write_bytes(b"audio")
+    vocals = tmp_path / "Vocals.wav"
+    instrumental = tmp_path / "Instrumental.wav"
+    sessions = InferenceSessionCache()
+    model = object()
+    progress: list[float] = []
+
+    def fake_save(audio: np.ndarray, destination: Path, sample_rate: int) -> None:
+        assert audio.shape == (2, 12)
+        assert sample_rate == 44_100
+        destination.write_bytes(b"wave")
+
+    with (
+        patch("wemute.ai_worker._load_mlx_separator", return_value=model) as load,
+        patch(
+            "wemute.ai_worker._apply_mlx_separator",
+            return_value=(
+                np.ones((2, 12), dtype=np.float32),
+                np.zeros((2, 12), dtype=np.float32),
+                44_100,
+            ),
+        ),
+        patch("wemute.ai_worker._save_audio_stem", side_effect=fake_save),
+    ):
+        for index in range(2):
+            separate_vocals(
+                source,
+                vocals.with_stem(f"Vocals {index}"),
+                runtime,
+                {
+                    "instrumental_destination": str(
+                        instrumental.with_stem(f"Instrumental {index}")
+                    )
+                },
+                sessions,
+                progress.append,
+            )
+
+    load.assert_called_once_with(runtime)
+    assert progress[-1] == 1.0

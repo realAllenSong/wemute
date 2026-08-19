@@ -52,13 +52,35 @@ class AIEngineAdapter:
             )
         source = Path(job.source.path)
         destination.mkdir(parents=True, exist_ok=True)
-        final = unique_output_path(
-            source,
-            destination,
-            definition.output_extension,
-            suffix=f" {job.operation.value}",
-        )
+        if job.operation == OperationKind.SEPARATE_VOCALS:
+            final = unique_output_path(
+                source,
+                destination,
+                definition.output_extension,
+                suffix=" Vocals",
+            )
+            instrumental_final = unique_output_path(
+                source,
+                destination,
+                definition.output_extension,
+                suffix=" Instrumental",
+            )
+        else:
+            final = unique_output_path(
+                source,
+                destination,
+                definition.output_extension,
+                suffix=f" {job.operation.value}",
+            )
+            instrumental_final = None
         temporary = final.with_name(f".{final.stem}.wemute-{job.id[:8]}{final.suffix}")
+        instrumental_temporary = None
+        operation_options = dict(job.operation_options)
+        if instrumental_final is not None:
+            instrumental_temporary = instrumental_final.with_name(
+                f".{instrumental_final.stem}.wemute-{job.id[:8]}{instrumental_final.suffix}"
+            )
+            operation_options["instrumental_destination"] = str(instrumental_temporary)
         runtime_path = self.packages.runtime_path(manifest)
         worker_arguments = [
             job.operation.value,
@@ -66,7 +88,7 @@ class AIEngineAdapter:
             str(temporary),
             str(runtime_path),
             manifest.backend,
-            json.dumps(job.operation_options, separators=(",", ":")),
+            json.dumps(operation_options, separators=(",", ":")),
         ]
         if getattr(sys, "frozen", False):
             command = [sys.executable, "--ai-worker", *worker_arguments]
@@ -81,7 +103,7 @@ class AIEngineAdapter:
             "destination": str(temporary),
             "model": str(runtime_path),
             "backend": manifest.backend,
-            "options": job.operation_options,
+            "options": operation_options,
         }
         return ConversionPlan(
             job.id,
@@ -91,4 +113,9 @@ class AIEngineAdapter:
             command,
             server_command,
             request,
+            (
+                [(instrumental_temporary, instrumental_final)]
+                if instrumental_temporary is not None and instrumental_final is not None
+                else []
+            ),
         )

@@ -43,3 +43,21 @@ Sparkle 2.9.2
 License: MIT
 Source and license information: https://github.com/sparkle-project/Sparkle/blob/2.x/LICENSE
 The full license text and build provenance are bundled with Sparkle.framework.
+
+demucs-mlx 1.4.6
+License: MIT
+Source and license information: https://github.com/ssmall256/demucs-mlx/blob/main/LICENSE
+
+Apple MLX 0.31.2
+License: MIT
+Source and license information: https://github.com/ml-explore/mlx/blob/main/LICENSE
+
+mlx-audio-io 1.3.11 and mlx-spectro 0.7.0
+License: MIT; mlx-audio-io also carries the notices for its bundled codecs.
+Source and license information: https://github.com/ssmall256/mlx-audio-io
+
+Optional model package: HTDemucs 955717e8
+License: MIT
+Source and license information: https://github.com/facebookresearch/demucs/blob/main/LICENSE
+The separately downloaded model package includes its license, source URL,
+conversion provenance, and verified outer and inner SHA-256 digests.

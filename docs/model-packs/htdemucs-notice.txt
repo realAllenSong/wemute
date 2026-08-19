@@ -1,0 +1,16 @@
+Wemute optional HTDemucs MLX model pack
+
+Source model: facebookresearch/demucs htdemucs
+Source signature: 955717e8
+Source artifact: https://dl.fbaipublicfiles.com/demucs/hybrid_transformer/955717e8-8726e21a.th
+Source project: https://github.com/facebookresearch/demucs
+License: MIT (see demucs-license.txt)
+
+The source checkpoint was converted to MLX safetensors with demucs-mlx 1.4.6
+and MLX 0.31.2. The safetensors format is data-only;
+Wemute verifies the outer package SHA-256 and the inner safetensors SHA-256
+recorded by htdemucs_config.json before loading it.
+
+Wemute additionally validated the converted model against the official
+PyTorch HTDemucs output and requires a successful two-stem audio smoke test
+before publishing this package.

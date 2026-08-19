@@ -72,6 +72,29 @@
       "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
       "minimum_memory_gb": 8,
       "description": "A local brush-based tool for removing objects or marks you have the right to edit."
+    },
+    {
+      "id": "mlx-audio-separator",
+      "name": "Vocal & Instrumental Separation",
+      "version": "htdemucs-mlx-1.4.6",
+      "capability": "separate-vocals",
+      "filename": "wemute-htdemucs-mlx-1.4.6.zip",
+      "download_url": "https://github.com/realAllenSong/wemute-models/releases/download/model-packages-v1/wemute-htdemucs-mlx-1.4.6.zip",
+      "sha256": "1dbd31e52283d3a81dca54406ef6ffe4545031aff05cf0a0636e0565c57684df",
+      "size_bytes": 98171668,
+      "license": "MIT",
+      "license_url": "https://github.com/facebookresearch/demucs/blob/main/LICENSE",
+      "backend": "mlx-htdemucs",
+      "platforms": ["macos-arm64"],
+      "minimum_memory_gb": 16,
+      "description": "Apple Silicon-optimized local separation into Vocals and Instrumental WAV files.",
+      "archive_format": "zip",
+      "runtime_members": [
+        "htdemucs.safetensors",
+        "htdemucs_config.json",
+        "demucs-license.txt",
+        "NOTICE.txt"
+      ]
     }
   ]
 }

@@ -5,7 +5,7 @@ import math
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Hashable
 from pathlib import Path
 from typing import TextIO
 
@@ -53,6 +53,7 @@ def _providers(model: Path) -> list[object]:
 class InferenceSessionCache:
     def __init__(self) -> None:
         self._sessions: dict[tuple[Path, str], ort.InferenceSession] = {}
+        self._resources: dict[Hashable, object] = {}
 
     def session(self, model: Path, backend: str) -> ort.InferenceSession:
         key = (model.resolve(), backend)
@@ -69,6 +70,13 @@ class InferenceSessionCache:
                 )
             self._sessions[key] = session
         return session
+
+    def resource(self, key: Hashable, factory: Callable[[], object]) -> object:
+        resource = self._resources.get(key)
+        if resource is None:
+            resource = factory()
+            self._resources[key] = resource
+        return resource
 
 
 def _prepare_u2net(image: Image.Image, size: tuple[int, int]) -> np.ndarray:
@@ -228,6 +236,96 @@ def erase_object(
     progress(1.0)
 
 
+def _load_mlx_separator(runtime: Path) -> object:
+    from demucs_mlx.mlx_convert import load_mlx_model_from_safetensors
+
+    return load_mlx_model_from_safetensors(
+        "htdemucs",
+        cache_dir=str(runtime),
+        verbose=False,
+    )
+
+
+def _apply_mlx_separator(model: object, source: Path) -> tuple[np.ndarray, np.ndarray, int]:
+    import mlx.core as mx
+    import mlx_audio_io as mac
+    from demucs_mlx.apply_mlx import apply_model
+
+    sample_rate = int(getattr(model, "samplerate", 44_100))
+    audio, loaded_rate = mac.load(str(source), sr=sample_rate, dtype="float32")
+    sample_rate = int(loaded_rate)
+    audio_array = np.asarray(audio, dtype=np.float32)
+    if audio_array.ndim == 1:
+        audio_array = audio_array[:, None]
+    expected_channels = int(getattr(model, "audio_channels", 2))
+    if audio_array.shape[1] == 1 and expected_channels == 2:
+        audio_array = np.repeat(audio_array, 2, axis=1)
+    elif audio_array.shape[1] != expected_channels:
+        audio_array = audio_array[:, :expected_channels]
+    mix = mx.array(np.ascontiguousarray(audio_array.T[None, ...]))
+    estimates = apply_model(
+        model,
+        mix,
+        shifts=0,
+        split=True,
+        overlap=0.25,
+        progress=False,
+        batch_size=1,
+        seed=0,
+    )
+    mx.eval(estimates)
+    stems = np.asarray(estimates[0], dtype=np.float32)
+    sources = list(getattr(model, "sources", ("drums", "bass", "other", "vocals")))
+    try:
+        vocal_index = sources.index("vocals")
+    except ValueError as exc:
+        raise RuntimeError("The separation model does not provide a vocals stem.") from exc
+    vocals = stems[vocal_index]
+    instrumental = np.sum(np.delete(stems, vocal_index, axis=0), axis=0)
+    return vocals, instrumental, sample_rate
+
+
+def _save_audio_stem(audio: np.ndarray, destination: Path, sample_rate: int) -> None:
+    from demucs_mlx.audio import save_audio
+
+    # demucs-mlx currently maps 24/32-bit requests to float WAV.
+    # PCM16 has the widest playback compatibility across Finder, browsers,
+    # editors, and the bundled FFmpeg probe path.
+    save_audio(audio, destination, sample_rate, clip="clamp", bits_per_sample=16)
+
+
+def separate_vocals(
+    source: Path,
+    vocals_destination: Path,
+    runtime: Path,
+    options: dict[str, object],
+    sessions: InferenceSessionCache,
+    progress: ProgressCallback = _progress,
+) -> None:
+    instrumental_value = options.get("instrumental_destination")
+    if not instrumental_value:
+        raise ValueError("The instrumental output destination is missing.")
+    instrumental_destination = Path(str(instrumental_value))
+    weights = runtime / "htdemucs.safetensors"
+    config = runtime / "htdemucs_config.json"
+    if not weights.is_file() or not config.is_file():
+        raise FileNotFoundError("The vocal separation package is incomplete. Reinstall it.")
+    progress(0.05)
+    model = sessions.resource(
+        ("mlx-htdemucs", runtime.resolve()),
+        lambda: _load_mlx_separator(runtime),
+    )
+    progress(0.16)
+    vocals, instrumental, sample_rate = _apply_mlx_separator(model, source)
+    progress(0.88)
+    vocals_destination.parent.mkdir(parents=True, exist_ok=True)
+    instrumental_destination.parent.mkdir(parents=True, exist_ok=True)
+    _save_audio_stem(vocals, vocals_destination, sample_rate)
+    progress(0.94)
+    _save_audio_stem(instrumental, instrumental_destination, sample_rate)
+    progress(1.0)
+
+
 def run(
     operation: str,
     source: Path,
@@ -251,6 +349,9 @@ def run(
         return
     if operation == "erase-object" and backend == "onnxruntime-lama":
         erase_object(source, destination, model, backend, options, sessions, progress)
+        return
+    if operation == "separate-vocals" and backend == "mlx-htdemucs":
+        separate_vocals(source, destination, model, options, sessions, progress)
         return
     raise ValueError(f"Unsupported AI worker operation/backend: {operation}/{backend}")
 

@@ -120,3 +120,4 @@ class ConversionPlan:
     command: list[str] = field(default_factory=list)
     server_command: list[str] = field(default_factory=list)
     worker_request: dict[str, Any] = field(default_factory=dict)
+    additional_outputs: list[tuple[Path, Path]] = field(default_factory=list)
