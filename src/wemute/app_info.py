@@ -50,6 +50,12 @@ THIRD_PARTY_COMPONENTS: tuple[dict[str, str], ...] = (
         "url": "https://chromium.googlesource.com/webm/libvpx/+/refs/heads/main/LICENSE",
     },
     {
+        "name": "Sparkle",
+        "version": "2.9.2",
+        "license": "MIT",
+        "url": "https://github.com/sparkle-project/Sparkle/blob/2.x/LICENSE",
+    },
+    {
         "name": "ONNX Runtime",
         "version": "1.29.0",
         "license": "MIT",

@@ -27,18 +27,26 @@ while IFS= read -r -d '' item; do
   if [[ "$description" != *Mach-O* ]]; then
     continue
   fi
-  options=(--force --timestamp --sign "$IDENTITY")
+  options=(--force --timestamp --preserve-metadata=identifier,entitlements,requirements --sign "$IDENTITY")
   if [[ "$description" == *executable* ]]; then
     options+=(--options runtime)
   fi
   codesign "${options[@]}" "$item"
 done < <(find "$APP_PATH" -type f -print0)
 
-# Seal framework bundles after their contained binaries, deepest paths first.
-while IFS= read -r framework; do
-  [[ -n "$framework" ]] || continue
-  codesign --force --timestamp --sign "$IDENTITY" "$framework"
-done < <(find "$APP_PATH" -type d -name '*.framework' -print | awk '{ print length, $0 }' | sort -rn | cut -d' ' -f2-)
+# Seal nested frameworks, helper apps, and XPC services after their contained
+# binaries, deepest paths first. Preserve Sparkle's helper entitlements.
+while IFS= read -r bundle; do
+  [[ -n "$bundle" ]] || continue
+  options=(--force --timestamp --preserve-metadata=identifier,entitlements,requirements --sign "$IDENTITY")
+  if [[ "$bundle" == *.app || "$bundle" == *.xpc ]]; then
+    options+=(--options runtime)
+  fi
+  codesign "${options[@]}" "$bundle"
+done < <(
+  find "$APP_PATH" -type d \( -name '*.framework' -o -name '*.app' -o -name '*.xpc' \) ! -path "$APP_PATH" -print \
+    | awk '{ print length, $0 }' | sort -rn | cut -d' ' -f2-
+)
 
 codesign --force --timestamp --options runtime --sign "$IDENTITY" "$APP_PATH"
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"

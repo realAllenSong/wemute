@@ -19,6 +19,14 @@ notarize both the app and its DMG, staple tickets, and produce SHA-256 files.
      --password "APP_SPECIFIC_PASSWORD"
    ```
 
+4. Generate a Sparkle EdDSA update key. Keep the private key in Keychain and
+   back it up securely; the printed public key is used at build time:
+
+   ```sh
+   scripts/build-sparkle-macos.sh
+   build/runtime/sparkle/bin/generate_keys --account wemute
+   ```
+
 ## Local package test
 
 This creates an ad-hoc signed DMG without contacting Apple:
@@ -32,6 +40,7 @@ scripts/package-macos.sh --local
 ```sh
 export WEMUTE_SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
 export WEMUTE_NOTARY_PROFILE="wemute-notary"
+export WEMUTE_SPARKLE_PUBLIC_KEY="PUBLIC_KEY_PRINTED_BY_GENERATE_KEYS"
 scripts/package-macos.sh
 ```
 
@@ -42,3 +51,16 @@ notarization tickets.
 
 The release should still be installed and exercised from the DMG in a fresh
 macOS account with no Homebrew, Python, or model cache before publishing.
+
+`appcast.xml` is emitted beside the release archives and is itself backed by
+EdDSA-signed update archives. Upload it as a GitHub Release asset so the stable
+feed URL remains constant. Name the release tag `v<version>` so the generated
+archive URLs resolve. Sparkle retains the latest three versions in its
+feed; rollback is performed as a fix-forward release of the last known-good
+source with a higher build number, because secure clients correctly reject
+downgrades.
+
+For an emergency rollback, rebuild the last known-good source with a higher
+`WEMUTE_BUILD_NUMBER` (for example `2026081901`) while keeping the user-facing
+version intentional. Sparkle then treats it as a forward, signed recovery
+instead of accepting an attacker-friendly downgrade.

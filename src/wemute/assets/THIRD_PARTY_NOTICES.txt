@@ -38,3 +38,8 @@ output. No third-party HEVC encoder is embedded in Wemute.
 
 The bundled FFmpeg runtime has its own NOTICE, exact configure flags, source
 URL, checksum, and license texts under `wemute/runtime` in the application.
+
+Sparkle 2.9.2
+License: MIT
+Source and license information: https://github.com/sparkle-project/Sparkle/blob/2.x/LICENSE
+The full license text and build provenance are bundled with Sparkle.framework.

@@ -16,6 +16,8 @@ for required in \
   "$APP_PATH/Contents/Resources/wemute/runtime/bin/ffmpeg" \
   "$APP_PATH/Contents/Resources/wemute/runtime/bin/ffprobe" \
   "$APP_PATH/Contents/Resources/wemute/runtime/NOTICE.txt" \
+  "$APP_PATH/Contents/Frameworks/Sparkle.framework" \
+  "$APP_PATH/Contents/Resources/wemute/sparkle/LICENSE.txt" \
   "$APP_PATH/Contents/Resources/wemute/assets/THIRD_PARTY_NOTICES.txt"; do
   if [[ ! -e "$required" ]]; then
     echo "Release bundle is missing: $required" >&2
@@ -52,6 +54,10 @@ fi
 codesign --verify --deep --strict "$APP_PATH"
 
 if [[ "$MODE" == "signed" || "$MODE" == "notarized" ]]; then
+  if ! /usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$APP_PATH/Contents/Info.plist" >/dev/null 2>&1; then
+    echo "A public release must contain the Sparkle EdDSA public key." >&2
+    exit 1
+  fi
   signature="$(codesign --display --verbose=4 "$APP_PATH" 2>&1)"
   if ! print -r -- "$signature" | grep -q '^Authority=Developer ID Application:'; then
     echo "The app is not signed with a Developer ID Application identity." >&2

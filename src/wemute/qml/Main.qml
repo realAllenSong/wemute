@@ -69,6 +69,12 @@ ApplicationWindow {
         }
         MenuSeparator { }
         MenuItem {
+            text: window.tr("check_for_updates")
+            visible: updaterController.available
+            onTriggered: updaterController.checkForUpdates()
+        }
+        MenuSeparator { visible: updaterController.available }
+        MenuItem {
             text: window.tr("about_wemute")
             onTriggered: aboutPopup.open()
         }

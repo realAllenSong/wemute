@@ -18,19 +18,33 @@ for argument in "$@"; do
   esac
 done
 
+if [[ "$LOCAL_ONLY" != "1" ]]; then
+  for required_variable in WEMUTE_SIGN_IDENTITY WEMUTE_NOTARY_PROFILE WEMUTE_SPARKLE_PUBLIC_KEY; do
+    if [[ -z "${(P)required_variable:-}" ]]; then
+      echo "Set $required_variable before creating a public release." >&2
+      exit 1
+    fi
+  done
+fi
+
 if [[ "$SKIP_BUILD" != "1" ]]; then
   "$PROJECT_DIR/scripts/build-macos.sh"
 fi
 "$PROJECT_DIR/scripts/audit-macos-bundle.sh" "$APP_PATH" local
 
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Contents/Info.plist")"
+BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_PATH/Contents/Info.plist")"
+RELEASE_STEM="Wemute-${VERSION}"
+if [[ "$BUILD_NUMBER" != "$VERSION" ]]; then
+  RELEASE_STEM="${RELEASE_STEM}-${BUILD_NUMBER}"
+fi
 RELEASE_DIR="${PROJECT_DIR}/dist/releases"
 STAGE_DIR="${PROJECT_DIR}/build/dmg-stage"
 mkdir -p "$RELEASE_DIR"
 
 create_dmg() {
   local suffix="$1"
-  local dmg_path="${RELEASE_DIR}/Wemute-${VERSION}-macos-arm64${suffix}.dmg"
+  local dmg_path="${RELEASE_DIR}/${RELEASE_STEM}-macos-arm64${suffix}.dmg"
   rm -rf "$STAGE_DIR"
   mkdir -p "$STAGE_DIR"
   ditto "$APP_PATH" "$STAGE_DIR/Wemute.app"
@@ -52,24 +66,16 @@ if [[ "$LOCAL_ONLY" == "1" ]]; then
   exit 0
 fi
 
-if [[ -z "${WEMUTE_SIGN_IDENTITY:-}" ]]; then
-  echo "Set WEMUTE_SIGN_IDENTITY before creating a public release." >&2
-  exit 1
-fi
-if [[ -z "${WEMUTE_NOTARY_PROFILE:-}" ]]; then
-  echo "Set WEMUTE_NOTARY_PROFILE to a notarytool Keychain profile." >&2
-  exit 1
-fi
-
 "$PROJECT_DIR/scripts/sign-macos.sh" "$APP_PATH"
 
 # First notarize and staple the app itself, then place that stapled app inside
 # the final disk image. This keeps offline Gatekeeper verification reliable.
-APP_ZIP="${RELEASE_DIR}/Wemute-${VERSION}-macos-arm64.zip"
-ditto -c -k --keepParent "$APP_PATH" "$APP_ZIP"
+APP_ZIP="${RELEASE_DIR}/${RELEASE_STEM}-macos-arm64.zip"
+ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$APP_ZIP"
 xcrun notarytool submit "$APP_ZIP" --keychain-profile "$WEMUTE_NOTARY_PROFILE" --wait
 xcrun stapler staple "$APP_PATH"
 xcrun stapler validate "$APP_PATH"
+ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$APP_ZIP"
 "$PROJECT_DIR/scripts/audit-macos-bundle.sh" "$APP_PATH" notarized
 
 DMG_PATH="$(create_dmg '')"
@@ -79,6 +85,26 @@ xcrun stapler staple "$DMG_PATH"
 xcrun stapler validate "$DMG_PATH"
 spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG_PATH"
 hdiutil verify "$DMG_PATH"
-shasum -a 256 "$APP_ZIP" "$DMG_PATH" > "${RELEASE_DIR}/Wemute-${VERSION}-macos-arm64.sha256"
+shasum -a 256 "$APP_ZIP" "$DMG_PATH" > "${RELEASE_DIR}/${RELEASE_STEM}-macos-arm64.sha256"
+
+APPCAST_DIR="${PROJECT_DIR}/build/appcast-${VERSION}"
+rm -rf "$APPCAST_DIR"
+mkdir -p "$APPCAST_DIR"
+ditto "$APP_ZIP" "$APPCAST_DIR/$(basename "$APP_ZIP")"
+if [[ -f "$RELEASE_DIR/appcast.xml" ]]; then
+  ditto "$RELEASE_DIR/appcast.xml" "$APPCAST_DIR/appcast.xml"
+else
+  curl --fail --location --silent --show-error \
+    "${WEMUTE_SPARKLE_FEED_URL:-https://github.com/realAllenSong/wemute/releases/latest/download/appcast.xml}" \
+    --output "$APPCAST_DIR/appcast.xml" || true
+fi
+"$PROJECT_DIR/build/runtime/sparkle/bin/generate_appcast" \
+  --account "${WEMUTE_SPARKLE_KEY_ACCOUNT:-wemute}" \
+  --download-url-prefix "https://github.com/realAllenSong/wemute/releases/download/v${VERSION}/" \
+  --link "https://github.com/realAllenSong/wemute" \
+  --maximum-versions 3 \
+  -o "$APPCAST_DIR/appcast.xml" \
+  "$APPCAST_DIR"
+ditto "$APPCAST_DIR/appcast.xml" "$RELEASE_DIR/appcast.xml"
 
 echo "Created notarized release: $DMG_PATH"

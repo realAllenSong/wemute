@@ -20,6 +20,7 @@ from wemute.paths import QML_ROOT
 from wemute.probe import probe_file
 from wemute.queue_model import QueueModel
 from wemute.model_packages import ModelPackageManager
+from wemute.updater import SparkleUpdater
 from wemute import __version__
 
 
@@ -49,6 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--show-image-options", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--show-ai-tools", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--show-about", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--require-updater", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--image-worker", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--ai-worker", action="store_true", help=argparse.SUPPRESS)
     return parser
@@ -111,6 +113,12 @@ def main(argv: list[str] | None = None) -> int:
     controller = JobController(model, packages=packages)
     ai_model_controller = AIModelController(packages, model.set_enabled_ai_actions)
     app_info_controller = AppInfoController()
+    updater_controller = SparkleUpdater()
+    if arguments.require_updater and not updater_controller.available:
+        updater_controller.shutdown()
+        ai_model_controller.shutdown()
+        controller.shutdown()
+        return 4
     i18n = I18n()
 
     if arguments.demo_dir:
@@ -132,6 +140,7 @@ def main(argv: list[str] | None = None) -> int:
     context.setContextProperty("jobController", controller)
     context.setContextProperty("aiModelController", ai_model_controller)
     context.setContextProperty("appInfoController", app_info_controller)
+    context.setContextProperty("updaterController", updater_controller)
     context.setContextProperty("i18n", i18n)
     engine.load(QUrl.fromLocalFile(str(QML_ROOT / "Main.qml")))
     if not engine.rootObjects():
@@ -169,6 +178,7 @@ def main(argv: list[str] | None = None) -> int:
 
     app.aboutToQuit.connect(controller.shutdown)
     app.aboutToQuit.connect(ai_model_controller.shutdown)
+    app.aboutToQuit.connect(updater_controller.shutdown)
     return app.exec()
 
 
