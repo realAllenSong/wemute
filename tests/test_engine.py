@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import platform
 import uuid
 from pathlib import Path
 from unittest.mock import patch
@@ -10,6 +11,7 @@ from PIL import Image
 
 from wemute.domain import FileDescriptor, ImageOptions, JobRecord, MediaKind
 from wemute.engine import FfmpegAdapter, finalize_output
+from wemute.image_worker import convert_image
 from wemute.paths import resolve_engine
 from wemute.probe import probe_file
 
@@ -40,6 +42,23 @@ def test_image_worker_applies_resize_quality_and_rounding(tmp_path: Path) -> Non
     with Image.open(plan.final_output) as converted:
         assert converted.size == (60, 40)
         assert converted.convert("RGBA").getpixel((0, 0))[3] == 0
+
+
+@pytest.mark.skipif(platform.system() != "Darwin", reason="Uses the macOS ImageIO codec")
+def test_native_heic_roundtrip_does_not_require_a_bundled_hevc_library(tmp_path: Path) -> None:
+    source = tmp_path / "source.png"
+    heic = tmp_path / "converted.heic"
+    restored = tmp_path / "restored.png"
+    Image.new("RGB", (64, 48), (24, 112, 220)).save(source)
+
+    convert_image(source, heic, "HEIC", {"quality": 82})
+    descriptor = probe_file(heic, create_preview=False)
+    assert descriptor.width == 64
+    assert descriptor.height == 48
+
+    convert_image(heic, restored, "PNG")
+    with Image.open(restored) as converted:
+        assert converted.size == (64, 48)
 
 
 def test_macos_video_profiles_do_not_require_gpl_encoders(tmp_path: Path) -> None:

@@ -3,13 +3,13 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tempfile
+from contextlib import ExitStack
 from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw, ImageOps
-from pillow_heif import register_heif_opener
 
-
-register_heif_opener()
+from wemute.native_images import HEIC_SUFFIXES, decode_heic, encode_heic
 
 
 def convert_image(
@@ -20,7 +20,13 @@ def convert_image(
 ) -> None:
     options = options or {}
     output.parent.mkdir(parents=True, exist_ok=True)
-    with Image.open(source) as opened:
+    with ExitStack() as stack:
+        opened_path = source
+        if source.suffix.lower() in HEIC_SUFFIXES:
+            temporary_directory = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="wemute-heic-")))
+            opened_path = temporary_directory / "decoded.png"
+            decode_heic(source, opened_path)
+        opened = stack.enter_context(Image.open(opened_path))
         opened.seek(0)
         image = ImageOps.exif_transpose(opened)
         image.load()
@@ -78,8 +84,15 @@ def convert_image(
             save_kwargs.update(quality=quality, method=6)
             image.save(output, format="WEBP", **save_kwargs)
         elif target == "HEIC":
-            save_kwargs.update(quality=quality)
-            image.save(output, format="HEIF", **save_kwargs)
+            temporary_directory = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="wemute-heic-")))
+            intermediate = temporary_directory / "converted.png"
+            png_kwargs: dict[str, object] = {"compress_level": 3}
+            if icc:
+                png_kwargs["icc_profile"] = icc
+            if exif:
+                png_kwargs["exif"] = exif.tobytes()
+            image.save(intermediate, format="PNG", **png_kwargs)
+            encode_heic(intermediate, output, quality)
         elif target == "AVIF":
             save_kwargs.update(quality=quality)
             image.save(output, format="AVIF", **save_kwargs)

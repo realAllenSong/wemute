@@ -17,23 +17,6 @@ Pillow 12.3.0
 License: MIT-CMU
 Source and license information: https://github.com/python-pillow/Pillow/blob/main/LICENSE
 
-pillow-heif 1.5.0
-License: BSD-3-Clause
-Source and license information: https://github.com/bigcat88/pillow_heif/blob/master/LICENSE.txt
-
-The current Apple Silicon Alpha wheel for pillow-heif also bundles libheif
-1.23.1, libde265 1.1.1, and x265 4.2. libheif and libde265 are distributed
-under the GNU Lesser General Public License version 3. x265 is distributed
-under GNU GPL version 2 or later, or under a separate commercial license.
-Source and license information:
-https://github.com/strukturag/libheif/blob/master/COPYING
-https://github.com/strukturag/libde265/blob/master/COPYING
-https://github.com/videolan/x265/blob/master/COPYING
-
-This Alpha artifact is not the public distribution build. Wemute's public,
-proprietary build must not ship this GPL x265 binary. It must use a separately
-audited non-GPL HEIF implementation or a custom decoder-only/non-GPL build.
-
 ONNX Runtime 1.29.0
 License: MIT
 Source and license information: https://github.com/microsoft/onnxruntime/blob/main/LICENSE
@@ -50,6 +33,8 @@ Optional model package: U²-NetP 2020.1
 License: Apache-2.0
 Source and license information: https://github.com/xuebinqin/U-2-Net/blob/master/LICENSE
 
-FFmpeg is not bundled in Wemute 0.3.0. A future public build will list the
-exact FFmpeg configuration, corresponding source, enabled codecs, and license
-materials here before distribution.
+The macOS build uses the operating system's ImageIO codec for HEIC input and
+output. No third-party HEVC encoder is embedded in Wemute.
+
+The bundled FFmpeg runtime has its own NOTICE, exact configure flags, source
+URL, checksum, and license texts under `wemute/runtime` in the application.

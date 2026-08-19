@@ -4,17 +4,16 @@ import hashlib
 import json
 import mimetypes
 import subprocess
+import tempfile
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Any, Iterable
 
 from PIL import Image, ImageOps
-from pillow_heif import register_heif_opener
 
 from wemute.domain import FileDescriptor, MediaKind
+from wemute.native_images import HEIC_SUFFIXES, decode_heic, heic_dimensions
 from wemute.paths import THUMBNAIL_ROOT, resolve_engine
-
-
-register_heif_opener()
 
 IMAGE_SUFFIXES = {
     ".jpg",
@@ -114,7 +113,13 @@ def _thumbnail_key(path: Path) -> str:
 
 def _image_thumbnail(path: Path, target: Path) -> bool:
     try:
-        with Image.open(path) as image:
+        with ExitStack() as stack:
+            opened_path = path
+            if path.suffix.lower() in HEIC_SUFFIXES:
+                temporary = stack.enter_context(tempfile.TemporaryDirectory(prefix="wemute-heic-thumb-"))
+                opened_path = Path(temporary) / "decoded.png"
+                decode_heic(path, opened_path)
+            image = stack.enter_context(Image.open(opened_path))
             image = ImageOps.exif_transpose(image)
             if getattr(image, "is_animated", False):
                 image.seek(0)
@@ -128,7 +133,7 @@ def _image_thumbnail(path: Path, target: Path) -> bool:
                 background.paste(image)
             background.save(target, format="JPEG", quality=88, optimize=True)
         return True
-    except (OSError, ValueError):
+    except (OSError, RuntimeError, ValueError):
         return False
 
 
@@ -199,11 +204,19 @@ def probe_file(path: Path, *, create_preview: bool = True) -> FileDescriptor:
     channels: int | None = None
 
     if kind == MediaKind.IMAGE:
-        try:
-            with Image.open(path) as image:
-                width, height = image.size
-        except (OSError, ValueError):
-            pass
+        if path.suffix.lower() in HEIC_SUFFIXES:
+            try:
+                dimensions = heic_dimensions(path)
+                if dimensions:
+                    width, height = dimensions
+            except RuntimeError:
+                pass
+        else:
+            try:
+                with Image.open(path) as image:
+                    width, height = image.size
+            except (OSError, ValueError):
+                pass
     elif kind in {MediaKind.AUDIO, MediaKind.VIDEO}:
         payload = _ffprobe(path)
         streams = payload.get("streams", [])
