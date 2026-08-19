@@ -19,6 +19,11 @@
 - Validate outputs in QuickTime, Preview, VLC/IINA and a fresh ffprobe pass.
 - Add update signing, rollback and a crash-safe migration for queue/settings data.
 
+The automated path is `scripts/package-macos.sh`. `--local` produces a test
+DMG; the default path requires a Developer ID identity and a `notarytool`
+Keychain profile, signs nested code explicitly, notarizes/staples the app and
+DMG, and runs `scripts/audit-macos-bundle.sh` before release.
+
 ## AI package gate
 
 - Every remote artifact has an allow-listed HTTPS URL, exact byte count, SHA-256,
