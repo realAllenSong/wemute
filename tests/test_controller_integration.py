@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import time
+import sys
 import uuid
 from pathlib import Path
 
@@ -8,7 +8,7 @@ from PIL import Image
 from PySide6.QtCore import QCoreApplication, QEventLoop, QTimer
 
 from wemute.controller import JobController
-from wemute.domain import JobRecord, JobStatus, MediaKind, OperationKind
+from wemute.domain import ConversionPlan, JobRecord, JobStatus, MediaKind, OperationKind
 from wemute.persistence import QueueStore
 from wemute.probe import probe_file
 from wemute.queue_model import QueueModel
@@ -112,4 +112,64 @@ def test_group_ai_action_keeps_per_file_conversion_override(tmp_path: Path) -> N
     assert jobs[0].operation == OperationKind.REMOVE_BACKGROUND
     assert jobs[1].operation == OperationKind.CONVERT
     assert jobs[1].target_format == "JPEG"
+    controller.shutdown()
+
+
+def test_controller_reuses_one_ai_worker_for_a_batch(tmp_path: Path) -> None:
+    app = QCoreApplication.instance() or QCoreApplication([])
+    del app
+    sources: list[Path] = []
+    for index, color in enumerate(("navy", "gold")):
+        source = tmp_path / f"source-{index}.png"
+        Image.new("RGB", (32, 24), color).save(source)
+        sources.append(source)
+    jobs = [
+        JobRecord(
+            f"job-{index}",
+            probe_file(source, create_preview=False),
+            "PNG",
+            operation=OperationKind.REMOVE_BACKGROUND,
+        )
+        for index, source in enumerate(sources)
+    ]
+    model = QueueModel(jobs)
+    controller = JobController(model, QueueStore(tmp_path / "queue.json"))
+
+    server = """
+import json
+import os
+from pathlib import Path
+import sys
+
+for line in sys.stdin:
+    request = json.loads(line)
+    Path(request["destination"]).write_text(str(os.getpid()))
+    event = {"job_id": request["job_id"], "type": "result", "ok": True}
+    print("wemute_event=" + json.dumps(event, separators=(",", ":")), flush=True)
+    """
+
+    def fake_plan(job: JobRecord, destination: Path) -> ConversionPlan:
+        destination.mkdir(parents=True, exist_ok=True)
+        final = destination / f"{job.id}.txt"
+        temporary = destination / f".{job.id}.tmp.txt"
+        return ConversionPlan(
+            job.id,
+            Path(job.source.path),
+            temporary,
+            final,
+            server_command=[sys.executable, "-u", "-c", server],
+            worker_request={
+                "job_id": job.id,
+                "destination": str(temporary),
+            },
+        )
+
+    controller.adapter.plan = fake_plan  # type: ignore[method-assign]
+    controller._destination = str(tmp_path / "out")
+    run_queue(controller)
+
+    assert all(job.status == JobStatus.SUCCEEDED for job in jobs)
+    worker_pids = {Path(job.output_path or "").read_text() for job in jobs}
+    assert len(worker_pids) == 1
+    assert controller._ai_process is not None
     controller.shutdown()

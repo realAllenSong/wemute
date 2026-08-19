@@ -69,6 +69,25 @@ class AIEngineAdapter:
         ]
         if getattr(sys, "frozen", False):
             command = [sys.executable, "--ai-worker", *worker_arguments]
+            server_command = [sys.executable, "--ai-worker-server"]
         else:
             command = [sys.executable, "-m", "wemute.ai_worker", *worker_arguments]
-        return ConversionPlan(job.id, source, temporary, final, command)
+            server_command = [sys.executable, "-m", "wemute.ai_worker", "--serve"]
+        request = {
+            "job_id": job.id,
+            "operation": job.operation.value,
+            "source": str(source),
+            "destination": str(temporary),
+            "model": str(self.packages.package_path(manifest)),
+            "backend": manifest.backend,
+            "options": job.operation_options,
+        }
+        return ConversionPlan(
+            job.id,
+            source,
+            temporary,
+            final,
+            command,
+            server_command,
+            request,
+        )

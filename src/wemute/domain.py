@@ -117,3 +117,5 @@ class ConversionPlan:
     temporary_output: Path
     final_output: Path
     command: list[str] = field(default_factory=list)
+    server_command: list[str] = field(default_factory=list)
+    worker_request: dict[str, Any] = field(default_factory=dict)

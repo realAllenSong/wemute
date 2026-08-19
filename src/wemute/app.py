@@ -53,6 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-updater", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--image-worker", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--ai-worker", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--ai-worker-server", action="store_true", help=argparse.SUPPRESS)
     return parser
 
 
@@ -96,6 +97,10 @@ def main(argv: list[str] | None = None) -> int:
         from wemute.ai_worker import main as ai_worker_main
 
         return ai_worker_main(arguments.paths)
+    if arguments.ai_worker_server:
+        from wemute.ai_worker import serve as ai_worker_serve
+
+        return ai_worker_serve()
     os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
     QQuickStyle.setStyle("Basic")
     QApplication.setHighDpiScaleFactorRoundingPolicy(

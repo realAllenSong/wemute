@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import json
 import os
 import time
 import uuid
@@ -58,6 +59,8 @@ class JobController(QObject):
         self._last_error = ""
         self._destination = str(self.settings.value("destination", ""))
         self._process: QProcess | None = None
+        self._ai_process: QProcess | None = None
+        self._active_uses_ai_worker = False
         self._active_job: JobRecord | None = None
         self._active_plan: ConversionPlan | None = None
         self._stderr = bytearray()
@@ -144,6 +147,9 @@ class JobController(QObject):
         if self._process and self._process.state() != QProcess.NotRunning:
             self._process.kill()
             self._process.waitForFinished(1000)
+        if self._ai_process and self._ai_process.state() != QProcess.NotRunning:
+            self._ai_process.kill()
+            self._ai_process.waitForFinished(1000)
         self.store.save(self.model.jobs)
         self._executor.shutdown(wait=False, cancel_futures=True)
 
@@ -425,8 +431,13 @@ class JobController(QObject):
         self._stderr.clear()
         self._stdout_buffer = ""
         self._cancel_requested = False
+        self._active_uses_ai_worker = bool(plan.worker_request)
         self.model.refresh()
         self._persist()
+
+        if plan.worker_request:
+            self._start_ai_request(plan)
+            return
 
         process = QProcess(self)
         process.setProcessChannelMode(QProcess.SeparateChannels)
@@ -437,11 +448,30 @@ class JobController(QObject):
         self._process = process
         process.start(plan.command[0], plan.command[1:])
 
+    def _start_ai_request(self, plan: ConversionPlan) -> None:
+        process = self._ai_process
+        if process is None or process.state() == QProcess.NotRunning:
+            process = QProcess(self)
+            process.setProcessChannelMode(QProcess.SeparateChannels)
+            process.readyReadStandardOutput.connect(self._read_progress)
+            process.readyReadStandardError.connect(self._read_stderr)
+            process.finished.connect(self._ai_worker_finished)
+            process.errorOccurred.connect(self._process_error)
+            self._ai_process = process
+            process.start(plan.server_command[0], plan.server_command[1:])
+            if not process.waitForStarted(3000):
+                self._finish_ai_result(False, process.errorString() or "AI worker did not start.")
+                return
+        payload = json.dumps(plan.worker_request, separators=(",", ":")) + "\n"
+        if process.write(payload.encode("utf-8")) < 0:
+            self._finish_ai_result(False, process.errorString() or "AI worker request failed.")
+
     @Slot()
     def _read_progress(self) -> None:
-        if not self._process or not self._active_job:
+        process = self.sender()
+        if not isinstance(process, QProcess) or not self._active_job:
             return
-        self._stdout_buffer += bytes(self._process.readAllStandardOutput()).decode(
+        self._stdout_buffer += bytes(process.readAllStandardOutput()).decode(
             "utf-8", errors="replace"
         )
         lines = self._stdout_buffer.split("\n")
@@ -458,6 +488,31 @@ class JobController(QObject):
                     changed = True
                 except ValueError:
                     continue
+            elif key == "wemute_event":
+                try:
+                    event = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                if event.get("job_id") != self._active_job.id:
+                    continue
+                if event.get("type") == "progress":
+                    try:
+                        self._active_job.progress = max(
+                            self._active_job.progress,
+                            min(0.99, float(event.get("value", 0.0))),
+                        )
+                        changed = True
+                    except (TypeError, ValueError):
+                        continue
+                elif event.get("type") == "result":
+                    ok = bool(event.get("ok"))
+                    error = str(event.get("error", ""))
+                    QTimer.singleShot(
+                        0,
+                        lambda succeeded=ok, message=error: self._finish_ai_result(
+                            succeeded, message
+                        ),
+                    )
             elif key in {"out_time_us", "out_time_ms"} and duration:
                 try:
                     micros = int(raw)
@@ -475,8 +530,56 @@ class JobController(QObject):
 
     @Slot()
     def _read_stderr(self) -> None:
-        if self._process:
-            self._stderr.extend(bytes(self._process.readAllStandardError()))
+        process = self.sender()
+        if isinstance(process, QProcess):
+            self._stderr.extend(bytes(process.readAllStandardError()))
+
+    def _finish_ai_result(self, succeeded: bool, error: str = "") -> None:
+        job = self._active_job
+        plan = self._active_plan
+        if not job or not plan or not self._active_uses_ai_worker:
+            return
+        if self._cancel_requested or job.status == JobStatus.CANCELLED:
+            remove_partial_output(plan)
+            job.status = JobStatus.CANCELLED
+            job.progress = 0.0
+        elif succeeded:
+            try:
+                job.output_size = finalize_output(plan)
+                job.output_path = str(plan.final_output)
+                job.status = JobStatus.SUCCEEDED
+                job.progress = 1.0
+            except Exception as exc:
+                job.status = JobStatus.FAILED
+                job.error = str(exc)
+                remove_partial_output(plan)
+        else:
+            stderr = self._stderr.decode("utf-8", errors="replace").strip()
+            job.status = JobStatus.FAILED
+            job.error = error or (stderr.splitlines()[-1] if stderr else "AI worker failed.")
+            job.progress = 0.0
+            remove_partial_output(plan)
+        self._active_job = None
+        self._active_plan = None
+        self._active_uses_ai_worker = False
+        self.model.refresh()
+        self._persist()
+        QTimer.singleShot(0, self._run_next)
+
+    @Slot(int, QProcess.ExitStatus)
+    def _ai_worker_finished(self, exit_code: int, _exit_status: QProcess.ExitStatus) -> None:
+        process = self._ai_process
+        self._ai_process = None
+        if process:
+            process.deleteLater()
+        if not self._active_uses_ai_worker:
+            return
+        if self._cancel_requested:
+            self._finish_ai_result(False, "")
+            return
+        stderr = self._stderr.decode("utf-8", errors="replace").strip()
+        message = stderr.splitlines()[-1] if stderr else f"AI worker exited with code {exit_code}."
+        self._finish_ai_result(False, message)
 
     @Slot(int, QProcess.ExitStatus)
     def _process_finished(self, exit_code: int, _exit_status: QProcess.ExitStatus) -> None:
@@ -510,21 +613,28 @@ class JobController(QObject):
             remove_partial_output(plan)
         self._active_job = None
         self._active_plan = None
+        self._active_uses_ai_worker = False
         self.model.refresh()
         self._persist()
         QTimer.singleShot(0, self._run_next)
 
     @Slot(QProcess.ProcessError)
     def _process_error(self, _error: QProcess.ProcessError) -> None:
-        if self._process:
-            self._stderr.extend(self._process.errorString().encode("utf-8"))
+        process = self.sender()
+        if isinstance(process, QProcess):
+            self._stderr.extend(process.errorString().encode("utf-8"))
 
     @Slot(str)
     def cancelJob(self, job_id: str) -> None:
         job = self.model.find(job_id)
         if not job:
             return
-        if self._active_job and self._active_job.id == job_id and self._process:
+        if self._active_job and self._active_job.id == job_id and self._active_uses_ai_worker:
+            self._cancel_requested = True
+            job.status = JobStatus.CANCELLED
+            if self._ai_process:
+                self._ai_process.kill()
+        elif self._active_job and self._active_job.id == job_id and self._process:
             self._cancel_requested = True
             job.status = JobStatus.CANCELLED
             self._process.terminate()
