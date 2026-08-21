@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { downloadZip } from "../lib/download";
 import { formatBytes, isImageFile, outputNameFor } from "../lib/files";
 import { convertImage, probeImage } from "../lib/image-conversion";
+import { track } from "../lib/analytics";
 import type { ConversionOptions, OutputFormat, QueueImage } from "../types";
 
 function createId(): string {
@@ -40,6 +41,7 @@ export function useImageQueue(options: ConversionOptions, initialFormat: OutputF
     (inputFiles: FileList | File[]) => {
       const files = Array.from(inputFiles).filter(isImageFile);
       if (files.length === 0) return;
+      track("files_added", { file_count: files.length, file_category: "image" });
 
       const nextItems = files.map<QueueImage>((file) => ({
         id: createId(),
@@ -107,6 +109,7 @@ export function useImageQueue(options: ConversionOptions, initialFormat: OutputF
   }, []);
 
   const setGroupFormat = useCallback((format: OutputFormat) => {
+    if (itemsRef.current.length > 0) track("batch_format_changed", { output_format: format });
     setGroupFormatState(format);
     setItems((current) =>
       current.map((item) => ({
@@ -138,10 +141,16 @@ export function useImageQueue(options: ConversionOptions, initialFormat: OutputF
     const convertible = items.filter((item) => item.status !== "preparing");
     if (convertible.length > 0 && convertible.every((item) => item.status === "done" && item.outputBlob)) {
       await downloadAll();
+      track("download_completed", { file_count: outputFiles.length, download_type: "zip" });
       return;
     }
 
     setIsConverting(true);
+    const formats = new Set(items.map((item) => item.targetFormat));
+    track("conversion_started", {
+      file_count: convertible.length,
+      output_format: formats.size === 1 ? [...formats][0] : "mixed",
+    });
     const converted: { blob: Blob; name: string }[] = [];
     for (const queuedItem of items) {
       if (queuedItem.status === "preparing") continue;
@@ -182,8 +191,16 @@ export function useImageQueue(options: ConversionOptions, initialFormat: OutputF
       }
     }
     setIsConverting(false);
-    if (converted.length > 0) await downloadZip(converted);
-  }, [downloadAll, isConverting, items, options]);
+    track("conversion_completed", {
+      attempted_count: convertible.length,
+      succeeded_count: converted.length,
+      failed_count: Math.max(0, convertible.length - converted.length),
+    });
+    if (converted.length > 0) {
+      await downloadZip(converted);
+      track("download_completed", { file_count: converted.length, download_type: "zip" });
+    }
+  }, [downloadAll, isConverting, items, options, outputFiles.length]);
 
   const readyCount = items.filter((item) => item.status !== "preparing" && item.status !== "error").length;
   const totalSourceBytes = items.reduce((total, item) => total + item.file.size, 0);

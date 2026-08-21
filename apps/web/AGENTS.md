@@ -14,3 +14,5 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - Keep the established graphite, blue-accented, restrained Wemute visual system. Borrow iLoveIMG's clarity and discoverability, not its dense tool-card wall.
 - The core workflow stays local-first and immediate: one large drop action, group-level defaults, optional per-file overrides, and no account requirement.
 - Advertising must never sit beside upload, conversion, file-row, progress, or download controls. Reserve stable placements only after useful explanatory content and hide ads from active processing/result views.
+- The desktop app is a private tool for the owner. Do not advertise, distribute, or link to it from the public website.
+- The public website is a free, browser-local utility funded by clearly separated advertising. Organic search and answer-engine visibility must come from useful, independently valuable tool pages, never thin keyword permutations.

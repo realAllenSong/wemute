@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowDown, faGlobe } from "@fortawesome/free-solid-svg-icons";
+import { faArrowRight, faGlobe } from "@fortawesome/free-solid-svg-icons";
 import type { Locale } from "../types";
 
 interface AppHeaderProps {
@@ -10,17 +10,22 @@ interface AppHeaderProps {
 }
 
 export function AppHeader({ locale, compact = false, onNavigate, onToggleLocale }: AppHeaderProps) {
+  const navigate = (event: React.MouseEvent<HTMLAnchorElement>, path: string) => {
+    event.preventDefault();
+    onNavigate(path);
+  };
+
   return (
     <header className={`app-header${compact ? " app-header--compact" : ""}`}>
-      <button className="brand-button" type="button" onClick={() => onNavigate("/")}>
+      <a className="brand-button" href="/" onClick={(event) => navigate(event, "/")}>
         <span className="brand-mark" aria-hidden="true"><span /></span>
         <span className="brand">Wemute</span>
-      </button>
+      </a>
       {!compact && (
         <nav className="site-nav" aria-label={locale === "en" ? "Primary navigation" : "主导航"}>
-          <button type="button" onClick={() => onNavigate("/#tools")}>{locale === "en" ? "Image tools" : "图片工具"}</button>
-          <button type="button" onClick={() => onNavigate("/#privacy")}>{locale === "en" ? "Privacy" : "隐私"}</button>
-          <button type="button" onClick={() => onNavigate("/#desktop")}>{locale === "en" ? "Desktop app" : "桌面版"}</button>
+          <a href="/#tools" onClick={(event) => navigate(event, "/#tools")}>{locale === "en" ? "Image tools" : "图片工具"}</a>
+          <a href="/#privacy" onClick={(event) => navigate(event, "/#privacy")}>{locale === "en" ? "How privacy works" : "隐私原理"}</a>
+          <a href="/about" onClick={(event) => navigate(event, "/about")}>{locale === "en" ? "About" : "关于"}</a>
         </nav>
       )}
       <div className="header-actions">
@@ -29,9 +34,9 @@ export function AppHeader({ locale, compact = false, onNavigate, onToggleLocale 
           <span>{locale === "en" ? "中文" : "EN"}</span>
         </button>
         {!compact && (
-          <button className="header-download" type="button" onClick={() => onNavigate("/#desktop")}>
-            {locale === "en" ? "Get Wemute" : "获取 Wemute"}<FontAwesomeIcon icon={faArrowDown} />
-          </button>
+          <a className="header-download" href="/#tools" onClick={(event) => navigate(event, "/#tools")}>
+            {locale === "en" ? "Use a tool" : "开始使用"}<FontAwesomeIcon icon={faArrowRight} />
+          </a>
         )}
       </div>
     </header>

@@ -2,14 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faGear, faLayerGroup, faShieldHalved, faTrashCan } from "@fortawesome/free-solid-svg-icons";
 import { AppHeader } from "./components/AppHeader";
+import { AnalyticsConsent } from "./components/AnalyticsConsent";
 import { FileRow } from "./components/FileRow";
 import { FormatSelect } from "./components/FormatSelect";
 import { HomePage } from "./components/HomePage";
 import { OptionsPopover } from "./components/OptionsPopover";
+import { StaticPage } from "./components/StaticPage";
 import { ToolLandingPage } from "./components/ToolLandingPage";
 import { useImageQueue } from "./hooks/use-image-queue";
 import { defaultLocale, t } from "./i18n";
-import { safePath, toolFromPath } from "./site";
+import { trackPageView } from "./lib/analytics";
+import { applyPageMetadata } from "./lib/seo";
+import { safePath, staticPageFromPath, toolFromPath } from "./site";
 import type { ConversionOptions, Locale } from "./types";
 
 const INITIAL_OPTIONS: ConversionOptions = {
@@ -24,6 +28,7 @@ export function App() {
   const [pathname, setPathname] = useState(() => safePath(window.location.pathname));
   const [locale, setLocale] = useState<Locale>(() => defaultLocale());
   const selectedTool = useMemo(() => toolFromPath(pathname), [pathname]);
+  const staticPage = useMemo(() => staticPageFromPath(pathname), [pathname]);
   const [options, setOptions] = useState<ConversionOptions>(() => selectedTool?.options ?? INITIAL_OPTIONS);
   const [showOptions, setShowOptions] = useState(false);
   const [dragDepth, setDragDepth] = useState(0);
@@ -57,6 +62,11 @@ export function App() {
     setOptions(nextTool?.options ?? INITIAL_OPTIONS);
     queue.setGroupFormat(nextTool?.format ?? "webp");
   }, [pathname]);
+
+  useEffect(() => {
+    applyPageMetadata(pathname, locale);
+    trackPageView(pathname, document.title);
+  }, [locale, pathname]);
 
   const hasFiles = queue.items.length > 0;
 
@@ -104,6 +114,8 @@ export function App() {
             onChoose={chooseFiles}
             onNavigate={navigate}
           />
+        ) : staticPage ? (
+          <StaticPage page={staticPage} locale={locale} onNavigate={navigate} />
         ) : (
           <HomePage
             locale={locale}
@@ -184,6 +196,7 @@ export function App() {
           </footer>
         </>
       )}
+      {!hasFiles && <AnalyticsConsent locale={locale} onNavigate={navigate} />}
     </div>
   );
 }

@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/prepare-sites-build.mjs",
+    "build": "vite build && node scripts/generate-public-pages.mjs && node scripts/prepare-sites-build.mjs && node scripts/audit-public-build.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "test:sites": "node --test tests/sites-worker.test.mjs"
+    "test:sites": "node --test tests/sites-worker.test.mjs",
+    "test:seo": "node scripts/audit-public-build.mjs"
   },
   "dependencies": {
     "@fortawesome/free-solid-svg-icons": "^7.3.1",
