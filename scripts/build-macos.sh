@@ -20,7 +20,7 @@ uv run pyinstaller \
   --clean \
   --windowed \
   --name Wemute \
-  --icon build/Wemute.icns \
+  --icon build/WemuteApp.icns \
   --osx-bundle-identifier com.wemute.app \
   --paths src \
   --additional-hooks-dir scripts/pyinstaller-hooks \

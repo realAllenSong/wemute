@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="${0:A:h}"
 PROJECT_DIR="${SCRIPT_DIR:h}"
 SOURCE_ICON="${PROJECT_DIR}/src/wemute/assets/brand/wemute-app-icon-1024.png"
-OUTPUT_ICON="${PROJECT_DIR}/build/Wemute.icns"
+OUTPUT_ICON="${PROJECT_DIR}/build/WemuteApp.icns"
 
 if [[ ! -f "$SOURCE_ICON" ]]; then
   echo "Missing source icon: $SOURCE_ICON" >&2

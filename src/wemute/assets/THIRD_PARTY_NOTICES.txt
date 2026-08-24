@@ -2,7 +2,7 @@ Wemute third-party notices
 ==========================
 
 This distribution contains or uses the following third-party software. The
-version list is generated for Wemute 0.3.0 and must be refreshed for every
+version list is generated for Wemute 0.3.1 and must be refreshed for every
 public release.
 
 Qt for Python / PySide6 6.10.3 and Shiboken6 6.10.3

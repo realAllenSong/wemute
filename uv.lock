@@ -485,7 +485,7 @@ wheels = [
 
 [[package]]
 name = "wemute"
-version = "0.3.0"
+version = "0.3.1"
 source = { editable = "." }
 dependencies = [
     { name = "demucs-mlx", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
