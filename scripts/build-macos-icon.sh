@@ -11,6 +11,11 @@ if [[ ! -f "$SOURCE_ICON" ]]; then
   exit 1
 fi
 
+if ! sips -g hasAlpha "$SOURCE_ICON" 2>/dev/null | rg -q 'hasAlpha: yes'; then
+  echo "Source icon must contain transparency so macOS does not render a square canvas: $SOURCE_ICON" >&2
+  exit 1
+fi
+
 ICON_WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/wemute-icon.XXXXXX")"
 trap 'rm -rf "$ICON_WORK_DIR"' EXIT
 ICONSET_DIR="${ICON_WORK_DIR}/Wemute.iconset"
