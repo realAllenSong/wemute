@@ -256,7 +256,7 @@ export const LEGAL_CONTENT = [
     slug: "terms",
     path: "/terms",
     seoTitle: "Wemute Terms of Use — Free Browser Image Tools",
-    seoDescription: "Read the straightforward terms for using Wemute's free browser-local image tools, including acceptable use, file responsibility, availability, and service limits.",
+    seoDescription: "Read the terms for Wemute's free browser-local image tools, including acceptable use, file responsibility, availability, and service limits.",
     title: { en: "Simple terms for a simple tool", zh: "简单工具，简单条款" },
     updated: "August 21, 2026",
     intro: {
