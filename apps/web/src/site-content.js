@@ -9,12 +9,12 @@ export const SITE_CONTENT = {
     seoTitle: "Free Image Converter, Compressor & Resizer | Wemute",
     seoDescription: "Convert, compress, resize, and round image corners in private browser-local batches. Free, fast, and no upload required.",
     h1: {
-      en: "The image tools you need. Nothing else.",
-      zh: "常用图片工具，刚刚好。",
+      en: "Convert, compress, and resize images in one batch.",
+      zh: "一批图片，一次处理完成。",
     },
     intro: {
-      en: "Convert, compress and resize a whole batch in your browser. Fast, private, and free to use.",
-      zh: "在浏览器里批量转换、压缩和调整尺寸。快速、私密，免费使用。",
+      en: "Drop a whole set, choose one result, and download. Everything runs locally in your browser — no account and no upload queue.",
+      zh: "拖入整组图片，选择结果，然后下载。所有处理都在浏览器本地完成，无需账号，也无需等待上传。",
     },
     faqs: [
       {
@@ -99,7 +99,7 @@ export const TOOL_CONTENT = [
     },
     dropHint: { en: "Drop images to compress them locally", zh: "拖入图片，在本机完成压缩" },
     seoTitle: "Free Image Compressor — Compress Images Privately | Wemute",
-    seoDescription: "Compress multiple PNG, JPG, and WebP images in your browser. Reduce file size with practical presets and no upload.",
+    seoDescription: "Compress multiple PNG, JPG, and WebP images locally in your browser. Compare practical quality presets, reduce file size, and download without uploading.",
     answer: {
       en: "Wemute reduces image file size locally using practical quality presets. It shows the combined before-and-after size and downloads every result together.",
       zh: "Wemute 使用实用的质量预设在本地减小图片体积，并显示整批处理前后的大小，最后统一下载。",
@@ -187,7 +187,7 @@ export const TOOL_CONTENT = [
     },
     dropHint: { en: "Drop images to add transparent corners", zh: "拖入图片，添加透明圆角" },
     seoTitle: "Free Image Corner Rounder — Transparent PNG Corners | Wemute",
-    seoDescription: "Round image corners in one browser-local batch. Create transparent PNG corners with an adjustable radius and no upload.",
+    seoDescription: "Round image corners in one browser-local batch. Choose an adjustable radius, create transparent PNG results, and download without uploading your files.",
     answer: {
       en: "Wemute adds transparent rounded corners to multiple images at once. Adjust the radius, keep original dimensions, and download PNG results.",
       zh: "Wemute 可以一次为多张图片添加透明圆角。调整圆角半径、保留原始尺寸，并下载 PNG 结果。",
@@ -225,8 +225,8 @@ export const LEGAL_CONTENT = [
   {
     slug: "privacy",
     path: "/privacy",
-    seoTitle: "Privacy Policy | Wemute",
-    seoDescription: "How Wemute Web protects image contents, handles optional analytics and advertising, and stores browser preferences.",
+    seoTitle: "Wemute Privacy Policy — Local Image Processing",
+    seoDescription: "Learn how Wemute Web keeps supported image processing on your device, handles optional analytics and advertising, and stores only necessary browser preferences.",
     title: { en: "Privacy, in plain language", zh: "用简单的话说明隐私" },
     updated: "August 21, 2026",
     intro: {
@@ -255,8 +255,8 @@ export const LEGAL_CONTENT = [
   {
     slug: "terms",
     path: "/terms",
-    seoTitle: "Terms of Use | Wemute",
-    seoDescription: "The simple terms for using Wemute's free browser-local image tools.",
+    seoTitle: "Wemute Terms of Use — Free Browser Image Tools",
+    seoDescription: "Read the straightforward terms for using Wemute's free browser-local image tools, including acceptable use, file responsibility, availability, and service limits.",
     title: { en: "Simple terms for a simple tool", zh: "简单工具，简单条款" },
     updated: "August 21, 2026",
     intro: {
@@ -286,7 +286,7 @@ export const LEGAL_CONTENT = [
     slug: "about",
     path: "/about",
     seoTitle: "About Wemute | Private, Browser-Local Image Tools",
-    seoDescription: "Why Wemute keeps common image work simple, free, and local to your browser.",
+    seoDescription: "Learn why Wemute makes common image work simple, batch-first, free to use, and local to your browser, without accounts or unnecessary uploads.",
     title: { en: "A quieter way to work with images", zh: "一种更安静的图片处理方式" },
     updated: "August 21, 2026",
     intro: {
@@ -382,6 +382,33 @@ export function structuredDataForPath(pathname, origin) {
         { "@type": "ListItem", position: 1, name: "Image tools", item: siteUrl },
         { "@type": "ListItem", position: 2, name: content.shortTitle.en, item: pageUrl },
       ],
+    });
+
+    graph.push({
+      "@type": "HowTo",
+      "@id": `${pageUrl}#howto`,
+      name: `How to ${content.shortTitle.en.toLowerCase()} with Wemute`,
+      description: content.answer.en,
+      totalTime: "PT2M",
+      step: content.steps.map((step, index) => ({
+        "@type": "HowToStep",
+        position: index + 1,
+        name: `Step ${index + 1}`,
+        text: step.en,
+        url: `${pageUrl}#tool-answer-heading`,
+      })),
+    });
+  }
+
+  if ((content.kind === "home" || content.kind === "tool") && content.faqs?.length) {
+    graph.push({
+      "@type": "FAQPage",
+      "@id": `${pageUrl}#faq`,
+      mainEntity: content.faqs.map((faq) => ({
+        "@type": "Question",
+        name: faq.question.en,
+        acceptedAnswer: { "@type": "Answer", text: faq.answer.en },
+      })),
     });
   }
 

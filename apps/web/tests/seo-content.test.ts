@@ -14,7 +14,13 @@ describe("public search content", () => {
     expect(serialized).toContain("WebApplication");
     expect(serialized).toContain('"price":"0"');
     expect(serialized).toContain("BreadcrumbList");
+    expect(serialized).toContain("HowTo");
+    expect(serialized).toContain("FAQPage");
     expect(serialized).not.toContain("aggregateRating");
+  });
+
+  it("publishes factual homepage FAQs for answer engines", () => {
+    expect(JSON.stringify(structuredDataForPath("/", "https://wemute.test"))).toContain("FAQPage");
   });
 
   it("keeps unknown routes on the home metadata", () => {

@@ -25,6 +25,7 @@ export function applyPageMetadata(pathname: string, locale: "en" | "zh" = "en") 
   const metadata = metadataForPath(pathname);
   const origin = productionOrigin();
   const canonicalUrl = new URL(metadata.path, origin).toString();
+  const shareImageUrl = new URL("/wemute-icon-256.png", origin).toString();
   document.title = metadata.title;
   document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
 
@@ -34,9 +35,12 @@ export function applyPageMetadata(pathname: string, locale: "en" | "zh" = "en") 
   setMeta('meta[property="og:url"]', { property: "og:url", content: canonicalUrl });
   setMeta('meta[property="og:type"]', { property: "og:type", content: "website" });
   setMeta('meta[property="og:site_name"]', { property: "og:site_name", content: "Wemute" });
+  setMeta('meta[property="og:image"]', { property: "og:image", content: shareImageUrl });
+  setMeta('meta[property="og:image:alt"]', { property: "og:image:alt", content: "Wemute app icon" });
   setMeta('meta[name="twitter:card"]', { name: "twitter:card", content: "summary" });
   setMeta('meta[name="twitter:title"]', { name: "twitter:title", content: metadata.title });
   setMeta('meta[name="twitter:description"]', { name: "twitter:description", content: metadata.description });
+  setMeta('meta[name="twitter:image"]', { name: "twitter:image", content: shareImageUrl });
 
   let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
   if (!canonical) {
