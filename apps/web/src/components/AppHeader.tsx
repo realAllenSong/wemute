@@ -18,7 +18,7 @@ export function AppHeader({ locale, compact = false, onNavigate, onToggleLocale 
   return (
     <header className={`app-header${compact ? " app-header--compact" : ""}`}>
       <a className="brand-button" href="/" onClick={(event) => navigate(event, "/")}>
-        <span className="brand-mark" aria-hidden="true"><span /></span>
+        <img className="brand-icon" src="/wemute-icon-256.png" alt="" width="32" height="32" />
         <span className="brand">Wemute</span>
       </a>
       {!compact && (

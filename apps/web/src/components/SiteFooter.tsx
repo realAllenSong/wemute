@@ -13,7 +13,7 @@ export function SiteFooter({ locale, onNavigate }: SiteFooterProps) {
   return (
     <footer className="site-footer">
       <div className="site-footer__brand">
-        <span className="brand-mark brand-mark--small" aria-hidden="true"><span /></span>
+        <img className="brand-icon brand-icon--small" src="/wemute-icon-256.png" alt="" width="26" height="26" />
         <span><strong>Wemute</strong><small>{locale === "en" ? "Simple tools. Local by default." : "简单工具，默认本地。"}</small></span>
       </div>
       <nav aria-label={locale === "en" ? "Footer navigation" : "页脚导航"}>

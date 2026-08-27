@@ -13,6 +13,7 @@ import {
 import { HOME_CONTENT, TOOL_DEFINITIONS, type ToolDefinition } from "../site";
 import type { Locale } from "../types";
 import { AdSlot } from "./AdSlot";
+import { BatchStory } from "./BatchStory";
 import { MarketingDropzone } from "./MarketingDropzone";
 import { SiteFooter } from "./SiteFooter";
 
@@ -35,6 +36,7 @@ export function HomePage({ locale, dragging, onChoose, onNavigate }: HomePagePro
     <main className="marketing-page">
       <section className="hero-section">
         <div className="hero-copy">
+          <div className="hero-eyebrow"><span />{locale === "en" ? "Free · browser-local · no account" : "免费 · 浏览器本地处理 · 无需账号"}</div>
           <h1>{HOME_CONTENT.h1[locale]}</h1>
           <p>{HOME_CONTENT.intro[locale]}</p>
         </div>
@@ -43,26 +45,40 @@ export function HomePage({ locale, dragging, onChoose, onNavigate }: HomePagePro
           <span>PNG</span><span>JPEG</span><span>WEBP</span><span>HEIC*</span>
           <small>{locale === "en" ? "* when supported by your browser" : "* 取决于浏览器支持"}</small>
         </div>
+        <nav className="hero-tool-links" aria-label={locale === "en" ? "Quick image tools" : "快速图片工具"}>
+          <small>{locale === "en" ? "Start with" : "直接开始"}</small>
+          {TOOL_DEFINITIONS.map((tool) => (
+            <a key={tool.slug} href={tool.path} onClick={(event) => { event.preventDefault(); onNavigate(tool.path); }}>
+              {tool.shortTitle[locale]}
+            </a>
+          ))}
+        </nav>
       </section>
 
       <section className="tools-section" id="tools">
-        <div className="section-heading">
-          <h2>{locale === "en" ? "Start with one clear job" : "先选一件要做的事"}</h2>
-          <p>{locale === "en" ? "Each tool opens with a sensible default. You can still fine-tune every batch." : "每个工具都有合适的默认值，也可以继续精细调整。"}</p>
-        </div>
-        <div className="tool-rail">
-          {TOOL_DEFINITIONS.map((tool) => (
-            <a key={tool.slug} href={tool.path} className="tool-link" onClick={(event) => { event.preventDefault(); onNavigate(tool.path); }}>
-              <span className="tool-link__icon"><FontAwesomeIcon icon={iconFor(tool)} /></span>
-              <span className="tool-link__copy">
-                <strong>{tool.shortTitle[locale]}</strong>
-                <small>{tool.description[locale]}</small>
-              </span>
-              <FontAwesomeIcon icon={faArrowRight} className="tool-link__arrow" />
-            </a>
-          ))}
+        <div className="tools-layout">
+          <div className="section-heading">
+            <span className="section-kicker">{locale === "en" ? "Choose by outcome" : "按结果选择"}</span>
+            <h2>{locale === "en" ? "Start with one clear job" : "先选一件要做的事"}</h2>
+            <p>{locale === "en" ? "Each tool opens with a sensible default. You can still fine-tune every batch." : "每个工具都有合适的默认值，也可以继续精细调整。"}</p>
+          </div>
+          <div className="tool-rail">
+            {TOOL_DEFINITIONS.map((tool, index) => (
+              <a key={tool.slug} href={tool.path} className="tool-link" onClick={(event) => { event.preventDefault(); onNavigate(tool.path); }}>
+                <span className="tool-link__index">0{index + 1}</span>
+                <span className="tool-link__icon"><FontAwesomeIcon icon={iconFor(tool)} /></span>
+                <span className="tool-link__copy">
+                  <strong>{tool.shortTitle[locale]}</strong>
+                  <small>{tool.description[locale]}</small>
+                </span>
+                <FontAwesomeIcon icon={faArrowRight} className="tool-link__arrow" />
+              </a>
+            ))}
+          </div>
         </div>
       </section>
+
+      <BatchStory locale={locale} />
 
       <section className="privacy-section" id="privacy">
         <div className="privacy-copy">
