@@ -155,7 +155,7 @@ const KIND_ICON = { image: "image", video: "film", audio: "music" } as const;
         {
           related.map((item) => (
             <a class="tool-card" href={localePath(locale, item.slug)}>
-              <span class="tool-card__icon"><Icon name={KIND_ICON[item.category]} size={18} /></span>
+              <span class={`tool-card__icon tool-card__icon--${item.category}`}><Icon name={KIND_ICON[item.category]} size={20} /></span>
               <span class="tool-card__body">
                 <strong>{item.name[locale]}</strong>
                 <small>{item.metaDescription[locale]}</small>

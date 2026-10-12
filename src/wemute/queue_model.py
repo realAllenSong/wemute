@@ -13,6 +13,7 @@ from wemute.presentation import (
     output_summary,
     result_delta,
     result_size,
+    short_duration,
     status_title,
     thumbnail_url,
 )
@@ -42,6 +43,8 @@ class QueueModel(QAbstractListModel):
     ResultSizeRole = Qt.UserRole + 21
     ResultDeltaRole = Qt.UserRole + 22
     ErrorTextRole = Qt.UserRole + 23
+    CardIndexRole = Qt.UserRole + 24
+    DurationLabelRole = Qt.UserRole + 25
 
     def __init__(self, jobs: Iterable[JobRecord] | None = None) -> None:
         super().__init__()
@@ -49,6 +52,7 @@ class QueueModel(QAbstractListModel):
         self._language = "zh" if QLocale.system().name().lower().startswith("zh") else "en"
         self._enabled_ai_actions: set[OperationKind] = set()
         self._rows: list[tuple[str, MediaKind | JobRecord]] = []
+        self._card_index: dict[str, int] = {}
         self._rebuild_rows()
 
     @property
@@ -80,6 +84,8 @@ class QueueModel(QAbstractListModel):
             self.ResultSizeRole: QByteArray(b"resultSize"),
             self.ResultDeltaRole: QByteArray(b"resultDelta"),
             self.ErrorTextRole: QByteArray(b"errorText"),
+            self.CardIndexRole: QByteArray(b"cardIndex"),
+            self.DurationLabelRole: QByteArray(b"durationLabel"),
         }
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:  # noqa: N802
@@ -107,6 +113,7 @@ class QueueModel(QAbstractListModel):
                 self.CanConvertRole: bool(options_for(kind, self._enabled_ai_actions)),
                 self.MediaKindRole: kind.value,
                 self.GroupItemCountRole: len(group_jobs),
+                self.CardIndexRole: -1,
             }
             return header_values.get(role)
 
@@ -133,6 +140,8 @@ class QueueModel(QAbstractListModel):
             self.ResultSizeRole: result_size(job),
             self.ResultDeltaRole: result_delta(job),
             self.ErrorTextRole: job.error or "",
+            self.CardIndexRole: self._card_index.get(job.id, 0),
+            self.DurationLabelRole: short_duration(job.source.duration),
         }
         return values.get(role)
 
@@ -185,3 +194,9 @@ class QueueModel(QAbstractListModel):
         for kind in sorted(grouped, key=GROUP_ORDER.get):
             self._rows.append(("header", kind))
             self._rows.extend(("job", job) for job in grouped[kind])
+        # Position among file cards only, so tilts stay stable across group headers.
+        self._card_index = {
+            payload.id: index
+            for index, (_, payload) in enumerate(row for row in self._rows if row[0] == "job")
+            if isinstance(payload, JobRecord)
+        }

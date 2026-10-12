@@ -41,8 +41,8 @@ export const HOME = {
     {
       title: text("Made for batches", "为批量而设计"),
       body: text(
-        "Drop a whole set, choose one result for all of them, and override individual files only when you need to.",
-        "一次拖入整批文件，统一选择结果，只在需要时单独调整个别文件。",
+        "Drop a whole set, choose one result for all of them, and convert everything in one go.",
+        "一次拖入整批文件，统一选择结果，一次全部转换。",
       ),
     },
   ],

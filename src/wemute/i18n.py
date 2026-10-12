@@ -140,6 +140,41 @@ TRANSLATIONS = {
         "files_summary": "{count} files",
         "add_short": "Add",
         "drop_title_active": "Release to add",
+        "ice_drop_title": "Drop files here",
+        "ice_drop_sub": "Images · video · audio, all on this Mac",
+        "sentence_lead": "Convert",
+        "sentence_to": "to",
+        "sentence_save": "Save to",
+        "sentence_joiner": ",",
+        "dest_same": "Same folder",
+        "dest_other": "Other folder…",
+        "start_convert": "Convert",
+        "more_options": "More options…",
+        "new_batch": "Convert more",
+        "mixed_formats": "Mixed",
+        "options_title": "Image options",
+        "options_hint": "Applies to every image in this batch.",
+        "opt_original": "Original",
+        "opt_half": "50%",
+        "opt_2048": "2048 px",
+        "opt_1080": "1080 px",
+        "opt_small": "Smaller",
+        "opt_balanced": "Balanced",
+        "opt_best": "Best",
+        "opt_none": "None",
+        "opt_24": "24",
+        "opt_64": "64",
+        "target_size_kb": "Target size (KB)",
+        "done_button": "Done",
+        "remove_card": "Remove",
+        "setting_save": "Save location",
+        "setting_formats": "Default formats",
+        "setting_language": "Language",
+        "setting_auto_start": "Start automatically after adding",
+        "setting_auto_reveal": "Show results in Finder when done",
+        "setting_folder_none": "No folder chosen",
+        "ai_models": "AI models",
+        "add_files_card": "Add files",
     },
     "zh": {
         "files": "{count} 个文件",
@@ -277,6 +312,41 @@ TRANSLATIONS = {
         "files_summary": "{count} 个文件",
         "add_short": "添加",
         "drop_title_active": "松开即可添加",
+        "ice_drop_title": "把文件拖到这里",
+        "ice_drop_sub": "图片 · 视频 · 音频，全部在本机完成",
+        "sentence_lead": "把",
+        "sentence_to": "转成",
+        "sentence_save": "保存到",
+        "sentence_joiner": "，",
+        "dest_same": "原文件夹",
+        "dest_other": "其他文件夹…",
+        "start_convert": "开始转换",
+        "more_options": "更多选项…",
+        "new_batch": "再转一批",
+        "mixed_formats": "各自设置",
+        "options_title": "图片选项",
+        "options_hint": "应用到这一批的所有图片。",
+        "opt_original": "原始",
+        "opt_half": "50%",
+        "opt_2048": "长边 2048",
+        "opt_1080": "长边 1080",
+        "opt_small": "更小",
+        "opt_balanced": "平衡",
+        "opt_best": "最佳",
+        "opt_none": "无",
+        "opt_24": "24",
+        "opt_64": "64",
+        "target_size_kb": "目标大小（KB）",
+        "done_button": "完成",
+        "remove_card": "移除",
+        "setting_save": "保存位置",
+        "setting_formats": "默认格式",
+        "setting_language": "语言",
+        "setting_auto_start": "添加后自动开始",
+        "setting_auto_reveal": "完成后在访达中显示",
+        "setting_folder_none": "尚未选择文件夹",
+        "ai_models": "AI 模型",
+        "add_files_card": "添加文件",
     },
 }
 
@@ -311,6 +381,13 @@ class I18n(QObject):
         self._settings.setValue("language", mode)
         self._language = self._resolve(mode)
         self.languageChanged.emit()
+
+    def override(self, language: str) -> None:
+        """Use a language for this session only, without saving it."""
+        if language in TRANSLATIONS:
+            self._mode = language
+            self._language = language
+            self.languageChanged.emit()
 
     @Slot(str, result=str)
     def t(self, key: str) -> str:

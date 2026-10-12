@@ -1,7 +1,8 @@
 import QtQuick
+import QtQuick.Effects
 import "."
 
-// Sunken track with a raised thumb that slides to the selected segment.
+// Soft track with a white thumb that slides to the selected segment.
 Rectangle {
     id: control
     property var options: []      // [{ "key": "...", "label": "..." }]
@@ -16,44 +17,44 @@ Rectangle {
         return -1
     }
 
-    implicitHeight: 30
-    implicitWidth: segments.implicitWidth + 4
-    radius: Theme.radiusControl
-    color: Theme.sunken
+    implicitHeight: 36
+    implicitWidth: segments.implicitWidth + 6
+    radius: 12
+    color: Theme.track
+
+    RectangularShadow {
+        anchors.fill: thumb
+        visible: thumb.visible
+        offset.y: 3
+        blur: 8
+        spread: -3
+        radius: thumb.radius
+        color: Theme.cardShadow
+    }
 
     Rectangle {
         id: thumb
-        readonly property Item target: control.currentIndex >= 0 ? repeater.itemAt(control.currentIndex) : null
+        // itemAt() is not reactive; repeater.count re-evaluates it once delegates exist.
+        readonly property Item target: control.currentIndex >= 0 && control.currentIndex < repeater.count
+            ? repeater.itemAt(control.currentIndex) : null
         visible: target !== null
         x: target ? segments.x + target.x : 0
-        y: 2
+        y: 3
         width: target ? target.width : 0
-        height: control.height - 4
-        radius: Theme.radiusControl - 2
-        color: Theme.raised
-        border.width: Theme.dark ? 1 : 0
-        border.color: Theme.border
-
-        Rectangle {
-            z: -1
-            anchors.fill: parent
-            anchors.topMargin: 1
-            anchors.bottomMargin: -1
-            radius: parent.radius
-            color: Theme.shadow
-            visible: !Theme.dark
-        }
-
+        height: control.height - 6
+        radius: 9
+        color: Theme.dark ? "#2C3550" : "#FFFFFF"
+        border.width: Theme.dark ? 0 : 1
+        border.color: Theme.cardLine
         Behavior on x { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
         Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
     }
 
     Row {
         id: segments
-        x: 2
-        y: 2
-        height: control.height - 4
-        spacing: 0
+        x: 3
+        y: 3
+        height: control.height - 6
 
         Repeater {
             id: repeater
@@ -64,18 +65,18 @@ Rectangle {
                 required property int index
                 readonly property bool selected: modelData.key === control.current
                 width: control.stretch
-                    ? (control.width - 4) / Math.max(1, control.options.length)
-                    : Math.max(60, label.implicitWidth + 26)
+                    ? (control.width - 6) / Math.max(1, control.options.length)
+                    : Math.max(56, label.implicitWidth + 28)
                 height: segments.height
 
                 Text {
                     id: label
                     anchors.centerIn: parent
                     text: parent.modelData.label
-                    color: parent.selected ? Theme.text : (hover.hovered ? Theme.text : Theme.secondaryText)
-                    font.family: Theme.uiFont
-                    font.pixelSize: 12
-                    font.weight: parent.selected ? Font.DemiBold : Font.Medium
+                    color: parent.selected ? Theme.text : (hover.hovered ? Theme.text : Theme.secondary)
+                    font.family: Theme.font
+                    font.pixelSize: 13
+                    font.weight: parent.selected ? Font.Bold : Font.DemiBold
                 }
 
                 HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor }

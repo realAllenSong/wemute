@@ -43,6 +43,7 @@ const WHY_ICON = ["lock", "zap", "layers"] as const;
           <div class="tool-grid">
             {toolsIn(category).map((tool) => (
               <a class="tool-card" href={localePath(locale, tool.slug)}>
+                <span class={`tool-card__icon tool-card__icon--${category}`}><Icon name={KIND_ICON[category]} size={20} /></span>
                 <span class="tool-card__body">
                   <strong>{tool.name[locale]}</strong>
                   <small>{tool.metaDescription[locale]}</small>

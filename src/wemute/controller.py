@@ -27,6 +27,7 @@ from wemute.capabilities import (
     DEFAULT_BY_KIND,
     apply_choice,
     default_target,
+    display_job_choice,
     is_choice_compatible,
     is_compatible,
     options_for,
@@ -45,7 +46,18 @@ from wemute.engine import FfmpegAdapter, finalize_output, remove_partial_output
 from wemute.model_packages import ModelPackageManager
 from wemute.persistence import QueueStore
 from wemute.paths import CACHE_ROOT
-from wemute.presentation import batch_notice, intake_notice, progress_summary
+from wemute.presentation import (
+    SENTENCE_ORDER,
+    batch_notice,
+    count_phrase,
+    done_title,
+    format_bytes,
+    image_options_phrase,
+    intake_notice,
+    progress_summary,
+    retry_label,
+    savings_parts,
+)
 from wemute.probe import expand_paths, media_kind_for, probe_file
 from wemute.queue_model import QueueModel
 
@@ -96,6 +108,9 @@ class JobController(QObject):
     preferencesChanged = Signal()
     batchFinished = Signal(int, int)
     eraseMaskRequested = Signal(str, str, bool)
+    phaseChanged = Signal()
+    groupsChanged = Signal()
+    summaryChanged = Signal()
     _probeReady = Signal(object, object)
 
     def __init__(
@@ -137,7 +152,21 @@ class JobController(QObject):
         self._discard_after_cancel: set[str] = set()
         self._preferences_path = self.store.path.parent / "preferences.json"
         self._preferences = self._load_preferences()
+        self._recent_destination = str(self.settings.value("recent_destination", ""))
+        self._phase = "empty"
+        self._groups: list[dict[str, object]] = []
+        self._summary: tuple = ()
         self._probeReady.connect(self._on_probe_ready)
+        for signal in (
+            self.fileCountChanged,
+            self.busyChanged,
+            self.queueStateChanged,
+            self.imageSettingsChanged,
+            self.model.modelReset,
+            self.model.dataChanged,
+        ):
+            signal.connect(self._refresh_summary)
+        self._refresh_summary()
 
     # ----------------------------------------------------------------- state
 
@@ -356,6 +385,140 @@ class JobController(QObject):
             return -1
         return next(iter(values)) or 0
 
+    # ------------------------------------------------------ sentence & phase
+
+    @Property(str, notify=phaseChanged)
+    def phase(self) -> str:
+        """"empty" | "ready" | "running" | "done" — the window's three states."""
+        return self._phase
+
+    @Property("QVariantList", notify=groupsChanged)
+    def groups(self) -> list[dict[str, object]]:
+        """One sentence line per media kind present, image → video → audio."""
+        return self._groups
+
+    @Property(int, notify=summaryChanged)
+    def doneCount(self) -> int:
+        return self._summary[0]
+
+    @Property(float, notify=summaryChanged)
+    def beforeBytes(self) -> float:
+        return float(self._summary[2])
+
+    @Property(float, notify=summaryChanged)
+    def afterBytes(self) -> float:
+        return float(self._summary[3])
+
+    @Property(str, notify=summaryChanged)
+    def doneTitle(self) -> str:
+        return done_title(self._summary[0], self._summary[1], self.model.language)
+
+    @Property(str, notify=summaryChanged)
+    def savingsLead(self) -> str:
+        return savings_parts(self._summary[2], self._summary[3], self.model.language)[0]
+
+    @Property(str, notify=summaryChanged)
+    def savingsAmount(self) -> str:
+        return savings_parts(self._summary[2], self._summary[3], self.model.language)[1]
+
+    @Property(bool, notify=summaryChanged)
+    def savingsPositive(self) -> bool:
+        return savings_parts(self._summary[2], self._summary[3], self.model.language)[2]
+
+    @Property(str, notify=summaryChanged)
+    def beforeLabel(self) -> str:
+        return format_bytes(self._summary[2]) if self._summary[2] else ""
+
+    @Property(str, notify=summaryChanged)
+    def afterLabel(self) -> str:
+        return format_bytes(self._summary[3]) if self._summary[3] else ""
+
+    @Property(str, notify=summaryChanged)
+    def retryLabel(self) -> str:
+        return retry_label(self._summary[1], self.model.language) if self._summary[1] else ""
+
+    @Property(int, notify=summaryChanged)
+    def batchFinishedCount(self) -> int:
+        return self._summary[4]
+
+    @Property(int, notify=summaryChanged)
+    def batchTotal(self) -> int:
+        return self._summary[5]
+
+    def _compute_phase(self) -> str:
+        jobs = self.model.jobs
+        if not jobs:
+            return "empty"
+        if self._busy:
+            return "running"
+        if all(job.status in {JobStatus.SUCCEEDED, JobStatus.FAILED} for job in jobs):
+            return "done"
+        return "ready"
+
+    def _compute_groups(self) -> list[dict[str, object]]:
+        language = self.model.language
+        enabled = self.model.enabled_ai_actions
+        groups: list[dict[str, object]] = []
+        for kind in SENTENCE_ORDER:
+            jobs = [job for job in self.model.jobs if job.source.kind == kind]
+            if not jobs:
+                continue
+            choices = {display_job_choice(job) for job in jobs}
+            target = next(iter(choices)) if len(choices) == 1 else ""
+            extra = ""
+            if kind == MediaKind.IMAGE:
+                extra = image_options_phrase(
+                    self.imageResizePreset,
+                    self.imageQualityPreset,
+                    self.imageCornerPreset,
+                    self.imageTargetSizeKb,
+                    language,
+                )
+            groups.append(
+                {
+                    "kind": kind.value,
+                    "count": len(jobs),
+                    "countLabel": count_phrase(kind, len(jobs), language),
+                    "target": target,
+                    "options": options_for(kind, enabled),
+                    "extra": extra,
+                }
+            )
+        return groups
+
+    def _compute_summary(self) -> tuple:
+        jobs = self.model.jobs
+        succeeded = [job for job in jobs if job.status == JobStatus.SUCCEEDED]
+        failed = sum(job.status == JobStatus.FAILED for job in jobs)
+        batch = [job for job in jobs if job.id in self._batch_job_ids]
+        finished = sum(
+            job.status in {JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELLED}
+            for job in batch
+        )
+        return (
+            len(succeeded),
+            failed,
+            sum(job.source.size for job in succeeded),
+            sum(job.output_size or 0 for job in succeeded),
+            finished,
+            len(batch),
+            self.model.language,
+        )
+
+    def _refresh_summary(self, *_args: object) -> None:
+        phase = self._compute_phase()
+        if phase != self._phase:
+            self._phase = phase
+            self.phaseChanged.emit()
+        groups = self._compute_groups()
+        if groups != self._groups:
+            self._groups = groups
+            self.groupsChanged.emit()
+        summary = self._compute_summary()
+        if summary != self._summary:
+            self._summary = summary
+            self.summaryChanged.emit()
+
     # ------------------------------------------------------------- lifecycle
 
     def restore(self) -> None:
@@ -406,7 +569,10 @@ class JobController(QObject):
             return
         self._probing = True
         self.probingChanged.emit()
-        existing = {job.source.path for job in self.model.jobs}
+        # A finished batch is replaced on the next drop, so its files are not duplicates.
+        existing = (
+            set() if self._phase == "done" else {job.source.path for job in self.model.jobs}
+        )
 
         def work() -> dict[str, object]:
             descriptors: list[FileDescriptor] = []
@@ -457,6 +623,11 @@ class JobController(QObject):
         unreadable: list[str] = list(payload.get("unreadable", []))  # type: ignore[arg-type]
         duplicates = int(payload.get("duplicates", 0))  # type: ignore[arg-type]
         additions: list[JobRecord] = []
+        # Files dropped onto a finished batch start a new one.
+        if descriptors and self._phase == "done":
+            self.model.replace([])
+            self._batch_job_ids = set()
+            self.dismissNotice()
         for index, descriptor in enumerate(descriptors):
             target = self._preferred_target(descriptor)
             if not target:
@@ -846,6 +1017,13 @@ class JobController(QObject):
         self._structure_changed()
 
     @Slot()
+    def newBatch(self) -> None:
+        """"再转一批": clear the finished list and return to the empty state."""
+        self.clearAll()
+        self._batch_job_ids = set()
+        self._refresh_summary()
+
+    @Slot()
     def retryFailed(self) -> None:
         for job in self.model.jobs:
             if job.status in {JobStatus.FAILED, JobStatus.CANCELLED}:
@@ -876,6 +1054,9 @@ class JobController(QObject):
         local = value.toLocalFile() or url
         self._destination = str(Path(local).expanduser()) if local else ""
         self.settings.setValue("destination", self._destination)
+        if self._destination:
+            self._recent_destination = self._destination
+            self.settings.setValue("recent_destination", self._destination)
         self.destinationChanged.emit()
 
     @Slot()
@@ -883,6 +1064,20 @@ class JobController(QObject):
         self._destination = ""
         self.settings.remove("destination")
         self.destinationChanged.emit()
+
+    @Property(str, notify=destinationChanged)
+    def recentDestinationLabel(self) -> str:
+        return Path(self._recent_destination).name if self._recent_destination else ""
+
+    @Property(bool, notify=destinationChanged)
+    def hasRecentDestination(self) -> bool:
+        """A previously chosen folder that is not the current destination."""
+        return bool(self._recent_destination) and self._recent_destination != self._destination
+
+    @Slot()
+    def useRecentDestination(self) -> None:
+        if self._recent_destination and Path(self._recent_destination).is_dir():
+            self.setDestination(self._recent_destination)
 
     # ------------------------------------------------------------ running
 

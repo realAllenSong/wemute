@@ -1,81 +1,108 @@
 pragma Singleton
 import QtQuick
 
-// "Porcelain & Cobalt" — drawn from the app icon: cool porcelain sheets on
-// graphite, joined by one electric cobalt seam. Cobalt is the only accent and
-// always means "transformation": progress, the primary action, focus.
-// Follows the system appearance.
+// "Ice" — a soft glass panel floating on cool pastel glows. Kind colours:
+// image = cobalt, video = teal, audio = violet. Follows the system appearance.
 QtObject {
     id: theme
     readonly property bool dark: Application.styleHints.colorScheme === Qt.ColorScheme.Dark
 
-    // Surfaces
-    readonly property color canvas: dark ? "#111317" : "#F3F4F6"
-    readonly property color surface: dark ? "#1A1D22" : "#FFFFFF"
-    readonly property color surfaceHover: dark ? "#1F2329" : "#FAFBFC"
-    readonly property color selected: dark ? "#222833" : "#F1F4FF"
-    readonly property color sunken: dark ? "#0D0F12" : "#E9EBEF"
-    readonly property color raised: dark ? "#262A31" : "#FFFFFF"
-    readonly property color toolbar: dark ? "#15171B" : "#F8F9FA"
+    // Background and glass
+    readonly property color base: dark ? "#0D1220" : "#F2F5FB"
+    readonly property color glow1: dark ? Qt.rgba(61 / 255, 92 / 255, 1, 0.28) : "#DFE7FF"
+    readonly property color glow2: dark ? Qt.rgba(20 / 255, 170 / 255, 150 / 255, 0.18) : "#D9F3EF"
+    readonly property color glow3: dark ? Qt.rgba(120 / 255, 90 / 255, 1, 0.18) : "#E9E4FF"
+    readonly property color panel: dark ? Qt.rgba(24 / 255, 30 / 255, 48 / 255, 0.66) : Qt.rgba(1, 1, 1, 0.72)
+    readonly property color panelLine: dark ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(1, 1, 1, 0.9)
+    readonly property color panelShadow: dark ? Qt.rgba(0, 0, 0, 0.7) : Qt.rgba(40 / 255, 60 / 255, 120 / 255, 0.35)
 
-    // Graphite text
-    readonly property color text: dark ? "#ECEEF1" : "#15181D"
-    readonly property color secondaryText: dark ? "#A6ACB6" : "#59606B"
-    readonly property color mutedText: dark ? "#7C838E" : "#878E99"
-    readonly property color subtleText: dark ? "#545A63" : "#B3B8C0"
+    // Text
+    readonly property color text: dark ? "#F1F4FB" : "#182033"
+    readonly property color muted: dark ? "#7D879F" : "#8A93A8"
+    readonly property color secondary: dark ? "#A4ADC2" : "#5B6478"
+    readonly property color title: dark ? "#8D97AE" : "#5B6478"
+    readonly property color ink: dark ? "#E8ECF6" : "#2C3650"
 
-    // Hairlines and interaction fills
-    readonly property color hairline: dark ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(20 / 255, 23 / 255, 28 / 255, 0.07)
-    readonly property color border: dark ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(20 / 255, 23 / 255, 28 / 255, 0.11)
-    readonly property color borderStrong: dark ? Qt.rgba(1, 1, 1, 0.20) : Qt.rgba(20 / 255, 23 / 255, 28 / 255, 0.22)
-    // Opaque card outline so stacked rows never double their dividers.
-    readonly property color cardOutline: dark ? "#2A2E35" : "#E2E4E8"
-    readonly property color hoverFill: dark ? Qt.rgba(1, 1, 1, 0.05) : Qt.rgba(20 / 255, 23 / 255, 28 / 255, 0.045)
-    readonly property color pressFill: dark ? Qt.rgba(1, 1, 1, 0.09) : Qt.rgba(20 / 255, 23 / 255, 28 / 255, 0.08)
-    readonly property color shadow: dark ? Qt.rgba(0, 0, 0, 0.45) : Qt.rgba(20 / 255, 23 / 255, 28 / 255, 0.10)
-    readonly property color scrim: dark ? Qt.rgba(0, 0, 0, 0.45) : Qt.rgba(20 / 255, 23 / 255, 28 / 255, 0.18)
+    // Kinds and states
+    readonly property color cobalt: "#2C4BF0"
+    readonly property color cobaltText: dark ? "#9FB2FF" : "#2C4BF0"
+    readonly property color teal: dark ? "#5FE0CB" : "#0F8F7E"
+    readonly property color violet: dark ? "#B3A2FF" : "#6B4FE0"
+    readonly property color error: dark ? "#FF8A80" : "#D14343"
+    readonly property color gradientTop: "#3D5CFF"
+    readonly property color gradientBottom: "#2440E8"
+    readonly property color meterEnd: "#6FA8FF"
 
-    // Cobalt seam
-    readonly property color cobalt: dark ? "#5672FF" : "#2C4BF0"
-    readonly property color cobaltHover: dark ? "#6B84FF" : "#2340D6"
-    readonly property color cobaltPressed: dark ? "#4A63E6" : "#1C35BD"
-    readonly property color cobaltSoft: dark ? Qt.rgba(86 / 255, 114 / 255, 1, 0.16) : Qt.rgba(44 / 255, 75 / 255, 240 / 255, 0.09)
-    readonly property color cobaltLine: dark ? Qt.rgba(86 / 255, 114 / 255, 1, 0.45) : Qt.rgba(44 / 255, 75 / 255, 240 / 255, 0.35)
-
-    readonly property color success: dark ? "#3FB37F" : "#17845A"
-    readonly property color error: dark ? "#F0675C" : "#C8372D"
-    readonly property color warning: dark ? "#E0A43A" : "#A86A0C"
+    // Cards, controls, menus
+    readonly property color card: dark ? "#1C2336" : "#FFFFFF"
+    readonly property color cardLine: dark ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(30 / 255, 50 / 255, 110 / 255, 0.06)
+    readonly property color cardShadow: dark ? Qt.rgba(0, 0, 0, 0.8) : Qt.rgba(30 / 255, 50 / 255, 110 / 255, 0.45)
+    readonly property color photo: dark ? "#262E44" : "#E8ECF5"
+    // Opaque equivalents of white 6 % over the dark glass, so glows never
+    // show through the fill (CSS outer shadows are not painted underneath).
+    readonly property color pill: dark ? "#22283A" : "#FFFFFF"
+    readonly property color pillHover: dark ? "#2A3146" : "#F7F9FF"
+    readonly property color secondaryFill: dark ? "#22283A" : "#FFFFFF"
+    readonly property color secondaryLine: dark ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(30 / 255, 50 / 255, 110 / 255, 0.10)
+    readonly property color menu: dark ? "#1F2639" : "#FFFFFF"
+    readonly property color menuLine: dark ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(30 / 255, 50 / 255, 110 / 255, 0.08)
+    readonly property color hoverFill: dark ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(44 / 255, 75 / 255, 240 / 255, 0.06)
+    readonly property color pressFill: dark ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(44 / 255, 75 / 255, 240 / 255, 0.10)
+    readonly property color hairline: dark ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(30 / 255, 50 / 255, 110 / 255, 0.08)
+    readonly property color track: dark ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(44 / 255, 75 / 255, 240 / 255, 0.10)
+    readonly property color field: dark ? Qt.rgba(1, 1, 1, 0.05) : "#F4F6FB"
+    readonly property color scrim: dark ? Qt.rgba(5 / 255, 8 / 255, 16 / 255, 0.55) : Qt.rgba(24 / 255, 32 / 255, 51 / 255, 0.18)
+    readonly property color menuShadow: dark ? Qt.rgba(0, 0, 0, 0.6) : Qt.rgba(30 / 255, 50 / 255, 110 / 255, 0.28)
     readonly property color transparent: "transparent"
 
-    // Soft tags: text, fill, outline
-    readonly property var tags: dark ? ({
-        "neutral": ["#B7BDC6", "#23272D", "#2E333A"],
-        "cobalt": ["#9DB0FF", "#1D2541", "#2C3866"],
-        "green": ["#7FD3AA", "#16291F", "#21402F"],
-        "red": ["#FF9C93", "#341A19", "#4D2422"],
-        "amber": ["#F2C779", "#30260F", "#4A3A17"]
-    }) : ({
-        "neutral": ["#59606B", "#F1F2F4", "#E3E5E9"],
-        "cobalt": ["#2340D6", "#EEF1FF", "#D6DDFE"],
-        "green": ["#146C4A", "#EAF6F0", "#CDE9DB"],
-        "red": ["#A92E25", "#FDEEEC", "#F7D2CE"],
-        "amber": ["#8A5A0B", "#FCF4E3", "#F1DFB7"]
-    })
+    function kindColor(kind) {
+        return kind === "video" ? teal : (kind === "audio" ? violet
+            : (kind === "image" ? cobaltText : (kind === "error" ? error : ink)))
+    }
+    // Pill outline and glow use the kind's hue; in dark mode the lighter tint.
+    function kindLine(kind) {
+        var c = Qt.color(kind === "neutral" ? (dark ? "#E8ECF6" : "#1E326E") : kindColor(kind))
+        return Qt.rgba(c.r, c.g, c.b, kind === "neutral" ? (dark ? 0.16 : 0.13) : (dark ? 0.27 : 0.19))
+    }
+    function kindGlow(kind) {
+        if (kind === "error")
+            return Qt.rgba(209 / 255, 67 / 255, 67 / 255, dark ? 0.6 : 0.4)
+        var source = dark
+            ? (kind === "video" ? "#14AA96" : (kind === "audio" ? "#785AFF" : (kind === "image" ? "#3D5CFF" : "#000000")))
+            : (kind === "video" ? "#0F8F7E" : (kind === "audio" ? "#6B4FE0" : (kind === "image" ? "#2C4BF0" : "#1E326E")))
+        var c = Qt.color(source)
+        return Qt.rgba(c.r, c.g, c.b, dark ? 0.8 : (kind === "neutral" ? 0.35 : 0.5))
+    }
+    function kindTint(kind) {
+        var c = Qt.color(kindColor(kind))
+        return Qt.rgba(c.r, c.g, c.b, dark ? 0.14 : 0.10)
+    }
 
-    // Type — one sans family; figures use tabular numerals ("tnum") so sizes
-    // and percentages line up without switching to a dated monospace.
-    readonly property string uiFont: Qt.platform.os === "osx" ? ".AppleSystemUIFont" : "Inter"
-    readonly property string monoFont: uiFont
+    // Type: SF Pro Rounded when installed. CoreText will not resolve the
+    // system's private rounded face by name, so otherwise use the system font.
+    readonly property string latinFont: Qt.fontFamilies().indexOf("SF Pro Rounded") >= 0
+        ? "SF Pro Rounded"
+        : (Qt.platform.os === "osx" || Qt.platform.os === "macos" ? ".AppleSystemUIFont" : "Inter")
+    // Qt's CJK fallback drops the requested weight, so Chinese text names
+    // PingFang directly. Set from Main.qml.
+    property string language: "en"
+    readonly property string cjkFont: Qt.fontFamilies().indexOf("PingFang SC") >= 0 ? "PingFang SC" : latinFont
+    readonly property string font: language === "zh" ? cjkFont : latinFont
 
-    // Shape and rhythm
-    readonly property int radiusControl: 9
-    readonly property int radiusCard: 14
-    readonly property int controlHeight: 32
-    readonly property int contentMaxWidth: 1000
-    readonly property int pageMargin: 28
-    readonly property int toolbarHeight: 52
+    function fontFor(text) {
+        return /[\u3000-\u9fff\uff00-\uffef]/.test(text || "") ? cjkFont : latinFont
+    }
 
-    // "#rrggbb" without the hash, for tinting provider icons.
+    // Shape
+    readonly property int radiusPanel: 26
+    readonly property int radiusPill: 14
+    readonly property int radiusButton: 20
+    readonly property int radiusCard: 20
+    readonly property int radiusMenu: 14
+    readonly property int buttonHeight: 56
+    readonly property int pillHeight: 44
+
+    // "rrggbb" without the hash, for tinting provider icons.
     function hex(value) {
         return Qt.color(value).toString().substring(1, 7)
     }

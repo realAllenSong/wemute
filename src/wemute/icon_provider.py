@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QByteArray, QRectF, QSize, Qt
-from PySide6.QtGui import QImage, QPainter
+from urllib.parse import unquote
+
+from PySide6.QtCore import QByteArray, QRectF, QSize, Qt, QUrl
+from PySide6.QtGui import QImage, QPainter, QPainterPath
 from PySide6.QtQuick import QQuickImageProvider
 from PySide6.QtSvg import QSvgRenderer
 
@@ -71,6 +73,31 @@ ICON_PATHS: dict[str, str] = {
         '<rect width="18" height="11" x="3" y="11" rx="2"/>'
         '<path d="M7 11V7a5 5 0 0 1 10 0v4"/>'
     ),
+    "gear": (
+        '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0'
+        'l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51'
+        'a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08'
+        'a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18'
+        'a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39'
+        'a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09'
+        'a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25'
+        'a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>'
+    ),
+    # Filled with the tint colour; "{color}" is substituted at render time.
+    "play": (
+        '<path fill="{color}" d="M6 4.5a1.5 1.5 0 0 1 2.26-1.3l11 7a1.5 1.5 0 0 1 0 2.6'
+        'l-11 7A1.5 1.5 0 0 1 6 18.5z"/>'
+    ),
+    "audio-lines": (
+        '<path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/>'
+        '<path d="M18 5v13"/><path d="M22 10v3"/>'
+    ),
+    "alert": '<path d="M12 7v6"/><path d="M12 17.5h.01"/>',
+    "folder-open": (
+        '<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6'
+        'a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9'
+        'l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>'
+    ),
 }
 
 # Legacy ids used before the paper redesign.
@@ -87,11 +114,51 @@ DEFAULT_COLOR = "55534E"
 
 def svg_for(name: str, color: str = DEFAULT_COLOR, stroke: float = 1.75) -> bytes:
     body = ICON_PATHS.get(ALIASES.get(name, name), ICON_PATHS["file"])
+    body = body.replace("{color}", f"#{color}")
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
         f'stroke="#{color}" stroke-width="{stroke}" stroke-linecap="round" '
         f'stroke-linejoin="round">{body}</svg>'
     ).encode("utf-8")
+
+
+class RoundedThumbnailProvider(QQuickImageProvider):
+    """``image://thumbs/<radius>/<url-encoded file url>``: cropped to fill, rounded."""
+
+    def __init__(self) -> None:
+        super().__init__(QQuickImageProvider.Image)
+
+    def requestImage(  # noqa: N802 - Qt API
+        self, image_id: str, size: QSize, requested_size: QSize
+    ) -> QImage:
+        radius_text, _, encoded = image_id.partition("/")
+        location = unquote(encoded)
+        path = QUrl(location).toLocalFile() if location.startswith("file:") else location
+        logical = requested_size if requested_size.isValid() else QSize(106, 104)
+        target = logical * 2
+        try:
+            radius = float(radius_text) * 2
+        except ValueError:
+            radius = 0.0
+        image = QImage(target, QImage.Format_ARGB32_Premultiplied)
+        image.fill(Qt.transparent)
+        source = QImage(path)
+        if not source.isNull():
+            scaled = source.scaled(
+                target, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation
+            )
+            x = (scaled.width() - target.width()) // 2
+            y = (scaled.height() - target.height()) // 2
+            painter = QPainter(image)
+            painter.setRenderHint(QPainter.Antialiasing)
+            clip = QPainterPath()
+            clip.addRoundedRect(QRectF(0, 0, target.width(), target.height()), radius, radius)
+            painter.setClipPath(clip)
+            painter.drawImage(0, 0, scaled, x, y, target.width(), target.height())
+            painter.end()
+        size.setWidth(image.width())
+        size.setHeight(image.height())
+        return image
 
 
 class NativeIconProvider(QQuickImageProvider):
@@ -101,13 +168,19 @@ class NativeIconProvider(QQuickImageProvider):
     def requestImage(  # noqa: N802 - Qt API
         self, icon_id: str, size: QSize, requested_size: QSize
     ) -> QImage:
-        name, _, color = icon_id.partition("/")
+        # ``<name>/<rrggbb>/<stroke>``; colour and stroke width are optional.
+        name, _, rest = icon_id.partition("/")
+        color, _, stroke_text = rest.partition("/")
         color = color.lstrip("#") if len(color.lstrip("#")) == 6 else DEFAULT_COLOR
+        try:
+            stroke = min(4.0, max(0.5, float(stroke_text))) if stroke_text else 1.75
+        except ValueError:
+            stroke = 1.75
         logical = requested_size if requested_size.isValid() else QSize(24, 24)
         # Render at 2x so icons stay crisp on Retina displays.
         image = QImage(logical * 2, QImage.Format_ARGB32_Premultiplied)
         image.fill(Qt.transparent)
-        renderer = QSvgRenderer(QByteArray(svg_for(name, color)))
+        renderer = QSvgRenderer(QByteArray(svg_for(name, color, stroke)))
         painter = QPainter(image)
         painter.setRenderHint(QPainter.Antialiasing)
         renderer.render(painter, QRectF(0, 0, image.width(), image.height()))

@@ -2,25 +2,22 @@ import QtQuick
 import QtQuick.Controls
 import "."
 
-// kind: "primary" (cobalt) | "secondary" (outlined surface) | "ghost" | "danger"
+// Compact button for sheets. kind: "primary" | "secondary" | "ghost"
 Button {
     id: control
-    property string kind: primary ? "primary" : (quiet ? "ghost" : "secondary")
-    property bool primary: false
-    property bool quiet: false
+    property string kind: "secondary"
     property string iconName: ""
     property int iconSize: 15
     property int fontSize: 13
 
-    readonly property bool solid: kind === "primary" || kind === "danger"
-    readonly property color foreground: !enabled
-        ? Theme.subtleText
-        : (solid ? "#FFFFFF" : (kind === "ghost" && !hovered ? Theme.secondaryText : Theme.text))
+    readonly property bool solid: kind === "primary"
+    readonly property color foreground: solid ? "#FFFFFF" : (kind === "ghost" && !hovered ? Theme.secondary : Theme.ink)
 
-    implicitHeight: Theme.controlHeight
-    implicitWidth: Math.max(implicitHeight, contentRow.implicitWidth + (text.length > 0 ? 26 : 14))
+    implicitHeight: 34
+    implicitWidth: Math.max(implicitHeight, contentRow.implicitWidth + (text.length > 0 ? 28 : 14))
     hoverEnabled: true
     focusPolicy: Qt.TabFocus
+    opacity: enabled ? 1 : 0.45
 
     HoverHandler { cursorShape: control.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor }
 
@@ -36,7 +33,7 @@ Button {
                 width: control.iconSize
                 height: control.iconSize
                 sourceSize: Qt.size(control.iconSize, control.iconSize)
-                source: visible ? "image://icons/" + control.iconName + "/" + Theme.hex(control.foreground) : ""
+                source: visible ? "image://icons/" + control.iconName + "/" + Theme.hex(control.foreground) + "/2" : ""
             }
 
             Text {
@@ -44,38 +41,26 @@ Button {
                 visible: control.text.length > 0
                 text: control.text
                 color: control.foreground
-                font.family: Theme.uiFont
+                font.family: Theme.font
                 font.pixelSize: control.fontSize
-                font.weight: control.solid ? Font.DemiBold : Font.Medium
+                font.weight: Font.Bold
             }
         }
     }
 
     background: Rectangle {
-        radius: Theme.radiusControl
-        color: {
-            if (!control.enabled)
-                return control.solid ? Theme.sunken : Theme.transparent
-            if (control.kind === "primary")
-                return control.down ? Theme.cobaltPressed : (control.hovered ? Theme.cobaltHover : Theme.cobalt)
-            if (control.kind === "danger")
-                return control.down ? Qt.darker(Theme.error, 1.2) : (control.hovered ? Qt.darker(Theme.error, 1.08) : Theme.error)
-            if (control.kind === "ghost")
-                return control.down ? Theme.pressFill : (control.hovered ? Theme.hoverFill : Theme.transparent)
-            return control.down ? Theme.sunken : (control.hovered ? Theme.surfaceHover : Theme.surface)
-        }
+        radius: 12
+        color: control.kind === "ghost"
+            ? (control.down ? Theme.pressFill : (control.hovered ? Theme.hoverFill : "transparent"))
+            : (control.kind === "secondary" ? (control.hovered ? Theme.pillHover : Theme.secondaryFill) : "transparent")
         border.width: control.kind === "secondary" ? 1 : 0
-        border.color: control.hovered && control.enabled ? Theme.borderStrong : Theme.border
+        border.color: Theme.secondaryLine
+        gradient: control.solid ? solidGradient : null
 
-        // Primary actions carry a faint cobalt glow, echoing the icon's seam.
-        Rectangle {
-            z: -1
-            anchors.fill: parent
-            anchors.topMargin: 2
-            anchors.bottomMargin: -3
-            radius: parent.radius + 2
-            color: Theme.cobaltSoft
-            visible: control.kind === "primary" && control.enabled
+        Gradient {
+            id: solidGradient
+            GradientStop { position: 0; color: control.hovered ? "#4D6AFF" : Theme.gradientTop }
+            GradientStop { position: 1; color: control.hovered ? "#2A47F0" : Theme.gradientBottom }
         }
 
         Rectangle {
@@ -84,7 +69,7 @@ Button {
             radius: parent.radius + 3
             color: "transparent"
             border.width: 2
-            border.color: Theme.cobaltLine
+            border.color: Theme.kindLine("image")
             visible: control.visualFocus
         }
     }

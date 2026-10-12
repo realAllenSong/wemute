@@ -66,8 +66,8 @@ const PRIVACY_FAQ: Faq = {
 const IMAGE_BATCH_FAQ: Faq = {
   q: text("Can I convert many images at once?", "可以一次处理很多张图片吗？"),
   a: text(
-    "Yes. Drop a whole folder's worth of images, set one output for the batch, and change individual files only if you need to. Several results download together as a single ZIP.",
-    "可以。一次拖入整批图片，统一设置输出，只在需要时单独调整某个文件。多个结果会打包成一个 ZIP 一起下载。",
+    "Yes. Drop a whole folder's worth of images, set one output for the whole batch, and convert them in one go. Several results download together as a single ZIP.",
+    "可以。一次拖入整批图片，统一设置输出，一次转换完成。多个结果会打包成一个 ZIP 一起下载。",
   ),
 };
 
@@ -494,8 +494,8 @@ export const TOOLS: Tool[] = [
       "在浏览器中批量把图片转换为 JPG、PNG 或 WebP，支持 HEIC 和 AVIF 输入。无需上传，无需账号。",
     ),
     answer: text(
-      "Wemute converts images between JPG, PNG and WebP in your browser and reads HEIC and AVIF too. Drop a mixed batch, choose one output for all of them, and override individual files when needed.",
-      "Wemute 可以在浏览器中把图片在 JPG、PNG、WebP 之间转换，也能读取 HEIC 和 AVIF。拖入混合格式的一批图片，统一选择输出格式，需要时再单独调整。",
+      "Wemute converts images between JPG, PNG and WebP in your browser and reads HEIC and AVIF too. Drop a mixed batch, choose one output for all of them, and convert the whole set in one go.",
+      "Wemute 可以在浏览器中把图片在 JPG、PNG、WebP 之间转换，也能读取 HEIC 和 AVIF。拖入混合格式的一批图片，统一选择输出格式，一次全部转换。",
     ),
     steps: [
       text("Drop images in any common format.", "拖入任意常见格式的图片。"),
