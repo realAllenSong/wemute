@@ -66,6 +66,21 @@ TRANSLATIONS = {
         "third_party": "Third-party components",
         "view_license": "License",
         "about_copyright": "© 2026 Wemute. All rights reserved.",
+        "reading_files": "Reading files…",
+        "auto_start": "Convert Automatically When Added",
+        "choose_folder": "Choose Folder…",
+        "save_to": "Save to",
+        "open_file": "Open",
+        "show_source": "Show Original in Finder",
+        "remove": "Remove from List",
+        "retry": "Retry",
+        "convert_count": "Convert {count}",
+        "stop": "Stop",
+        "show_results": "Show in Finder",
+        "dismiss": "Dismiss",
+        "drop_formats": "JPG · PNG · HEIC · WebP · MP3 · WAV · FLAC · MP4 · MOV · MKV and more",
+        "drop_here": "Drop to add",
+        "shortcuts_hint": "⌘O to choose · ⌘V to paste · Space to preview",
     },
     "zh": {
         "files": "{count} 个文件",
@@ -129,6 +144,21 @@ TRANSLATIONS = {
         "third_party": "第三方组件",
         "view_license": "许可证",
         "about_copyright": "© 2026 Wemute。保留所有权利。",
+        "reading_files": "正在读取文件…",
+        "auto_start": "添加后自动开始转换",
+        "choose_folder": "选择文件夹…",
+        "save_to": "保存到",
+        "open_file": "打开",
+        "show_source": "在访达中显示原文件",
+        "remove": "从列表中移除",
+        "retry": "重试",
+        "convert_count": "转换 {count} 个",
+        "stop": "停止",
+        "show_results": "在访达中显示",
+        "dismiss": "关闭",
+        "drop_formats": "JPG · PNG · HEIC · WebP · MP3 · WAV · FLAC · MP4 · MOV · MKV 等",
+        "drop_here": "松开即可添加",
+        "shortcuts_hint": "⌘O 选择文件 · ⌘V 粘贴 · 空格预览",
     },
 }
 
@@ -151,5 +181,5 @@ class I18n(QObject):
 
     @Slot(str, int, result=str)
     def count(self, key: str, value: int) -> str:
-        selected = "file" if value == 1 else key
+        selected = "file" if value == 1 and key == "files" else key
         return TRANSLATIONS[self._language].get(selected, key).format(count=value)

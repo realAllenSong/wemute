@@ -142,9 +142,18 @@ def main(argv: list[str] | None = None) -> int:
         if arguments.paths:
             controller.add_paths(arguments.paths)
 
-    app.fileOpened.connect(lambda path: controller.add_paths([path]))
+    # macOS also delivers launch arguments as FileOpen events; add each path once.
+    launch_paths = {str(Path(path).expanduser().resolve()) for path in arguments.paths}
+
+    def open_files(paths: list[str]) -> None:
+        fresh = [path for path in paths if str(Path(path).resolve()) not in launch_paths]
+        launch_paths.difference_update(str(Path(path).resolve()) for path in paths)
+        if fresh:
+            controller.add_paths(fresh)
+
+    app.fileOpened.connect(lambda path: open_files([path]))
     if app.pending_file_opens:
-        controller.add_paths(app.pending_file_opens)
+        open_files(app.pending_file_opens)
         app.pending_file_opens.clear()
 
     engine = QQmlApplicationEngine()

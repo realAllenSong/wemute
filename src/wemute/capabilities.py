@@ -247,7 +247,21 @@ def unique_output_path(
     )
     candidate = destination / f"{base}{extension}"
     number = 2
-    while candidate.exists() or candidate.resolve() == source.resolve():
+    while (
+        candidate.exists()
+        or candidate.resolve() == source.resolve()
+        or candidate.resolve() in _RESERVED_OUTPUTS
+    ):
         candidate = destination / f"{base} {number}{extension}"
         number += 1
+    _RESERVED_OUTPUTS.add(candidate.resolve())
     return candidate
+
+
+# Jobs run in parallel, so a name chosen for one job must stay unavailable to the
+# others until that job finalizes or discards its output.
+_RESERVED_OUTPUTS: set[Path] = set()
+
+
+def release_output(path: Path) -> None:
+    _RESERVED_OUTPUTS.discard(path.resolve())

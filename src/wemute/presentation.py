@@ -114,3 +114,81 @@ def thumbnail_url(source: FileDescriptor) -> str:
     if source.thumbnail_path and Path(source.thumbnail_path).exists():
         return Path(source.thumbnail_path).as_uri()
     return "image://icons/file"
+
+
+def _names(names: list[str], language: str) -> str:
+    shown = names[:3]
+    joiner = "、" if language == "zh" else ", "
+    text = joiner.join(shown)
+    if len(names) > len(shown):
+        more = len(names) - len(shown)
+        text += f" 等 {len(names)} 个" if language == "zh" else f" and {more} more"
+    return text
+
+
+def intake_notice(
+    unsupported: list[str],
+    unreadable: list[str],
+    duplicates: int,
+    language: str = "en",
+) -> tuple[str, str]:
+    """Explain files that were dropped but did not join the queue."""
+    zh = language == "zh"
+    parts: list[str] = []
+    if unsupported:
+        parts.append(
+            f"已跳过不支持的文件：{_names(unsupported, language)}"
+            if zh
+            else f"Skipped unsupported: {_names(unsupported, language)}"
+        )
+    if unreadable:
+        parts.append(
+            f"无法读取：{_names(unreadable, language)}"
+            if zh
+            else f"Couldn't read: {_names(unreadable, language)}"
+        )
+    if duplicates:
+        parts.append(
+            f"{duplicates} 个文件已在列表中"
+            if zh
+            else f"{duplicates} already in the list"
+        )
+    kind = "error" if unreadable else "info"
+    return ("  ·  " if not zh else "；").join(parts), kind
+
+
+def batch_notice(
+    succeeded: int,
+    failed: int,
+    source_bytes: int,
+    output_bytes: int,
+    language: str = "en",
+) -> tuple[str, str]:
+    zh = language == "zh"
+    if failed and not succeeded:
+        return (
+            (f"{failed} 个文件转换失败" if zh else f"{failed} failed — see the rows for details"),
+            "error",
+        )
+    if zh:
+        text = f"已完成 {succeeded} 个文件"
+    else:
+        text = f"Converted {succeeded} file{'s' if succeeded != 1 else ''}"
+    saved = source_bytes - output_bytes
+    if succeeded and source_bytes and saved > 0:
+        percent = round(saved / source_bytes * 100)
+        text += (
+            f"，节省 {format_bytes(saved)}（{percent}%）"
+            if zh
+            else f" · saved {format_bytes(saved)} ({percent}%)"
+        )
+    if failed:
+        text += f"；{failed} 个失败" if zh else f" · {failed} failed"
+        return text, "error"
+    return text, "success"
+
+
+def progress_summary(done: int, total: int, language: str = "en") -> str:
+    if language == "zh":
+        return f"正在转换 {done}/{total}"
+    return f"Converting {done} of {total}"

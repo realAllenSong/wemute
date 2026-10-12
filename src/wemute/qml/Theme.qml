@@ -15,11 +15,12 @@ QtObject {
     readonly property color accent: "#287BFF"
     readonly property color accentHover: "#3B89FF"
     readonly property color error: "#FF6B6B"
+    readonly property color success: "#3DD68C"
     readonly property color transparent: "transparent"
 
-    readonly property int pageMargin: 52
-    readonly property int rowHeight: 136
-    readonly property int headerHeight: 52
+    readonly property int pageMargin: 40
+    readonly property int rowHeight: 104
+    readonly property int headerHeight: 50
     readonly property int controlHeight: 52
     readonly property int radius: 10
 }

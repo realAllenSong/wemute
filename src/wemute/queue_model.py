@@ -34,6 +34,7 @@ class QueueModel(QAbstractListModel):
     CanConvertRole = Qt.UserRole + 15
     MediaKindRole = Qt.UserRole + 16
     GroupItemCountRole = Qt.UserRole + 17
+    OutputPathRole = Qt.UserRole + 18
 
     def __init__(self, jobs: Iterable[JobRecord] | None = None) -> None:
         super().__init__()
@@ -66,6 +67,7 @@ class QueueModel(QAbstractListModel):
             self.CanConvertRole: QByteArray(b"canConvert"),
             self.MediaKindRole: QByteArray(b"mediaKind"),
             self.GroupItemCountRole: QByteArray(b"groupItemCount"),
+            self.OutputPathRole: QByteArray(b"outputPath"),
         }
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:  # noqa: N802
@@ -111,6 +113,7 @@ class QueueModel(QAbstractListModel):
             self.CanConvertRole: bool(options_for(job.source.kind, self._enabled_ai_actions)),
             self.MediaKindRole: job.source.kind.value,
             self.GroupItemCountRole: 0,
+            self.OutputPathRole: job.output_path or "",
         }
         return values.get(role)
 
@@ -124,6 +127,23 @@ class QueueModel(QAbstractListModel):
         self.beginResetModel()
         self._rebuild_rows()
         self.endResetModel()
+
+    def refresh_job(self, job: JobRecord) -> None:
+        """Update one row in place so delegates, open menus and scroll position survive."""
+        for row, (row_type, payload) in enumerate(self._rows):
+            if row_type == "job" and payload is job:
+                index = self.index(row)
+                self.dataChanged.emit(index, index)
+                return
+
+    def set_language(self, language: str) -> None:
+        if language != self._language:
+            self._language = language
+            self.refresh()
+
+    @property
+    def language(self) -> str:
+        return self._language
 
     def find(self, job_id: str) -> JobRecord | None:
         return next((job for job in self._jobs if job.id == job_id), None)

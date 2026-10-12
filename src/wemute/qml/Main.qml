@@ -6,13 +6,28 @@ import "."
 
 ApplicationWindow {
     id: window
-    width: 1440
-    height: 1024
-    minimumWidth: 960
-    minimumHeight: 640
+    // Fit comfortably on a 13" MacBook instead of assuming a large display.
+    width: Math.max(minimumWidth, Math.min(1320, Math.round(Screen.desktopAvailableWidth * 0.82)))
+    height: Math.max(minimumHeight, Math.min(940, Math.round(Screen.desktopAvailableHeight * 0.86)))
+    minimumWidth: 900
+    minimumHeight: 600
     visible: true
-    title: "Wemute"
+    title: jobController.busy && jobController.progressText.length > 0
+        ? "Wemute — " + jobController.progressText
+        : "Wemute"
     color: Theme.window
+
+    readonly property bool hasPopupOpen: imageOptionsPopup.opened || eraseMaskPopup.opened
+        || aiToolsPopup.opened || aboutPopup.opened
+
+    function primaryAction() {
+        if (jobController.busy)
+            jobController.cancelAll()
+        else if (jobController.pendingCount > 0)
+            jobController.startAll()
+        else if (jobController.succeededCount > 0)
+            jobController.revealOutputs()
+    }
 
     Shortcut {
         sequences: [StandardKey.Open]
@@ -24,14 +39,39 @@ ApplicationWindow {
     }
     Shortcut {
         sequence: "Space"
-        enabled: jobController.hasJobs
+        enabled: jobController.hasJobs && !window.hasPopupOpen
         onActivated: jobController.quickLookSelected()
+    }
+    Shortcut {
+        sequences: ["Backspace", "Delete"]
+        enabled: jobController.hasJobs && !window.hasPopupOpen
+        onActivated: jobController.removeSelected()
+    }
+    Shortcut {
+        sequence: "Up"
+        enabled: jobController.hasJobs && !window.hasPopupOpen
+        onActivated: jobController.moveSelection(-1)
+    }
+    Shortcut {
+        sequence: "Down"
+        enabled: jobController.hasJobs && !window.hasPopupOpen
+        onActivated: jobController.moveSelection(1)
+    }
+    Shortcut {
+        sequences: ["Ctrl+Return", "Ctrl+Enter"]
+        enabled: jobController.hasJobs
+        onActivated: window.primaryAction()
     }
 
     Connections {
         target: jobController
         function onEraseMaskRequested(jobId, sourceUrl, applyGroup) {
             eraseMaskPopup.openFor(jobId, sourceUrl, applyGroup)
+        }
+        function onBatchFinished(succeeded, failed) {
+            // Bounce the Dock icon when the user switched away during a long batch.
+            if (!window.active)
+                window.alert(0)
         }
     }
 
@@ -54,15 +94,91 @@ ApplicationWindow {
     }
 
     Menu {
+        id: destinationMenu
+        MenuItem {
+            text: window.tr("same_folder")
+            checkable: true
+            checked: !jobController.hasCustomDestination
+            onTriggered: jobController.resetDestination()
+        }
+        MenuItem {
+            text: jobController.hasCustomDestination
+                ? jobController.destinationLabel
+                : window.tr("choose_folder")
+            checkable: jobController.hasCustomDestination
+            checked: jobController.hasCustomDestination
+            onTriggered: folderDialog.open()
+        }
+        MenuSeparator { visible: jobController.hasCustomDestination }
+        MenuItem {
+            text: window.tr("choose_folder")
+            visible: jobController.hasCustomDestination
+            height: visible ? implicitHeight : 0
+            onTriggered: folderDialog.open()
+        }
+    }
+
+    Menu {
+        id: rowMenu
+        property string jobId: ""
+        property string status: ""
+        function openFor(id, jobStatus) {
+            jobId = id
+            status = jobStatus
+            jobController.selectJob(id)
+            popup()
+        }
+        MenuItem {
+            text: window.tr("open_file")
+            onTriggered: jobController.openOutput(rowMenu.jobId)
+        }
+        MenuItem {
+            text: window.tr("reveal")
+            onTriggered: jobController.revealJob(rowMenu.jobId)
+        }
+        MenuItem {
+            text: window.tr("show_source")
+            visible: rowMenu.status === "succeeded"
+            height: visible ? implicitHeight : 0
+            onTriggered: jobController.revealSource(rowMenu.jobId)
+        }
+        MenuSeparator { }
+        MenuItem {
+            text: window.tr("retry")
+            visible: rowMenu.status === "failed" || rowMenu.status === "cancelled"
+            height: visible ? implicitHeight : 0
+            onTriggered: jobController.retryJob(rowMenu.jobId)
+        }
+        MenuItem {
+            text: window.tr("cancel")
+            visible: rowMenu.status === "running" || rowMenu.status === "queued"
+            height: visible ? implicitHeight : 0
+            onTriggered: jobController.cancelJob(rowMenu.jobId)
+        }
+        MenuItem {
+            text: window.tr("remove")
+            onTriggered: jobController.removeJob(rowMenu.jobId)
+        }
+    }
+
+    Menu {
         id: appMenu
+        MenuItem {
+            text: window.tr("auto_start")
+            checkable: true
+            checked: jobController.autoStart
+            onTriggered: jobController.autoStart = checked
+        }
+        MenuSeparator { }
         MenuItem {
             text: window.tr("pause_after_current")
             visible: jobController.busy
+            height: visible ? implicitHeight : 0
             onTriggered: jobController.pauseAfterCurrent()
         }
-        MenuSeparator { visible: jobController.busy }
         MenuItem {
             text: window.tr("retry_failed")
+            enabled: jobController.failedCount > 0
             onTriggered: jobController.retryFailed()
         }
         MenuSeparator { }
@@ -93,7 +209,7 @@ ApplicationWindow {
         property string jobId: ""
         property string displayName: ""
         parent: Overlay.overlay
-        x: Theme.pageMargin + 196
+        x: Math.max(12, imageOptionsButton.x)
         y: window.height - bottomBar.height - height - 12
         width: 380
         height: 322
@@ -507,7 +623,7 @@ ApplicationWindow {
         id: aiToolsPopup
         objectName: "aiToolsPopup"
         parent: Overlay.overlay
-        x: Theme.pageMargin + 340
+        x: Math.max(12, aiToolsButton.visible ? aiToolsButton.x : imageOptionsButton.x)
         y: window.height - bottomBar.height - height - 12
         width: 460
         height: Math.min(520, window.height - bottomBar.height - 72)
@@ -928,7 +1044,7 @@ ApplicationWindow {
         visible: jobController.hasJobs
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
         property real fittedRowHeight: Math.max(
-            96,
+            84,
             Math.min(
                 Theme.rowHeight,
                 (height - jobController.groupCount * Theme.headerHeight)
@@ -1007,10 +1123,19 @@ ApplicationWindow {
                 anchors.fill: parent
                 visible: delegateRoot.rowType === "job"
 
+                readonly property bool isImage: delegateRoot.mediaKind === "image"
+                readonly property bool isRunning: delegateRoot.jobStatus === "running"
+                readonly property bool isDone: delegateRoot.jobStatus === "succeeded"
+
                 HoverHandler { id: rowHover }
                 TapHandler {
                     acceptedButtons: Qt.LeftButton
                     onTapped: jobController.selectJob(delegateRoot.jobId)
+                    onDoubleTapped: jobController.openOutput(delegateRoot.jobId)
+                }
+                TapHandler {
+                    acceptedButtons: Qt.RightButton
+                    onTapped: rowMenu.openFor(delegateRoot.jobId, delegateRoot.jobStatus)
                 }
 
                 Rectangle {
@@ -1036,9 +1161,9 @@ ApplicationWindow {
                     id: thumbFrame
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    height: Math.min(98, parent.height - 18)
+                    height: Math.min(80, parent.height - 20)
                     width: height * 1.42
-                    radius: 9
+                    radius: 8
                     color: Theme.surface
                     border.width: 1
                     border.color: Theme.border
@@ -1049,130 +1174,67 @@ ApplicationWindow {
                         anchors.margins: 1
                         source: delegateRoot.thumbnailUrl
                         fillMode: Image.PreserveAspectCrop
-                        asynchronous: false
-                        sourceSize: Qt.size(244, 172)
+                        asynchronous: true
+                        sourceSize: Qt.size(228, 160)
                     }
                 }
 
-                Item {
-                    id: sourceInfo
-                    anchors.left: thumbFrame.right
-                    anchors.leftMargin: 24
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Math.max(250, parent.width * 0.27)
-                    height: 58
-
-                    Text {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        text: delegateRoot.sourceName
-                        color: Theme.text
-                        font.family: Qt.platform.os === "osx" ? ".AppleSystemUIFont" : "Inter"
-                        font.pixelSize: 17
-                        font.weight: Font.Medium
-                        elide: Text.ElideMiddle
-                    }
-
-                    Text {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        text: delegateRoot.metadata
-                        color: Theme.secondaryText
-                        font.family: Qt.platform.os === "osx" ? ".AppleSystemUIFont" : "Inter"
-                        font.pixelSize: 14
-                        elide: Text.ElideRight
-                    }
-                }
-
-                Image {
-                    id: directionIcon
-                    anchors.left: sourceInfo.right
-                    anchors.leftMargin: 30
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 20
-                    height: 20
-                    source: "image://icons/arrow-right"
-                    sourceSize: Qt.size(20, 20)
-                    opacity: 0.7
-                }
-
-                FormatCombo {
-                    id: formatControl
-                    anchors.left: directionIcon.right
-                    anchors.leftMargin: 38
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Math.min(226, parent.width * 0.18)
-                    model: delegateRoot.targetOptions || []
-                    leadingIcon: "image://icons/" + (
-                        delegateRoot.mediaKind === "image"
-                            ? "image"
-                            : (delegateRoot.mediaKind === "audio" ? "music" : "film")
-                    )
-                    currentIndex: Math.max(0, (delegateRoot.targetOptions || []).indexOf(delegateRoot.targetFormat))
-                    enabled: delegateRoot.jobStatus !== "running"
-                    onActivated: jobController.setTargetFormat(delegateRoot.jobId, currentText)
-                    Accessible.name: "Output format for " + delegateRoot.sourceName
-                }
-
+                // Fixed-width columns on the right keep every row aligned,
+                // whatever the media kind or status.
                 WButton {
-                    id: imageAdjustButton
-                    anchors.left: formatControl.right
-                    anchors.leftMargin: 8
+                    id: removeButton
+                    anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 72
-                    height: 36
+                    width: 30
+                    height: 30
                     quiet: true
-                    text: window.tr("adjust")
-                    visible: delegateRoot.mediaKind === "image"
-                        && (delegateRoot.rowSelected || rowHover.hovered)
-                    enabled: delegateRoot.jobStatus !== "running"
-                    onClicked: {
-                        jobController.selectJob(delegateRoot.jobId)
-                        imageOptionsPopup.openForJob(delegateRoot.jobId, delegateRoot.sourceName)
-                    }
-                    Accessible.name: text + " " + delegateRoot.sourceName
+                    text: "×"
+                    opacity: rowHover.hovered || delegateRoot.rowSelected ? 1 : 0
+                    enabled: opacity > 0
+                    onClicked: jobController.removeJob(delegateRoot.jobId)
+                    Accessible.name: window.tr("remove") + " " + delegateRoot.sourceName
+                    ToolTip.visible: hovered
+                    ToolTip.delay: 500
+                    ToolTip.text: window.tr("remove")
                 }
 
                 Item {
                     id: statusArea
-                    anchors.left: delegateRoot.mediaKind === "image"
-                        ? imageAdjustButton.right
-                        : formatControl.right
-                    anchors.leftMargin: delegateRoot.mediaKind === "image" ? 20 : 58
-                    anchors.right: parent.right
+                    anchors.right: removeButton.left
+                    anchors.rightMargin: 12
                     anchors.verticalCenter: parent.verticalCenter
-                    height: delegateRoot.jobStatus === "running" ? 66 : 56
+                    width: Math.max(200, Math.min(320, jobRow.width * 0.24))
+                    height: 52
 
                     Image {
                         id: statusIcon
                         anchors.left: parent.left
                         anchors.top: parent.top
-                        width: 20
-                        height: 20
+                        anchors.topMargin: 1
+                        width: 18
+                        height: 18
                         source: delegateRoot.jobStatus === "succeeded"
                             ? "image://icons/check"
                             : (delegateRoot.jobStatus === "failed"
                                 ? "image://icons/error"
                                 : (delegateRoot.jobStatus === "queued" ? "image://icons/clock" : ""))
-                        sourceSize: Qt.size(20, 20)
-                        visible: delegateRoot.jobStatus === "succeeded"
-                            || delegateRoot.jobStatus === "failed"
-                            || delegateRoot.jobStatus === "queued"
+                        sourceSize: Qt.size(18, 18)
+                        visible: source.toString().length > 0
                     }
 
                     Text {
                         id: statusTitleText
                         anchors.left: statusIcon.visible ? statusIcon.right : parent.left
-                        anchors.leftMargin: statusIcon.visible ? 12 : 0
+                        anchors.leftMargin: statusIcon.visible ? 10 : 0
+                        anchors.right: parent.right
                         anchors.top: parent.top
                         text: delegateRoot.statusTitle
-                            + (delegateRoot.jobStatus === "running" ? "  " + Math.round(delegateRoot.jobProgress * 100) + "%" : "")
+                            + (jobRow.isRunning ? "  " + Math.round(delegateRoot.jobProgress * 100) + "%" : "")
                         color: delegateRoot.jobStatus === "failed" ? Theme.error : Theme.text
                         font.family: Qt.platform.os === "osx" ? ".AppleSystemUIFont" : "Inter"
                         font.pixelSize: 15
                         font.weight: Font.Medium
+                        elide: Text.ElideRight
                     }
 
                     Item {
@@ -1180,9 +1242,9 @@ ApplicationWindow {
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.top: statusTitleText.bottom
-                        anchors.topMargin: 10
+                        anchors.topMargin: 9
                         height: 4
-                        visible: delegateRoot.jobStatus === "running"
+                        visible: jobRow.isRunning
 
                         Rectangle {
                             anchors.fill: parent
@@ -1205,19 +1267,120 @@ ApplicationWindow {
                     }
 
                     Text {
+                        id: statusSubtitleText
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.bottom: parent.bottom
+                        visible: !jobRow.isRunning
                         text: delegateRoot.statusSubtitle
-                        color: delegateRoot.jobStatus === "failed" ? Theme.error : Theme.secondaryText
+                        color: delegateRoot.jobStatus === "failed"
+                            ? Theme.error
+                            : (jobRow.isDone && statusLink.hovered ? Theme.text : Theme.secondaryText)
                         font.family: Qt.platform.os === "osx" ? ".AppleSystemUIFont" : "Inter"
                         font.pixelSize: 13
+                        font.underline: jobRow.isDone && statusLink.hovered
                         elide: Text.ElideRight
                     }
 
+                    HoverHandler {
+                        id: statusLink
+                        enabled: jobRow.isDone || delegateRoot.jobStatus === "failed"
+                        cursorShape: Qt.PointingHandCursor
+                    }
                     TapHandler {
-                        enabled: delegateRoot.jobStatus === "succeeded"
-                        onTapped: jobController.revealJob(delegateRoot.jobId)
+                        enabled: jobRow.isDone || delegateRoot.jobStatus === "failed"
+                        onTapped: jobRow.isDone
+                            ? jobController.revealJob(delegateRoot.jobId)
+                            : jobController.retryJob(delegateRoot.jobId)
+                    }
+                    ToolTip.visible: statusLink.hovered && delegateRoot.jobStatus === "failed"
+                    ToolTip.delay: 300
+                    ToolTip.text: delegateRoot.statusSubtitle + "\n" + window.tr("retry")
+                }
+
+                Item {
+                    id: adjustSlot
+                    anchors.right: statusArea.left
+                    anchors.rightMargin: 20
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 72
+                    height: 36
+
+                    WButton {
+                        anchors.fill: parent
+                        quiet: true
+                        text: window.tr("adjust")
+                        visible: jobRow.isImage && (delegateRoot.rowSelected || rowHover.hovered)
+                        enabled: !jobRow.isRunning
+                        onClicked: {
+                            jobController.selectJob(delegateRoot.jobId)
+                            imageOptionsPopup.openForJob(delegateRoot.jobId, delegateRoot.sourceName)
+                        }
+                        Accessible.name: text + " " + delegateRoot.sourceName
+                    }
+                }
+
+                FormatCombo {
+                    id: formatControl
+                    anchors.right: adjustSlot.left
+                    anchors.rightMargin: 6
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Math.max(170, Math.min(226, jobRow.width * 0.18))
+                    height: 44
+                    model: delegateRoot.targetOptions || []
+                    leadingIcon: "image://icons/" + (
+                        jobRow.isImage
+                            ? "image"
+                            : (delegateRoot.mediaKind === "audio" ? "music" : "film")
+                    )
+                    currentIndex: Math.max(0, (delegateRoot.targetOptions || []).indexOf(delegateRoot.targetFormat))
+                    enabled: !jobRow.isRunning
+                    onActivated: jobController.setTargetFormat(delegateRoot.jobId, currentText)
+                    Accessible.name: "Output format for " + delegateRoot.sourceName
+                }
+
+                Image {
+                    id: directionIcon
+                    anchors.right: formatControl.left
+                    anchors.rightMargin: 22
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 18
+                    height: 18
+                    source: "image://icons/arrow-right"
+                    sourceSize: Qt.size(18, 18)
+                    opacity: 0.6
+                }
+
+                Item {
+                    id: sourceInfo
+                    anchors.left: thumbFrame.right
+                    anchors.leftMargin: 20
+                    anchors.right: directionIcon.left
+                    anchors.rightMargin: 22
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 50
+
+                    Text {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        text: delegateRoot.sourceName
+                        color: Theme.text
+                        font.family: Qt.platform.os === "osx" ? ".AppleSystemUIFont" : "Inter"
+                        font.pixelSize: 16
+                        font.weight: Font.Medium
+                        elide: Text.ElideMiddle
+                    }
+
+                    Text {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        text: delegateRoot.metadata
+                        color: Theme.secondaryText
+                        font.family: Qt.platform.os === "osx" ? ".AppleSystemUIFont" : "Inter"
+                        font.pixelSize: 13
+                        elide: Text.ElideRight
                     }
                 }
             }
@@ -1230,24 +1393,40 @@ ApplicationWindow {
         anchors.bottom: bottomBar.top
         anchors.left: parent.left
         anchors.right: parent.right
+        anchors.margins: Theme.pageMargin
         visible: !jobController.hasJobs
+
+        // The whole empty area is a drop target and a click target.
+        Rectangle {
+            anchors.fill: parent
+            radius: 18
+            color: emptyHover.hovered ? "#181C20" : Theme.transparent
+            border.width: 1.5
+            border.color: dropArea.containsDrag ? Theme.accent : Theme.border
+            opacity: 0.9
+
+            HoverHandler { id: emptyHover; cursorShape: Qt.PointingHandCursor }
+            TapHandler { onTapped: fileDialog.open() }
+        }
 
         Column {
             anchors.centerIn: parent
-            spacing: 16
+            spacing: 14
 
             Image {
                 anchors.horizontalCenter: parent.horizontalCenter
-                width: 64
-                height: 64
+                width: 56
+                height: 56
                 source: "image://icons/file"
-                sourceSize: Qt.size(64, 64)
+                sourceSize: Qt.size(56, 56)
                 opacity: 0.52
             }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: jobController.probing ? "Reading files…" : window.tr("drop_anything")
+                text: jobController.probing
+                    ? window.tr("reading_files")
+                    : (dropArea.containsDrag ? window.tr("drop_here") : window.tr("drop_anything"))
                 color: Theme.text
                 font.family: Qt.platform.os === "osx" ? ".AppleSystemUIFont" : "Inter"
                 font.pixelSize: 22
@@ -1267,6 +1446,93 @@ ApplicationWindow {
                 text: window.tr("choose_files")
                 onClicked: fileDialog.open()
             }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                topPadding: 8
+                text: window.tr("drop_formats")
+                color: Theme.tertiaryText
+                font.pixelSize: 12
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: window.tr("shortcuts_hint")
+                color: Theme.tertiaryText
+                font.pixelSize: 12
+            }
+        }
+    }
+
+    // Transient feedback: skipped files, batch results and errors.
+    Rectangle {
+        id: noticeBar
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: bottomBar.top
+        anchors.bottomMargin: shown ? 14 : -height
+        width: Math.min(parent.width - Theme.pageMargin * 2, noticeRow.implicitWidth + 36)
+        height: 46
+        radius: 23
+        color: "#262B31"
+        border.width: 1
+        border.color: jobController.noticeKind === "error"
+            ? Qt.rgba(1, 0.42, 0.42, 0.55)
+            : (jobController.noticeKind === "success" ? Qt.rgba(0.24, 0.84, 0.55, 0.45) : Theme.border)
+        readonly property bool shown: jobController.notice.length > 0
+        opacity: shown ? 1 : 0
+        visible: opacity > 0
+        z: 5
+
+        Behavior on opacity { NumberAnimation { duration: 160 } }
+        Behavior on anchors.bottomMargin { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+
+        RowLayout {
+            id: noticeRow
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: 18
+            anchors.rightMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 12
+
+            Rectangle {
+                width: 8
+                height: 8
+                radius: 4
+                color: jobController.noticeKind === "error"
+                    ? Theme.error
+                    : (jobController.noticeKind === "success" ? Theme.success : Theme.accent)
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.maximumWidth: 640
+                text: jobController.notice
+                color: Theme.text
+                font.pixelSize: 14
+                elide: Text.ElideRight
+            }
+
+            WButton {
+                height: 32
+                implicitWidth: contentItem.implicitWidth + 24
+                quiet: true
+                visible: jobController.noticeAction.length > 0
+                text: jobController.noticeAction === "retry"
+                    ? window.tr("retry_failed")
+                    : window.tr("show_results")
+                onClicked: jobController.runNoticeAction()
+            }
+
+            WButton {
+                width: 30
+                height: 30
+                implicitWidth: 30
+                quiet: true
+                text: "×"
+                onClicked: jobController.dismissNotice()
+                Accessible.name: window.tr("dismiss")
+            }
         }
     }
 
@@ -1275,7 +1541,7 @@ ApplicationWindow {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: 90
+        height: 82
         color: Theme.windowDeep
 
         Rectangle {
@@ -1286,42 +1552,58 @@ ApplicationWindow {
             color: Theme.divider
         }
 
+        // Overall batch progress rides on the footer's top edge.
+        Rectangle {
+            anchors.left: parent.left
+            anchors.top: parent.top
+            height: 2
+            width: parent.width * jobController.overallProgress
+            color: Theme.accent
+            visible: jobController.busy
+            Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        }
+
         Button {
             id: destinationButton
             anchors.left: parent.left
-            anchors.leftMargin: Theme.pageMargin
+            anchors.leftMargin: Theme.pageMargin - 10
             anchors.verticalCenter: parent.verticalCenter
-            width: 188
-            height: 48
+            width: Math.min(240, destinationRow.implicitWidth + 28)
+            height: 44
             hoverEnabled: true
-            onClicked: folderDialog.open()
-            Accessible.name: jobController.destinationLabel
+            onClicked: destinationMenu.popup(destinationButton, 0, -destinationMenu.implicitHeight - 6)
+            Accessible.name: window.tr("save_to") + " " + jobController.destinationLabel
+            ToolTip.visible: hovered
+            ToolTip.delay: 600
+            ToolTip.text: window.tr("save_to")
 
             contentItem: RowLayout {
-                spacing: 12
+                id: destinationRow
+                spacing: 10
                 Image {
                     source: "image://icons/folder"
-                    sourceSize: Qt.size(22, 22)
-                    Layout.preferredWidth: 22
-                    Layout.preferredHeight: 22
+                    sourceSize: Qt.size(20, 20)
+                    Layout.preferredWidth: 20
+                    Layout.preferredHeight: 20
                     opacity: 0.85
                 }
                 Text {
-                    text: jobController.destinationLabel === "Same Folder"
-                        ? window.tr("same_folder")
-                        : jobController.destinationLabel
+                    text: jobController.hasCustomDestination
+                        ? jobController.destinationLabel
+                        : window.tr("same_folder")
                     color: Theme.secondaryText
                     font.family: Qt.platform.os === "osx" ? ".AppleSystemUIFont" : "Inter"
-                    font.pixelSize: 15
+                    font.pixelSize: 14
                     Layout.fillWidth: true
-                    elide: Text.ElideRight
+                    Layout.maximumWidth: 160
+                    elide: Text.ElideMiddle
                 }
                 Image {
                     source: "image://icons/arrow-right"
-                    sourceSize: Qt.size(12, 12)
-                    Layout.preferredWidth: 12
-                    Layout.preferredHeight: 12
-                    rotation: 90
+                    sourceSize: Qt.size(11, 11)
+                    Layout.preferredWidth: 11
+                    Layout.preferredHeight: 11
+                    rotation: -90
                     opacity: 0.6
                 }
             }
@@ -1335,10 +1617,10 @@ ApplicationWindow {
         WButton {
             id: imageOptionsButton
             anchors.left: destinationButton.right
-            anchors.leftMargin: 12
+            anchors.leftMargin: 8
             anchors.verticalCenter: parent.verticalCenter
-            height: 42
-            width: 132
+            height: 40
+            implicitWidth: contentItem.implicitWidth + 28
             quiet: true
             text: window.tr("image_options")
             visible: jobController.hasImageJobs
@@ -1350,10 +1632,10 @@ ApplicationWindow {
         WButton {
             id: aiToolsButton
             anchors.left: imageOptionsButton.visible ? imageOptionsButton.right : destinationButton.right
-            anchors.leftMargin: 12
+            anchors.leftMargin: 8
             anchors.verticalCenter: parent.verticalCenter
-            height: 42
-            width: 104
+            height: 40
+            implicitWidth: contentItem.implicitWidth + 28
             quiet: true
             text: window.tr("ai_tools")
             visible: jobController.hasImageJobs
@@ -1362,36 +1644,45 @@ ApplicationWindow {
             Accessible.name: text
         }
 
+        Text {
+            anchors.right: primaryButton.left
+            anchors.rightMargin: 20
+            anchors.verticalCenter: parent.verticalCenter
+            text: jobController.progressText
+            color: Theme.secondaryText
+            font.pixelSize: 14
+            visible: jobController.busy
+        }
+
         WButton {
+            id: primaryButton
             anchors.right: parent.right
             anchors.rightMargin: Theme.pageMargin
             anchors.verticalCenter: parent.verticalCenter
-            primary: true
-            text: jobController.busy ? window.tr("cancel") : window.tr("convert_all")
+            height: 46
+            implicitWidth: Math.max(160, contentItem.implicitWidth + 44)
+            primary: !jobController.busy
+            text: jobController.busy
+                ? window.tr("stop")
+                : (jobController.pendingCount > 0
+                    ? (jobController.pendingCount === jobController.fileCount
+                        ? window.tr("convert_all")
+                        : i18n.count("convert_count", jobController.pendingCount))
+                    : (jobController.succeededCount > 0
+                        ? window.tr("show_results")
+                        : window.tr("convert_all")))
             enabled: jobController.hasJobs && jobController.engineAvailable
-            onClicked: {
-                if (jobController.busy) {
-                    jobController.cancelAll()
-                    return
-                }
-                jobController.startAll()
-            }
+                && (jobController.busy || jobController.pendingCount > 0 || jobController.succeededCount > 0)
+            onClicked: window.primaryAction()
             Accessible.name: text
-        }
-
-        Text {
-            anchors.right: parent.right
-            anchors.rightMargin: Theme.pageMargin
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 8
-            text: window.tr("engine_missing")
-            color: Theme.error
-            font.pixelSize: 11
-            visible: !jobController.engineAvailable
+            ToolTip.visible: hovered && !jobController.busy
+            ToolTip.delay: 800
+            ToolTip.text: "⌘↩"
         }
     }
 
     DropArea {
+        id: dropArea
         anchors.fill: parent
         keys: ["text/uri-list"]
         onDropped: function(drop) {
@@ -1404,7 +1695,7 @@ ApplicationWindow {
         Rectangle {
             anchors.fill: parent
             color: "#142B4A"
-            opacity: parent.containsDrag ? 0.36 : 0
+            opacity: parent.containsDrag && jobController.hasJobs ? 0.36 : 0
             border.width: parent.containsDrag ? 2 : 0
             border.color: Theme.accent
             visible: opacity > 0

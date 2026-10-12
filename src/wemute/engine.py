@@ -8,7 +8,7 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
-from wemute.capabilities import target_definition, unique_output_path
+from wemute.capabilities import release_output, target_definition, unique_output_path
 from wemute.domain import ConversionPlan, JobRecord, MediaKind, OperationKind
 from wemute.ai_engine import AIEngineAdapter
 from wemute.paths import resolve_engine
@@ -98,22 +98,32 @@ class FfmpegAdapter:
 
         if job.source.kind == MediaKind.VIDEO:
             is_macos = platform.system() == "Darwin"
+            # Apple Silicon VideoToolbox supports constant-quality encoding, which
+            # sizes output to the content instead of inflating small clips.
+            constant_quality = is_macos and platform.machine() == "arm64"
             if label == "MP4 (H.264)":
                 codec = "h264_videotoolbox" if is_macos else "libx264"
                 args = ["-c:v", codec]
-                args += ["-b:v", "8M"] if is_macos else ["-crf", "20", "-preset", "medium"]
+                if constant_quality:
+                    args += ["-q:v", "60"]
+                else:
+                    args += ["-b:v", "8M"] if is_macos else ["-crf", "20", "-preset", "medium"]
                 return args + ["-tag:v", "avc1", "-c:a", "aac", "-b:a", "192k"]
             if label == "MP4 (H.265)":
                 codec = "hevc_videotoolbox" if is_macos else "libx265"
                 args = ["-c:v", codec]
-                args += ["-b:v", "6M"] if is_macos else ["-crf", "24", "-preset", "medium"]
+                if constant_quality:
+                    args += ["-q:v", "55"]
+                else:
+                    args += ["-b:v", "6M"] if is_macos else ["-crf", "24", "-preset", "medium"]
                 return args + ["-tag:v", "hvc1", "-c:a", "aac", "-b:a", "192k"]
             if label == "MOV (ProRes)":
                 codec = "prores_videotoolbox" if is_macos else "prores_ks"
                 return ["-c:v", codec, "-profile:v", "3", "-c:a", "pcm_s24le"]
             if label == "MKV (H.264)":
                 if is_macos:
-                    return ["-c:v", "h264_videotoolbox", "-b:v", "8M", "-c:a", "aac"]
+                    quality = ["-q:v", "60"] if constant_quality else ["-b:v", "8M"]
+                    return ["-c:v", "h264_videotoolbox", *quality, "-c:a", "aac"]
                 return ["-c:v", "libx264", "-crf", "20", "-preset", "medium", "-c:a", "aac"]
             if label == "WebM (VP9)":
                 return ["-c:v", "libvpx-vp9", "-crf", "30", "-b:v", "0", "-c:a", "libopus"]
@@ -130,12 +140,15 @@ def finalize_output(plan: ConversionPlan) -> int:
     outputs = [(plan.temporary_output, plan.final_output), *plan.additional_outputs]
     missing = [temporary.name for temporary, _final in outputs if not temporary.is_file()]
     if missing:
+        for _temporary, final in outputs:
+            release_output(final)
         raise RuntimeError(
             "The converter did not produce all output files: " + ", ".join(missing)
         )
     total_size = 0
     for temporary, final in outputs:
         os.replace(temporary, final)
+        release_output(final)
         try:
             shutil.copystat(plan.source, final)
         except OSError:
@@ -147,10 +160,11 @@ def finalize_output(plan: ConversionPlan) -> int:
 def remove_partial_output(plan: ConversionPlan | None) -> None:
     if not plan:
         return
-    for temporary, _final in [
+    for temporary, final in [
         (plan.temporary_output, plan.final_output),
         *plan.additional_outputs,
     ]:
+        release_output(final)
         try:
             temporary.unlink(missing_ok=True)
         except OSError:
