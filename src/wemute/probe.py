@@ -105,7 +105,7 @@ def _ffprobe(path: Path) -> dict[str, Any]:
 
 def _thumbnail_key(path: Path) -> str:
     try:
-        marker = f"{path}:{path.stat().st_mtime_ns}:{path.stat().st_size}"
+        marker = f"v2:{path}:{path.stat().st_mtime_ns}:{path.stat().st_size}"
     except OSError:
         marker = str(path)
     return hashlib.sha256(marker.encode("utf-8")).hexdigest()[:24]
@@ -167,7 +167,8 @@ def _ffmpeg_thumbnail(path: Path, target: Path, kind: MediaKind) -> bool:
             "-i",
             str(path),
             "-filter_complex",
-            "aformat=channel_layouts=mono,showwavespic=s=360x180:colors=9EA3AA",
+            # Transparent mid-grey waveform that reads on light and dark tiles.
+            "aformat=channel_layouts=mono,showwavespic=s=360x180:colors=0x8A909A",
             "-frames:v",
             "1",
             "-y",
@@ -183,7 +184,8 @@ def _ffmpeg_thumbnail(path: Path, target: Path, kind: MediaKind) -> bool:
 def create_thumbnail(path: Path, kind: MediaKind) -> str | None:
     if kind not in {MediaKind.IMAGE, MediaKind.AUDIO, MediaKind.VIDEO}:
         return None
-    target = THUMBNAIL_ROOT / f"{_thumbnail_key(path)}.jpg"
+    suffix = ".png" if kind == MediaKind.AUDIO else ".jpg"
+    target = THUMBNAIL_ROOT / f"{_thumbnail_key(path)}{suffix}"
     if target.exists():
         return str(target)
     success = (

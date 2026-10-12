@@ -68,6 +68,12 @@ THIRD_PARTY_COMPONENTS: tuple[dict[str, str], ...] = (
         "url": "https://github.com/tox-dev/platformdirs/blob/main/LICENSE",
     },
     {
+        "name": "Lucide icons",
+        "version": "shapes",
+        "license": "ISC",
+        "url": "https://github.com/lucide-icons/lucide/blob/main/LICENSE",
+    },
+    {
         "name": "PyInstaller bootloader",
         "version": "6.22.2",
         "license": "GPL-2.0-or-later with bootloader distribution exception",

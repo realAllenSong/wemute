@@ -24,10 +24,12 @@ from PySide6.QtGui import QDesktopServices, QGuiApplication
 from wemute.capabilities import (
     ACTION_BY_LABEL,
     ACTIONS,
+    DEFAULT_BY_KIND,
     apply_choice,
     default_target,
     is_choice_compatible,
     is_compatible,
+    options_for,
     target_definition,
 )
 from wemute.domain import (
@@ -46,6 +48,16 @@ from wemute.paths import CACHE_ROOT
 from wemute.presentation import batch_notice, intake_notice, progress_summary
 from wemute.probe import expand_paths, media_kind_for, probe_file
 from wemute.queue_model import QueueModel
+
+
+RESIZE_PRESETS = {
+    "original": (100, None),
+    "half": (50, None),
+    "edge2048": (100, 2048),
+    "edge1080": (100, 1080),
+}
+QUALITY_PRESETS = {"small": 72, "balanced": 84, "best": 92}
+CORNER_PRESETS = {"none": 0, "soft": 24, "round": 64}
 
 
 def _lane_limits() -> dict[str, int]:
@@ -233,6 +245,80 @@ class JobController(QObject):
         self._save_preferences()
         self.preferencesChanged.emit()
 
+    @Property(bool, notify=preferencesChanged)
+    def autoReveal(self) -> bool:
+        return bool(self._preferences.get("auto_reveal", False))
+
+    @autoReveal.setter
+    def autoReveal(self, value: bool) -> None:
+        if bool(value) == self.autoReveal:
+            return
+        self._preferences["auto_reveal"] = bool(value)
+        self._save_preferences()
+        self.preferencesChanged.emit()
+
+    @Property(bool, constant=True)
+    def videoEngineAvailable(self) -> bool:
+        return bool(self.adapter.executable)
+
+    @Property(int, constant=True)
+    def parallelJobs(self) -> int:
+        return self._max_parallel
+
+    @Slot(str, result="QVariantList")
+    def formatOptions(self, kind_value: str) -> list[str]:
+        try:
+            return options_for(MediaKind(kind_value))
+        except ValueError:
+            return []
+
+    @Slot(str, result=str)
+    def defaultFormat(self, kind_value: str) -> str:
+        try:
+            kind = MediaKind(kind_value)
+        except ValueError:
+            return ""
+        remembered = self._preferences.get("formats", {}).get(kind.value)
+        if remembered and is_compatible(kind, remembered):
+            return remembered
+        return DEFAULT_BY_KIND.get(kind, "")
+
+    @Slot(str, str)
+    def setDefaultFormat(self, kind_value: str, label: str) -> None:
+        try:
+            kind = MediaKind(kind_value)
+        except ValueError:
+            return
+        self._remember_target(kind, label)
+        self.preferencesChanged.emit()
+
+    @Slot(str, result=str)
+    def imageDefault(self, field_name: str) -> str:
+        defaults = {"resize": "original", "quality": "balanced", "corners": "none"}
+        value = self._preferences.get("image_defaults", {}).get(field_name)
+        return value or defaults.get(field_name, "")
+
+    @Slot(str, str)
+    def setImageDefault(self, field_name: str, preset: str) -> None:
+        allowed = {
+            "resize": RESIZE_PRESETS,
+            "quality": QUALITY_PRESETS,
+            "corners": CORNER_PRESETS,
+        }
+        if preset not in allowed.get(field_name, {}):
+            return
+        self._preferences.setdefault("image_defaults", {})[field_name] = preset
+        self._save_preferences()
+        self.preferencesChanged.emit()
+
+    def _apply_image_defaults(self, job: JobRecord) -> None:
+        if job.source.kind != MediaKind.IMAGE:
+            return
+        options = job.image_options
+        options.scale_percent, options.max_edge = RESIZE_PRESETS[self.imageDefault("resize")]
+        options.quality = QUALITY_PRESETS[self.imageDefault("quality")]
+        options.corner_radius = CORNER_PRESETS[self.imageDefault("corners")]
+
     @Property(str, notify=imageSettingsChanged)
     def imageResizePreset(self) -> str:
         values = {
@@ -376,15 +462,15 @@ class JobController(QObject):
             if not target:
                 unsupported.append(descriptor.name)
                 continue
-            additions.append(
-                JobRecord(
-                    id=str(uuid.uuid4()),
-                    source=descriptor,
-                    target_format=target,
-                    created_at=now + index / 1000,
-                    selected=not self.model.jobs and index == 0,
-                )
+            job = JobRecord(
+                id=str(uuid.uuid4()),
+                source=descriptor,
+                target_format=target,
+                created_at=now + index / 1000,
+                selected=not self.model.jobs and index == 0,
             )
+            self._apply_image_defaults(job)
+            additions.append(job)
         self.model.replace([*self.model.jobs, *additions])
         self._probing = False
         self.probingChanged.emit()
@@ -1117,6 +1203,8 @@ class JobController(QObject):
             action="retry" if failed else "reveal",
             sticky=True,
         )
+        if succeeded and not failed and self.autoReveal:
+            self.revealOutputs()
         self.batchFinished.emit(len(succeeded), len(failed))
 
     @Slot(str)

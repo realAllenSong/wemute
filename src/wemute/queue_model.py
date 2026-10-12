@@ -11,6 +11,8 @@ from wemute.presentation import (
     GROUP_ORDER,
     metadata_line,
     output_summary,
+    result_delta,
+    result_size,
     status_title,
     thumbnail_url,
 )
@@ -35,6 +37,11 @@ class QueueModel(QAbstractListModel):
     MediaKindRole = Qt.UserRole + 16
     GroupItemCountRole = Qt.UserRole + 17
     OutputPathRole = Qt.UserRole + 18
+    LastInGroupRole = Qt.UserRole + 19
+    SourceFormatRole = Qt.UserRole + 20
+    ResultSizeRole = Qt.UserRole + 21
+    ResultDeltaRole = Qt.UserRole + 22
+    ErrorTextRole = Qt.UserRole + 23
 
     def __init__(self, jobs: Iterable[JobRecord] | None = None) -> None:
         super().__init__()
@@ -68,6 +75,11 @@ class QueueModel(QAbstractListModel):
             self.MediaKindRole: QByteArray(b"mediaKind"),
             self.GroupItemCountRole: QByteArray(b"groupItemCount"),
             self.OutputPathRole: QByteArray(b"outputPath"),
+            self.LastInGroupRole: QByteArray(b"lastInGroup"),
+            self.SourceFormatRole: QByteArray(b"sourceFormat"),
+            self.ResultSizeRole: QByteArray(b"resultSize"),
+            self.ResultDeltaRole: QByteArray(b"resultDelta"),
+            self.ErrorTextRole: QByteArray(b"errorText"),
         }
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:  # noqa: N802
@@ -79,6 +91,9 @@ class QueueModel(QAbstractListModel):
         row_type, payload = self._rows[index.row()]
         if role == self.RowTypeRole:
             return row_type
+        if role == self.LastInGroupRole:
+            following = index.row() + 1
+            return following >= len(self._rows) or self._rows[following][0] == "header"
         if row_type == "header":
             kind = payload
             assert isinstance(kind, MediaKind)
@@ -114,6 +129,10 @@ class QueueModel(QAbstractListModel):
             self.MediaKindRole: job.source.kind.value,
             self.GroupItemCountRole: 0,
             self.OutputPathRole: job.output_path or "",
+            self.SourceFormatRole: job.source.source_format,
+            self.ResultSizeRole: result_size(job),
+            self.ResultDeltaRole: result_delta(job),
+            self.ErrorTextRole: job.error or "",
         }
         return values.get(role)
 

@@ -1,3 +1,14 @@
 singleton Theme 1.0 Theme.qml
 WButton 1.0 WButton.qml
 FormatCombo 1.0 FormatCombo.qml
+Tag 1.0 Tag.qml
+Toggle 1.0 Toggle.qml
+Segmented 1.0 Segmented.qml
+WMenu 1.0 WMenu.qml
+WMenuItem 1.0 WMenuItem.qml
+WSeparator 1.0 WSeparator.qml
+Card 1.0 Card.qml
+SettingRow 1.0 SettingRow.qml
+SectionTitle 1.0 SectionTitle.qml
+JobRow 1.0 JobRow.qml
+SettingsPanel 1.0 SettingsPanel.qml

@@ -23,7 +23,6 @@ dev = [
   "pyinstaller>=6.12,<7",
   "pytest>=8.3,<10",
   "pytest-cov>=6,<8",
-  "QtAwesome>=1.4,<2",
 ]
 
 [build-system]

@@ -30,6 +30,7 @@ _QML_MODULES = (
     "QtQuick/Dialogs",
     "QtQuick/Dialogs/quickimpl",
     "Qt/labs/folderlistmodel",
+    "Qt/labs/qmlmodels",
 )
 
 qml_root = Path(pyside6_library_info.location["QmlImportsPath"]).resolve()

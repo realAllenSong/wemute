@@ -25,6 +25,10 @@ platformdirs 4.11.3
 License: MIT
 Source and license information: https://github.com/tox-dev/platformdirs/blob/main/LICENSE
 
+Lucide icon shapes (embedded as SVG paths)
+License: ISC
+Source and license information: https://github.com/lucide-icons/lucide/blob/main/LICENSE
+
 PyInstaller bootloader 6.22.2
 License: GPL-2.0-or-later with the PyInstaller bootloader distribution exception
 Source and license information: https://pyinstaller.org/en/stable/license.html

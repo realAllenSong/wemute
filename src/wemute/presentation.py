@@ -192,3 +192,19 @@ def progress_summary(done: int, total: int, language: str = "en") -> str:
     if language == "zh":
         return f"正在转换 {done}/{total}"
     return f"Converting {done} of {total}"
+
+
+def result_size(job: JobRecord) -> str:
+    if job.status == JobStatus.SUCCEEDED and job.output_size is not None:
+        return format_bytes(job.output_size)
+    return ""
+
+
+def result_delta(job: JobRecord) -> str:
+    """Signed size change, e.g. "−73%" or "+12%"; empty when unchanged."""
+    if job.status != JobStatus.SUCCEEDED or job.output_size is None or not job.source.size:
+        return ""
+    change = round((job.output_size / job.source.size - 1) * 100)
+    if change == 0:
+        return ""
+    return f"−{abs(change)}%" if change < 0 else f"+{change}%"

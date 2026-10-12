@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QLocale, QObject, Signal, Slot
+from PySide6.QtCore import Property, QLocale, QObject, QSettings, Signal, Slot
 
 
 TRANSLATIONS = {
@@ -81,6 +81,65 @@ TRANSLATIONS = {
         "drop_formats": "JPG · PNG · HEIC · WebP · MP3 · WAV · FLAC · MP4 · MOV · MKV and more",
         "drop_here": "Drop to add",
         "shortcuts_hint": "⌘O to choose · ⌘V to paste · Space to preview",
+        "nav_convert": "Convert",
+        "nav_settings": "Settings",
+        "nav_about": "About",
+        "convert_title": "Convert",
+        "convert_subtitle": "Drop images, audio or video and choose what each becomes. Everything runs on this Mac.",
+        "drop_title": "Drop files to convert",
+        "drop_sub": "or click to choose  ·  ⌘O  ·  ⌘V to paste",
+        "drop_more": "Drop more anywhere",
+        "status_ready": "Ready",
+        "engine_ok": "FFmpeg ready · {count} at a time",
+        "engine_images_only": "FFmpeg not found · images only",
+        "group_all_to": "Convert all to",
+        "results": "Results",
+        "settings_title": "Settings",
+        "settings_subtitle": "Defaults for every new batch. Changes apply immediately.",
+        "section_output": "Output",
+        "save_location": "Save location",
+        "save_location_desc": "Originals are never changed or overwritten.",
+        "next_to_original": "Next to original",
+        "custom_folder": "Folder",
+        "change": "Change…",
+        "auto_start_title": "Start automatically",
+        "auto_start_desc": "Convert files as soon as they are added.",
+        "auto_reveal_title": "Show results in Finder",
+        "auto_reveal_desc": "Select the new files in Finder when a batch finishes.",
+        "section_formats": "Default formats",
+        "section_formats_desc": "New files start with these. Choosing a format for a whole group updates them too.",
+        "images": "Images",
+        "audio": "Audio",
+        "video": "Video",
+        "section_new_images": "New images",
+        "section_new_images_desc": "Applied to images when they are added. Each file can still be adjusted.",
+        "section_language": "Language",
+        "follow_system": "System",
+        "section_updates": "Updates",
+        "check_now": "Check now",
+        "ai_title": "AI Tools",
+        "ai_subtitle": "Optional models that run entirely on this Mac. Once installed, they appear in every output menu.",
+        "installed": "Installed",
+        "not_installed": "Not installed",
+        "downloading": "Downloading",
+        "about_subtitle": "Simple tools. Local by default.",
+        "privacy_title": "Private by design",
+        "shortcuts": "Shortcuts",
+        "sc_add": "Add files",
+        "sc_paste": "Paste files or an image",
+        "sc_preview": "Quick Look the selected file",
+        "sc_remove": "Remove the selected file",
+        "sc_convert": "Convert / Stop",
+        "sc_move": "Move selection",
+        "summary_ready": "{count} ready to convert",
+        "summary_done": "All done",
+        "queued_short": "Queued",
+        "tab_general": "General",
+        "tab_formats": "Formats",
+        "tab_ai": "AI Models",
+        "files_summary": "{count} files",
+        "add_short": "Add",
+        "drop_title_active": "Release to add",
     },
     "zh": {
         "files": "{count} 个文件",
@@ -159,6 +218,65 @@ TRANSLATIONS = {
         "drop_formats": "JPG · PNG · HEIC · WebP · MP3 · WAV · FLAC · MP4 · MOV · MKV 等",
         "drop_here": "松开即可添加",
         "shortcuts_hint": "⌘O 选择文件 · ⌘V 粘贴 · 空格预览",
+        "nav_convert": "转换",
+        "nav_settings": "设置",
+        "nav_about": "关于",
+        "convert_title": "转换",
+        "convert_subtitle": "拖入图片、音频或视频，选择要转成什么。全部在这台 Mac 上完成。",
+        "drop_title": "把文件拖到这里",
+        "drop_sub": "或点击选择  ·  ⌘O  ·  ⌘V 粘贴",
+        "drop_more": "可随时拖入更多",
+        "status_ready": "就绪",
+        "engine_ok": "FFmpeg 已就绪 · 同时 {count} 个",
+        "engine_images_only": "未找到 FFmpeg · 仅支持图片",
+        "group_all_to": "全部转为",
+        "results": "结果",
+        "settings_title": "设置",
+        "settings_subtitle": "每个新批次的默认设置，修改后立即生效。",
+        "section_output": "输出",
+        "save_location": "保存位置",
+        "save_location_desc": "原文件不会被修改或覆盖。",
+        "next_to_original": "原文件旁",
+        "custom_folder": "指定文件夹",
+        "change": "更改…",
+        "auto_start_title": "添加后自动开始",
+        "auto_start_desc": "文件一加入就开始转换。",
+        "auto_reveal_title": "完成后在访达中显示",
+        "auto_reveal_desc": "一批转换完成后，在访达中选中新文件。",
+        "section_formats": "默认格式",
+        "section_formats_desc": "新文件默认使用这些格式；在列表里给整组选格式时也会同步更新。",
+        "images": "图片",
+        "audio": "音频",
+        "video": "视频",
+        "section_new_images": "新图片",
+        "section_new_images_desc": "图片加入时自动应用，之后仍可逐个调整。",
+        "section_language": "语言",
+        "follow_system": "跟随系统",
+        "section_updates": "更新",
+        "check_now": "立即检查",
+        "ai_title": "AI 工具",
+        "ai_subtitle": "可选模型，完全在这台 Mac 上运行。安装后会出现在所有输出菜单中。",
+        "installed": "已安装",
+        "not_installed": "未安装",
+        "downloading": "下载中",
+        "about_subtitle": "简单工具，默认本地。",
+        "privacy_title": "隐私优先",
+        "shortcuts": "快捷键",
+        "sc_add": "添加文件",
+        "sc_paste": "粘贴文件或图片",
+        "sc_preview": "快速预览所选文件",
+        "sc_remove": "移除所选文件",
+        "sc_convert": "开始转换 / 停止",
+        "sc_move": "切换选中",
+        "summary_ready": "{count} 个待转换",
+        "summary_done": "全部完成",
+        "queued_short": "排队中",
+        "tab_general": "常规",
+        "tab_formats": "格式",
+        "tab_ai": "AI 模型",
+        "files_summary": "{count} 个文件",
+        "add_short": "添加",
+        "drop_title_active": "松开即可添加",
     },
 }
 
@@ -168,12 +286,31 @@ class I18n(QObject):
 
     def __init__(self) -> None:
         super().__init__()
-        system = QLocale.system().name().lower()
-        self._language = "zh" if system.startswith("zh") else "en"
+        self._settings = QSettings("Wemute", "Wemute")
+        self._mode = str(self._settings.value("language", "system"))
+        self._language = self._resolve(self._mode)
+
+    @staticmethod
+    def _resolve(mode: str) -> str:
+        if mode in TRANSLATIONS:
+            return mode
+        return "zh" if QLocale.system().name().lower().startswith("zh") else "en"
 
     @Property(str, notify=languageChanged)
     def language(self) -> str:
         return self._language
+
+    @Property(str, notify=languageChanged)
+    def mode(self) -> str:
+        return self._mode if self._mode in TRANSLATIONS else "system"
+
+    @Slot(str)
+    def setMode(self, mode: str) -> None:
+        mode = mode if mode in TRANSLATIONS else "system"
+        self._mode = mode
+        self._settings.setValue("language", mode)
+        self._language = self._resolve(mode)
+        self.languageChanged.emit()
 
     @Slot(str, result=str)
     def t(self, key: str) -> str:

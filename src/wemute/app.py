@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication, QEvent, QObject, QTimer, QUrl, Qt, Signal
-from PySide6.QtGui import QColor, QFileOpenEvent, QPalette
+from PySide6.QtGui import QFileOpenEvent
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtWidgets import QApplication
@@ -51,26 +51,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--show-ai-tools", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--show-erase-editor", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--show-about", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--show-settings", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--appearance", choices=["light", "dark"], help=argparse.SUPPRESS)
     parser.add_argument("--require-updater", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--image-worker", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--ai-worker", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--ai-worker-server", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--audio-runtime-smoke-test", action="store_true", help=argparse.SUPPRESS)
     return parser
-
-
-def _dark_palette() -> QPalette:
-    palette = QPalette()
-    palette.setColor(QPalette.Window, QColor("#16191C"))
-    palette.setColor(QPalette.WindowText, QColor("#F1F2F3"))
-    palette.setColor(QPalette.Base, QColor("#1D2125"))
-    palette.setColor(QPalette.AlternateBase, QColor("#22272C"))
-    palette.setColor(QPalette.Text, QColor("#F1F2F3"))
-    palette.setColor(QPalette.Button, QColor("#1D2125"))
-    palette.setColor(QPalette.ButtonText, QColor("#F1F2F3"))
-    palette.setColor(QPalette.Highlight, QColor("#287BFF"))
-    palette.setColor(QPalette.HighlightedText, QColor("#FFFFFF"))
-    return palette
 
 
 def _demo_descriptors(directory: Path) -> list:
@@ -120,7 +108,11 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationName("Wemute")
     app.setOrganizationName("Wemute")
     app.setApplicationVersion(__version__)
-    app.setPalette(_dark_palette())
+    if arguments.appearance:
+        app.styleHints().setColorScheme(
+            Qt.ColorScheme.Light if arguments.appearance == "light" else Qt.ColorScheme.Dark
+        )
+
 
     model = QueueModel()
     packages = ModelPackageManager()
@@ -134,6 +126,8 @@ def main(argv: list[str] | None = None) -> int:
         controller.shutdown()
         return 4
     i18n = I18n()
+    model.set_language(i18n.language)
+    i18n.languageChanged.connect(lambda: model.set_language(i18n.language))
 
     if arguments.demo_dir:
         controller.seed_demo(_demo_descriptors(arguments.demo_dir))
@@ -175,10 +169,11 @@ def main(argv: list[str] | None = None) -> int:
         popup = root.findChild(QObject, "imageOptionsPopup")
         if popup:
             QTimer.singleShot(350, popup.open)
-    if arguments.show_ai_tools:
-        popup = root.findChild(QObject, "aiToolsPopup")
-        if popup:
-            QTimer.singleShot(350, popup.open)
+    settings_panel = root.findChild(QObject, "settingsPanel")
+    if arguments.show_ai_tools and settings_panel:
+        QTimer.singleShot(350, lambda: settings_panel.setProperty("tab", "ai") or settings_panel.open())
+    if arguments.show_settings and settings_panel:
+        QTimer.singleShot(350, settings_panel.open)
     if arguments.show_erase_editor:
         image_job = next(
             (job for job in model.jobs if job.source.kind.value == "image"), None
@@ -192,10 +187,8 @@ def main(argv: list[str] | None = None) -> int:
                     False,
                 ),
             )
-    if arguments.show_about:
-        popup = root.findChild(QObject, "aboutPopup")
-        if popup:
-            QTimer.singleShot(350, popup.open)
+    if arguments.show_about and settings_panel:
+        QTimer.singleShot(350, lambda: settings_panel.setProperty("tab", "about") or settings_panel.open())
 
     def capture_and_maybe_quit() -> None:
         if arguments.screenshot:
