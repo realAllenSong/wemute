@@ -1,10 +1,23 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "vite",
-  "buildCommand": "WEMUTE_SITE_URL=https://wemute.vercel.app VITE_SITE_URL=https://wemute.vercel.app npm run build",
+  "framework": "astro",
+  "buildCommand": "WEMUTE_SITE_URL=${WEMUTE_SITE_URL:-https://wemute.entropinia.com} npm run build",
   "outputDirectory": "dist/client",
   "cleanUrls": true,
+  "trailingSlash": false,
+  "redirects": [
+    { "source": "/tools/convert-image", "destination": "/image-converter", "permanent": true },
+    { "source": "/tools/compress-image", "destination": "/compress-image", "permanent": true },
+    { "source": "/tools/resize-image", "destination": "/resize-image", "permanent": true },
+    { "source": "/tools/round-corners", "destination": "/round-corners", "permanent": true },
+    { "source": "/mp4-to-gif", "destination": "/video-to-gif", "permanent": true },
+    { "source": "/zh/mp4-to-gif", "destination": "/zh/video-to-gif", "permanent": true }
+  ],
   "headers": [
+    {
+      "source": "/_astro/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
     {
       "source": "/(.*)",
       "headers": [

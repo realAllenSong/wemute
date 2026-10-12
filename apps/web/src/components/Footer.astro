@@ -1,0 +1,44 @@
+---
+import { localePath, type Locale } from "../data/locale";
+import { CATEGORY_LABEL, CATEGORY_ORDER, toolsIn } from "../data/tools";
+import { ui } from "../data/ui";
+import { GA_ID } from "../lib/site";
+
+interface Props {
+  locale: Locale;
+  slug: string;
+}
+
+const { locale } = Astro.props;
+const strings = ui(locale);
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="site-footer__inner">
+    <div class="site-footer__brand">
+      <a class="brand" href={localePath(locale)}>
+        <img src="/icon-192.png" alt="" width="24" height="24" loading="lazy" />
+        <span>Wemute</span>
+      </a>
+      <p>{strings.footerTagline}</p>
+    </div>
+    {
+      CATEGORY_ORDER.map((category) => (
+        <nav class="site-footer__col" aria-label={CATEGORY_LABEL[category][locale]}>
+          <h2>{CATEGORY_LABEL[category][locale]}</h2>
+          {toolsIn(category).map((tool) => (
+            <a href={localePath(locale, tool.slug)}>{tool.name[locale]}</a>
+          ))}
+        </nav>
+      ))
+    }
+  </div>
+  <div class="site-footer__legal">
+    <span>© {year} Wemute</span>
+    <a href={localePath(locale, "about")}>{strings.about}</a>
+    <a href={localePath(locale, "privacy")}>{strings.privacy}</a>
+    <a href={localePath(locale, "terms")}>{strings.terms}</a>
+    {GA_ID && <button type="button" class="link-button" data-consent-open>{strings.cookieSettings}</button>}
+  </div>
+</footer>

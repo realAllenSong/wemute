@@ -1,0 +1,31 @@
+---
+import type { Locale } from "../data/locale";
+import { ui } from "../data/ui";
+import { ADS } from "../lib/site";
+
+interface Props {
+  locale: Locale;
+  placement: "content" | "footer";
+}
+
+const { locale, placement } = Astro.props;
+const slot = ADS.slots[placement];
+const show = ADS.enabled && /^\d+$/.test(slot);
+---
+
+{
+  show && (
+    <aside class="ad" aria-label={ui(locale).advertisement}>
+      <span class="ad__label">{ui(locale).advertisement}</span>
+      <ins
+        class="adsbygoogle"
+        style="display:block"
+        data-ad-client={ADS.client}
+        data-ad-slot={slot}
+        data-ad-format="auto"
+        data-full-width-responsive="true"
+      />
+      <script is:inline>(window.adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </aside>
+  )
+}

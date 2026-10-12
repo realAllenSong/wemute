@@ -1,0 +1,55 @@
+---
+import Base from "../layouts/Base.astro";
+import { localePath, type Locale } from "../data/locale";
+import { CONTACT_EMAIL, UPDATED, type LegalPage as Page } from "../data/site";
+import { ui } from "../data/ui";
+import { breadcrumbs, graph, organization } from "../lib/site";
+
+interface Props {
+  locale: Locale;
+  page: Page;
+}
+
+const { locale, page } = Astro.props;
+const strings = ui(locale);
+const site = Astro.site!;
+const jsonLd = graph(
+  organization(site),
+  breadcrumbs(site, [
+    { name: strings.breadcrumbHome, path: localePath(locale) },
+    { name: page.title[locale], path: localePath(locale, page.slug) },
+  ]),
+);
+const updated = new Date(UPDATED).toLocaleDateString(locale === "zh" ? "zh-CN" : "en-US", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+});
+const missingContact = locale === "zh" ? "联系邮箱即将公布。" : "A contact address will be published here shortly.";
+---
+
+<Base locale={locale} slug={page.slug} title={page.metaTitle[locale]} description={page.metaDescription[locale]} jsonLd={jsonLd}>
+  <main class="page page--prose">
+    <article class="prose">
+      <h1>{page.title[locale]}</h1>
+      <p class="prose__meta">{strings.updated} <time datetime={UPDATED}>{updated}</time></p>
+      <p class="answer">{page.intro[locale]}</p>
+      {
+        page.sections.map((section) => (
+          <section>
+            <h2>{section.heading[locale]}</h2>
+            <p>{section.body[locale]}</p>
+            {section.heading.en === "Contact" &&
+              (CONTACT_EMAIL ? (
+                <p>
+                  <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+                </p>
+              ) : (
+                <p>{missingContact}</p>
+              ))}
+          </section>
+        ))
+      }
+    </article>
+  </main>
+</Base>

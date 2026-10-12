@@ -1,0 +1,16 @@
+---
+import ToolPage from "../components/ToolPage.astro";
+import LegalPage from "../components/LegalPage.astro";
+import { TOOLS, TOOL_BY_SLUG } from "../data/tools";
+import { LEGAL, LEGAL_BY_SLUG } from "../data/site";
+
+export function getStaticPaths() {
+  return [...TOOLS.map((tool) => tool.slug), ...LEGAL.map((page) => page.slug)].map((slug) => ({ params: { slug } }));
+}
+
+const { slug } = Astro.params;
+const tool = TOOL_BY_SLUG.get(slug!);
+const page = LEGAL_BY_SLUG.get(slug as "privacy");
+---
+
+{tool ? <ToolPage locale="en" tool={tool} /> : page && <LegalPage locale="en" page={page} />}

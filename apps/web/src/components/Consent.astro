@@ -1,0 +1,77 @@
+---
+import type { Locale } from "../data/locale";
+import { localePath } from "../data/locale";
+
+interface Props {
+  locale: Locale;
+  gaId: string;
+}
+
+const { locale, gaId } = Astro.props;
+const copy =
+  locale === "zh"
+    ? { text: "是否允许匿名访问统计，帮助我们改进工具？文件内容和文件名永远不会被收集。", accept: "允许", decline: "不允许", more: "隐私政策" }
+    : { text: "Allow anonymous usage statistics to help improve Wemute? File contents and names are never collected.", accept: "Allow", decline: "No thanks", more: "Privacy" };
+---
+
+<div class="consent" data-consent hidden data-ga={gaId}>
+  <p>
+    {copy.text} <a href={localePath(locale, "privacy")}>{copy.more}</a>
+  </p>
+  <div class="consent__actions">
+    <button type="button" class="btn btn--ghost" data-consent-choice="denied">{copy.decline}</button>
+    <button type="button" class="btn btn--secondary" data-consent-choice="granted">{copy.accept}</button>
+  </div>
+</div>
+
+<script>
+  const KEY = "wemute.analytics";
+  const banner = document.querySelector<HTMLElement>("[data-consent]");
+  const gaId = banner?.dataset.ga ?? "";
+
+  function read(): string | null {
+    try {
+      return localStorage.getItem(KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  function load() {
+    if (!gaId || (window as unknown as { gtag?: unknown }).gtag) return;
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
+    document.head.appendChild(script);
+    const w = window as unknown as { dataLayer: unknown[]; gtag: (...args: unknown[]) => void };
+    w.dataLayer = w.dataLayer || [];
+    w.gtag = function gtag() {
+      // eslint-disable-next-line prefer-rest-params
+      w.dataLayer.push(arguments);
+    };
+    w.gtag("js", new Date());
+    w.gtag("config", gaId, { anonymize_ip: true });
+  }
+
+  const choice = read();
+  if (choice === "granted") load();
+  else if (choice === null && banner) banner.hidden = false;
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-consent-choice]")) {
+    button.addEventListener("click", () => {
+      const value = button.dataset.consentChoice ?? "denied";
+      try {
+        localStorage.setItem(KEY, value);
+      } catch {
+        // Private mode: the choice simply isn't remembered.
+      }
+      if (banner) banner.hidden = true;
+      if (value === "granted") load();
+    });
+  }
+  for (const opener of document.querySelectorAll<HTMLButtonElement>("[data-consent-open]")) {
+    opener.addEventListener("click", () => {
+      if (banner) banner.hidden = false;
+    });
+  }
+</script>

@@ -1,0 +1,90 @@
+---
+import Base from "../layouts/Base.astro";
+import AdSlot from "./AdSlot.astro";
+import Icon from "./Icon.astro";
+import Converter from "./converter/Converter.tsx";
+import { localePath, type Locale } from "../data/locale";
+import { CATEGORY_LABEL, CATEGORY_ORDER, toolsIn } from "../data/tools";
+import { HOME } from "../data/site";
+import { ui } from "../data/ui";
+import { faqPage, graph, organization, website } from "../lib/site";
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const strings = ui(locale);
+const site = Astro.site!;
+const jsonLd = graph(organization(site), website(site, locale, HOME.metaDescription[locale]), faqPage(HOME.faqs, locale));
+const KIND_ICON = { image: "image", video: "film", audio: "music" } as const;
+const WHY_ICON = ["lock", "zap", "layers"] as const;
+---
+
+<Base locale={locale} slug="" title={HOME.metaTitle[locale]} description={HOME.metaDescription[locale]} jsonLd={jsonLd}>
+  <main class="page">
+    <section class="hero hero--home">
+      <p class="eyebrow"><span class="eyebrow__dot" />{HOME.eyebrow[locale]}</p>
+      <h1>{HOME.h1[locale]}</h1>
+      <p class="answer">{HOME.intro[locale]}</p>
+    </section>
+
+    <div id="converter" class="converter-shell">
+      <Converter client:load locale={locale} strings={strings} />
+    </div>
+
+    {
+      CATEGORY_ORDER.map((category) => (
+        <section class="section directory" id={category} aria-labelledby={`dir-${category}`}>
+          <h2 id={`dir-${category}`}>
+            <Icon name={KIND_ICON[category]} size={18} />
+            {CATEGORY_LABEL[category][locale]}
+          </h2>
+          <div class="tool-grid">
+            {toolsIn(category).map((tool) => (
+              <a class="tool-card" href={localePath(locale, tool.slug)}>
+                <span class="tool-card__body">
+                  <strong>{tool.name[locale]}</strong>
+                  <small>{tool.metaDescription[locale]}</small>
+                </span>
+                <Icon name="arrow-right" size={16} class="tool-card__go" />
+              </a>
+            ))}
+          </div>
+        </section>
+      ))
+    }
+
+    <section class="section why" aria-labelledby="why">
+      <h2 id="why">{HOME.whyTitle[locale]}</h2>
+      <div class="why__grid">
+        {
+          HOME.why.map((item, index) => (
+            <div class="why__item">
+              <span class="why__icon"><Icon name={WHY_ICON[index]} size={18} /></span>
+              <h3>{item.title[locale]}</h3>
+              <p>{item.body[locale]}</p>
+            </div>
+          ))
+        }
+      </div>
+    </section>
+
+    <AdSlot locale={locale} placement="content" />
+
+    <section class="section faq" aria-labelledby="faq">
+      <h2 id="faq">{strings.faq}</h2>
+      {
+        HOME.faqs.map((faq, index) => (
+          <details open={index === 0}>
+            <summary>
+              {faq.q[locale]}
+              <Icon name="chevron-down" size={16} />
+            </summary>
+            <p>{faq.a[locale]}</p>
+          </details>
+        ))
+      }
+    </section>
+  </main>
+</Base>

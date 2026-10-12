@@ -1,0 +1,80 @@
+---
+import "../styles/global.css";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import Consent from "../components/Consent.astro";
+import { HTML_LANG, OG_LOCALE, type Locale } from "../data/locale";
+import { ADS, GA_ID, INDEXABLE, VERCEL_ANALYTICS, absolute, alternates } from "../lib/site";
+
+interface Props {
+  locale: Locale;
+  /** Slug without locale prefix; "" for the home page. */
+  slug: string;
+  title: string;
+  description: string;
+  jsonLd?: string;
+  noindex?: boolean;
+}
+
+const { locale, slug, title, description, jsonLd, noindex = false } = Astro.props;
+const site = Astro.site!;
+const canonical = absolute(site, Astro.url.pathname.replace(/\/$/, "") || "/");
+const robots = INDEXABLE && !noindex ? "index, follow, max-image-preview:large, max-snippet:-1" : "noindex, nofollow";
+const ogImage = absolute(site, "/og.png");
+---
+
+<!doctype html>
+<html lang={HTML_LANG[locale]}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content={robots} />
+    <link rel="canonical" href={canonical} />
+    {!noindex && alternates(site, slug).map((alt) => <link rel="alternate" hreflang={alt.hreflang} href={alt.href} />)}
+    <meta name="theme-color" content="#F3F4F6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111317" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Wemute" />
+    <meta property="og:locale" content={OG_LOCALE[locale]} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    {jsonLd && <script type="application/ld+json" set:html={jsonLd} />}
+
+    {ADS.enabled && <meta name="google-adsense-account" content={ADS.client} />}
+    {
+      ADS.enabled && (
+        <script
+          is:inline
+          async
+          crossorigin="anonymous"
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADS.client}`}
+        />
+      )
+    }
+    {VERCEL_ANALYTICS && <script is:inline defer src="/_vercel/insights/script.js" />}
+  </head>
+  <body>
+    <a class="skip-link" href="#converter">{locale === "zh" ? "跳到转换器" : "Skip to the converter"}</a>
+    <Header locale={locale} slug={slug} />
+    <slot />
+    <Footer locale={locale} slug={slug} />
+    {GA_ID && <Consent locale={locale} gaId={GA_ID} />}
+  </body>
+</html>

@@ -1,58 +1,33 @@
 # Wemute Web
 
-The public Wemute product: free, browser-local image tools designed for organic discovery and clearly separated advertising.
-
-## Included
-
-- Drag, drop, or choose multiple images.
-- Set PNG, JPEG, or WebP once for the full queue, then override individual files.
-- Resize, quality, and rounded-corner controls.
-- Local Canvas conversion and batch ZIP download. Files are never uploaded.
-- English and Simplified Chinese interface.
-- Dedicated crawlable pages for conversion, compression, resizing, and rounded corners.
-- Route-specific metadata, canonical URLs, JSON-LD, static fallback content, and internal links.
-- Privacy, terms, and about pages.
-- Optional consent-gated GA4 events and optional AdSense slots. Both are disabled by default.
-
-## Public routes
-
-- `/`
-- `/tools/convert-image`
-- `/tools/compress-image`
-- `/tools/resize-image`
-- `/tools/round-corners`
-- `/about`
-- `/privacy`
-- `/terms`
-
-## Development
+Free file tools that run in the visitor's browser: images through the browser's
+own encoder (HEIC via libheif/WebAssembly), video and audio through FFmpeg
+compiled to WebAssembly. Nothing is uploaded.
 
 ```bash
 npm install
-npm run dev
+npm run dev          # http://localhost:4321
+npm run check        # TypeScript
+npm test             # unit and content tests
+npm run build        # static site in dist/client + SEO audit
 ```
 
-Verification:
+## Layout
 
-```bash
-npm run typecheck
-npm test
-npm run build
-npm run test:sites
-```
+| Path | Purpose |
+| --- | --- |
+| `src/data/tools.ts` | Every tool page: copy in English and Chinese, steps, FAQs, defaults |
+| `src/data/formats.ts` | Format facts used for the comparison tables |
+| `src/components/converter/` | The React converter island |
+| `src/lib/image.ts`, `src/lib/media.ts` | Image pipeline and FFmpeg planning/runtime |
+| `src/pages/` | Routes: `/<slug>` (English) and `/zh/<slug>` (Chinese), `robots.txt`, `llms.txt` |
+| `scripts/audit-build.mjs` | Fails the build on missing titles, canonicals, hreflang, JSON-LD or duplicate titles |
 
-## Safe preview and production builds
+## Adding a tool
 
-`npm run build` without a production origin creates a safe preview: every page is `noindex`, `robots.txt` disallows crawling, and no sitemap is published.
+Add an entry to `TOOLS` with genuinely specific copy (a direct answer, three
+steps, use cases and at least one tool-specific FAQ in both languages). The
+page, sitemap entry, footer link, `llms.txt` line and structured data are
+generated from it. `npm test` checks completeness and link integrity.
 
-An indexable production build requires a verified HTTPS origin:
-
-```bash
-WEMUTE_SITE_URL=https://example.com \
-VITE_SITE_URL=https://example.com \
-npm run build
-```
-
-That build produces unique static HTML for every public route plus `sitemap.xml`, `robots.txt`, and `llms.txt`. `llms.txt` is an experimental plain-text site summary, not a search ranking mechanism.
-
-See [PUBLIC_LAUNCH.md](./PUBLIC_LAUNCH.md) for domain, Search Console, analytics, consent, and advertising setup.
+See [PUBLIC_LAUNCH.md](PUBLIC_LAUNCH.md) for domain, search and advertising setup.

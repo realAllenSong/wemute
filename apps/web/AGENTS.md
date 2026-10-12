@@ -10,9 +10,9 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Durable product direction
 
-- The public website must teach the product before dropping visitors into the queue: use a concise discovery homepage and focused image-tool routes, then reveal the existing batch workspace after files are added.
-- Keep the established graphite, blue-accented, restrained Wemute visual system. Borrow iLoveIMG's clarity and discoverability, not its dense tool-card wall.
-- The core workflow stays local-first and immediate: one large drop action, group-level defaults, optional per-file overrides, and no account requirement.
-- Advertising must never sit beside upload, conversion, file-row, progress, or download controls. Reserve stable placements only after useful explanatory content and hide ads from active processing/result views.
+- Stack: Astro static pages (one crawlable HTML file per route, English at `/<slug>`, Chinese at `/zh/<slug>`) with the converter as a React island in `src/components/converter/`. Tool content lives in `src/data/tools.ts`; format facts in `src/data/formats.ts`.
+- Visual system: "Porcelain & Cobalt", shared with the Mac app — porcelain surfaces, graphite text, one cobalt "seam" accent that means transformation (progress, primary action, focus), following the system light/dark appearance. The owner's ThunderTalk app is the bar for taste and polish, but Wemute must not copy its palette, serif type or sidebar structure.
+- The core workflow stays local-first and immediate: one large drop action, group-level defaults, optional per-file overrides, no account. Image and audio tool pages convert on drop; video tools wait for the user to set options.
+- Advertising must never sit beside upload, conversion, file-row, progress, or download controls. Ads appear only between explanatory sections, are labelled, and reserve their height.
 - The desktop app is a private tool for the owner. Do not advertise, distribute, or link to it from the public website.
-- The public website is a free, browser-local utility funded by clearly separated advertising. Organic search and answer-engine visibility must come from useful, independently valuable tool pages, never thin keyword permutations.
+- The public website is a free, browser-local utility funded by clearly separated advertising. Search and answer-engine visibility must come from useful, independently valuable tool pages (direct answer, steps, format comparison, specific FAQs), never thin keyword permutations.

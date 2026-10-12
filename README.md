@@ -42,12 +42,13 @@ uv run pytest
 uv run python -m wemute --smoke-test
 ```
 
-## Web workspace
+## Web edition
 
-The first web edition lives in `apps/web`. It keeps the same quiet queue and
-group/per-file override behavior, but limits its promise to browser-native image
-work: PNG, JPEG and WebP conversion, resize, quality, rounded corners and batch
-ZIP download. File bytes never leave the browser.
+`apps/web` is the public site: an Astro static site with 26 browser-local
+tools (HEIC/PNG/JPG/WebP/AVIF conversion, compression, resizing, MOV/MKV/WebM
+to MP4, video to GIF, audio conversion) in English and Chinese. Images use the
+browser's encoder, HEIC uses libheif and video/audio use FFmpeg compiled to
+WebAssembly, so files are never uploaded.
 
 ```bash
 cd apps/web
@@ -55,8 +56,8 @@ npm install
 npm run dev
 ```
 
-Web verification runs with `npm run typecheck`, `npm test`, `npm run build` and
-`npm run test:sites`.
+Verification: `npm run check`, `npm test`, `npm run test:sites`, `npm run build`.
+See `apps/web/PUBLIC_LAUNCH.md` for domain, search and AdSense setup.
 
 ## Build a development `.app`
 
