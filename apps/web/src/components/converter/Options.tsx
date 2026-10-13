@@ -14,6 +14,7 @@ export function Pill({
   open,
   disabled,
   ariaLabel,
+  testId,
   onOpenChange,
   children,
 }: {
@@ -22,6 +23,7 @@ export function Pill({
   open: boolean;
   disabled?: boolean;
   ariaLabel?: string;
+  testId?: string;
   onOpenChange: (open: boolean) => void;
   children?: ReactNode;
 }) {
@@ -64,7 +66,11 @@ export function Pill({
   }, [open, children]);
 
   if (!children) {
-    return <span className={`cv-pill cv-pill--${tone} is-static`}>{label}</span>;
+    return (
+      <span className={`cv-pill cv-pill--${tone} is-static`} data-testid={testId}>
+        {label}
+      </span>
+    );
   }
 
   return (
@@ -75,6 +81,7 @@ export function Pill({
         aria-haspopup="true"
         aria-expanded={open}
         aria-label={ariaLabel && typeof label === "string" ? `${ariaLabel}: ${label}` : undefined}
+        data-testid={testId}
         disabled={disabled}
         onClick={() => onOpenChange(!open)}
       >

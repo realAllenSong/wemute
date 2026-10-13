@@ -136,6 +136,7 @@ function errorMessage(error: unknown, locale: Locale): string {
   if (code === "encode-unsupported") return zh ? "当前浏览器无法输出该格式" : "This browser can't save this format";
   if (code === "target") return zh ? "无法压缩到目标大小" : "Couldn't reach the target size";
   if (code === "no-audio") return zh ? "这个文件没有可提取的音频" : "This file has no audio track to convert";
+  if (code === "gif-start") return zh ? "开始时间超过了视频长度" : "The start time is past the end of this video";
   if (code === "engine") return zh ? "转换引擎加载失败，请检查网络后重试" : "The converter engine couldn't load — check your connection";
   return zh ? "转换失败" : "Conversion failed";
 }
@@ -361,6 +362,8 @@ export default function Converter({ locale, strings, picker, tool }: Props) {
           throw new Error("engine");
         }
         setEngine({ loading: false, progress: 1 });
+        // Stop may have been pressed while the engine was still downloading.
+        if (stopRef.current) throw new DOMException("Aborted", "AbortError");
         const controller = new AbortController();
         abortRef.current = controller;
         const mode = tool?.mode === "video-compress" ? "compress" : target === "gif" ? "gif" : "convert";
@@ -563,9 +566,9 @@ export default function Converter({ locale, strings, picker, tool }: Props) {
     const outputs = outputsFor(kind);
     const key = `${kind}-format`;
     const label = labelFor(groupOutput[kind]);
-    if (outputs.length < 2 && !more) return <Pill label={label} tone={kind} open={false} onOpenChange={() => undefined} />;
+    if (outputs.length < 2 && !more) return <Pill label={label} tone={kind} open={false} testId={`pill-${key}`} onOpenChange={() => undefined} />;
     return (
-      <Pill label={label} tone={kind} open={open === key} disabled={locked} onOpenChange={toggle(key)}>
+      <Pill label={label} tone={kind} open={open === key} disabled={locked} testId={`pill-${key}`} onOpenChange={toggle(key)}>
         {sheet && more ? (
           more
         ) : (
@@ -581,7 +584,7 @@ export default function Converter({ locale, strings, picker, tool }: Props) {
   };
 
   const optionPill = (key: string, tone: Category, label: string, panel: ReactNode) => (
-    <Pill label={label} tone={tone} open={open === key} disabled={locked} onOpenChange={toggle(key)}>
+    <Pill label={label} tone={tone} open={open === key} disabled={locked} testId={`pill-${key}`} onOpenChange={toggle(key)}>
       {panel}
     </Pill>
   );
@@ -734,6 +737,7 @@ export default function Converter({ locale, strings, picker, tool }: Props) {
       tone={tone}
       open={open === "source"}
       ariaLabel={strings.pickSource}
+      testId="pill-source"
       onOpenChange={toggle("source")}
     >
       <Menu
@@ -746,9 +750,9 @@ export default function Converter({ locale, strings, picker, tool }: Props) {
 
   const navPill = (label: string, value: string, options: { value: string; label: string; href: string }[]) =>
     options.length < 2 ? (
-      <Pill label={label} tone={tone} open={false} onOpenChange={() => undefined} />
+      <Pill label={label} tone={tone} open={false} testId="pill-target" onOpenChange={() => undefined} />
     ) : (
-      <Pill label={label} tone={tone} open={open === "target"} ariaLabel={strings.pickTarget} onOpenChange={toggle("target")}>
+      <Pill label={label} tone={tone} open={open === "target"} ariaLabel={strings.pickTarget} testId="pill-target" onOpenChange={toggle("target")}>
         <Menu
           value={value}
           options={options}
@@ -855,6 +859,7 @@ export default function Converter({ locale, strings, picker, tool }: Props) {
       multiple
       accept={accept}
       tabIndex={-1}
+      data-testid="file-input"
       onChange={(event) => {
         if (event.currentTarget.files) addFiles(event.currentTarget.files);
         event.currentTarget.value = "";
@@ -866,7 +871,7 @@ export default function Converter({ locale, strings, picker, tool }: Props) {
     const target = emptyTarget();
     const cards = demoCards(target.badge);
     return (
-      <div className={`cv${dragging ? " cv--dragging" : ""}`}>
+      <div className={`cv${dragging ? " cv--dragging" : ""}`} data-testid="converter" data-phase={phase}>
         {fileInput}
         <div className="cv-panel cv-app">
           <div className="cv-head cv-head--empty">
@@ -897,7 +902,11 @@ export default function Converter({ locale, strings, picker, tool }: Props) {
               <span>{dropLine()}</span>
             </span>
           </button>
-          {notice && <p className="cv-quiet cv-quiet--error cv-quiet--center">{notice}</p>}
+          {notice && (
+            <p className="cv-quiet cv-quiet--error cv-quiet--center" data-testid="notice">
+              {notice}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -907,11 +916,11 @@ export default function Converter({ locale, strings, picker, tool }: Props) {
   const total = batchItems.length || sentenceItems.length;
 
   return (
-    <div className={`cv${dragging ? " cv--dragging" : ""}`}>
+    <div className={`cv${dragging ? " cv--dragging" : ""}`} data-testid="converter" data-phase={phase}>
       {fileInput}
       <div className={`cv-panel cv-app cv-work cv-work--${phase}`}>
         {phase === "done" ? (
-          <div className="cv-done" aria-live="polite">
+          <div className="cv-done" aria-live="polite" data-testid="done">
             <h2 className="cv-done__title">
               {failed.length
                 ? format(strings.doneMixed, { done: done.length, failed: failed.length })
@@ -928,16 +937,16 @@ export default function Converter({ locale, strings, picker, tool }: Props) {
             )}
             <div className="cv-actions">
               {done.length > 0 && (
-                <button type="button" className="cv-go" onClick={() => void downloadAll()}>
+                <button type="button" className="cv-go" data-testid="download-all" onClick={() => void downloadAll()}>
                   <Icon name="download" size={18} />
                   <span>{done.length === 1 ? strings.download : strings.downloadAll}</span>
                 </button>
               )}
-              <button type="button" className="cv-sec" onClick={clear}>
+              <button type="button" className="cv-sec" data-testid="convert-more" onClick={clear}>
                 {strings.again}
               </button>
               {failed.length > 0 && (
-                <button type="button" className="cv-retry" onClick={() => void start()}>
+                <button type="button" className="cv-retry" data-testid="retry-failed" onClick={() => void start()}>
                   <Icon name="retry" size={15} />
                   {format(strings.retryFailed, { count: failed.length })}
                 </button>
@@ -948,7 +957,7 @@ export default function Converter({ locale, strings, picker, tool }: Props) {
           <div className="cv-head">
             <p className="cv-sentence">
               {groups.map((group) => (
-                <span key={group.kind} className="cv-line">
+                <span key={group.kind} className="cv-line" data-testid="sentence-line" data-kind={group.kind}>
                   {sentenceLine(group.kind, group.count)}
                 </span>
               ))}
@@ -960,7 +969,7 @@ export default function Converter({ locale, strings, picker, tool }: Props) {
                 </div>
                 <div className="cv-row-end">
                   <span className="cv-run__label">{format(strings.progress, { done: finishedInBatch, total })}</span>
-                  <button type="button" className="cv-sec cv-sec--quiet" onClick={stop}>
+                  <button type="button" className="cv-sec cv-sec--quiet" data-testid="stop" onClick={stop}>
                     {strings.stop}
                   </button>
                 </div>
@@ -976,7 +985,7 @@ export default function Converter({ locale, strings, picker, tool }: Props) {
                     {strings.clear}
                   </button>
                 </span>
-                <button type="button" className="cv-go" onClick={() => void start()} disabled={!sentenceItems.length}>
+                <button type="button" className="cv-go" data-testid="convert" onClick={() => void start()} disabled={!sentenceItems.length}>
                   {strings.convert}
                   <Icon name="arrow-right" size={18} />
                 </button>
@@ -995,7 +1004,11 @@ export default function Converter({ locale, strings, picker, tool }: Props) {
                 </span>
               </span>
             )}
-            {notice && <span className="cv-quiet cv-quiet--error">{notice}</span>}
+            {notice && (
+              <span className="cv-quiet cv-quiet--error" data-testid="notice">
+                {notice}
+              </span>
+            )}
           </div>
         )}
 
@@ -1004,6 +1017,9 @@ export default function Converter({ locale, strings, picker, tool }: Props) {
             <li
               key={item.id}
               className={`cv-card cv-card--${item.kind} is-${item.status}`}
+              data-testid="file-card"
+              data-kind={item.kind}
+              data-status={item.status}
               style={{ "--r": `${TILT[index % TILT.length]}deg` } as CSSProperties}
               title={item.error ? `${item.file.name} — ${item.error}` : `${item.file.name} · ${item.meta}${item.result ? ` → ${formatBytes(item.result.blob.size)}` : ""}`}
             >
@@ -1035,6 +1051,7 @@ export default function Converter({ locale, strings, picker, tool }: Props) {
                   <button
                     type="button"
                     className="cv-card__dl"
+                    data-testid="card-download"
                     onClick={() => {
                       saveBlob(item.result!.blob, item.result!.name);
                       track("download_completed", { file_count: 1, download_type: "file" });

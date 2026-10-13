@@ -118,6 +118,15 @@ export function planMedia(
       expectedDuration: probe.duration,
     };
   }
+  // H.264 with audio MP4 can't hold (Opus, Vorbis, AC-3, PCM…): keep the picture, convert only the sound.
+  if (mode !== "compress" && probe.video === "h264") {
+    return {
+      args: [...base, "-i", input, "-map", "0:v:0", "-map", "0:a:0?", "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", output],
+      extension: "mp4",
+      mime: "video/mp4",
+      expectedDuration: probe.duration,
+    };
+  }
   const crf = mode === "compress" ? CRF[compress.quality] : 21;
   const scale =
     mode === "compress" && compress.maxHeight
@@ -235,6 +244,11 @@ export async function convertMedia(job: MediaJob): Promise<{ blob: Blob; extensi
   await ffmpeg.exec(["-hide_banner", "-i", input]).catch(() => undefined);
   ffmpeg.off("log", collect);
   const probe = parseProbe(log);
+  // FFmpeg happily writes a frameless GIF when seeking past the end.
+  if (job.mode === "gif" && probe.duration && (job.gif?.start ?? 0) >= probe.duration) {
+    await ffmpeg.deleteFile(input).catch(() => undefined);
+    throw new Error("gif-start");
+  }
 
   const output = `out-${id}.${extensionFor(job.target, job.mode)}`;
   const plan = planMedia(input, output, job.target, job.mode, probe, job.gif, job.compress);
@@ -259,6 +273,7 @@ export async function convertMedia(job: MediaJob): Promise<{ blob: Blob; extensi
     if (code !== 0) throw new Error(job.target === "mp3" || job.target === "wav" || job.target === "m4a" ? "no-audio" : "ffmpeg");
     const data = await ffmpeg.readFile(output);
     const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
+    if (!bytes.byteLength) throw new Error("ffmpeg");
     return { blob: new Blob([bytes as Uint8Array<ArrayBuffer>], { type: plan.mime }), extension: plan.extension };
   } finally {
     job.signal?.removeEventListener("abort", abort);

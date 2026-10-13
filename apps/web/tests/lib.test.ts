@@ -76,6 +76,12 @@ describe("media planning", () => {
     expect(plan.args).not.toContain("libx264");
   });
 
+  it("copies H.264 and converts only audio MP4 can't hold", () => {
+    const plan = planMedia("in.mkv", "out.mp4", "mp4", "convert", { video: "h264", audio: "opus" });
+    expect(plan.args.join(" ")).toContain("-c:v copy -c:a aac");
+    expect(plan.args).not.toContain("libx264");
+  });
+
   it("re-encodes HEVC and always re-encodes when compressing", () => {
     expect(canRemuxToMp4({ video: "hevc", audio: "aac" })).toBe(false);
     const plan = planMedia("in.mov", "out.mp4", "mp4", "compress", parseProbe(log));

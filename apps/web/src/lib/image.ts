@@ -102,8 +102,8 @@ function decodeHeic(file: File): Promise<Blob> {
 
 /** Decode any supported image, honouring EXIF orientation. */
 export async function decodeImage(file: File): Promise<ImageBitmap> {
-  const source = isHeic(file) ? await decodeHeic(file) : file;
   try {
+    const source = isHeic(file) ? await decodeHeic(file) : file;
     return await createImageBitmap(source, { imageOrientation: "from-image" });
   } catch {
     throw new Error(isHeic(file) ? "heic" : "decode");
