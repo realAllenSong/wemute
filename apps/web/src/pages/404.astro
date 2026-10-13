@@ -4,10 +4,10 @@ import { TOOLS } from "../data/tools";
 ---
 
 <Base locale="en" slug="" title="Page not found | Wemute" description="This page doesn't exist." noindex>
-  <main class="page page--prose">
+  <main class="wrap wrap--prose">
     <article class="prose">
       <h1>Page not found</h1>
-      <p class="answer">The page you were looking for doesn't exist. Try one of the most used tools:</p>
+      <p class="prose__intro">The page you were looking for doesn't exist. Try one of the most used tools:</p>
       <ul>
         {TOOLS.slice(0, 6).map((tool) => <li><a href={`/${tool.slug}`}>{tool.name.en}</a></li>)}
       </ul>

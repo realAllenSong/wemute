@@ -25,6 +25,8 @@ import {
   type VideoCompressOptions,
 } from "../../lib/media";
 import { audioDuration, formatDuration, videoPreview } from "../../lib/preview";
+import { linkFor, linkForSlug, targetsFor, type PickerData } from "../../data/picker";
+import { droppedEntries, filesFromEntries } from "./folders";
 import { Icon } from "./Icon";
 import {
   CornersPanel,
@@ -52,8 +54,24 @@ export interface ConverterTool {
 interface Props {
   locale: Locale;
   strings: UiStrings;
+  picker: PickerData;
   tool?: ConverterTool;
 }
+
+interface DemoCard {
+  name: string;
+  badge: string;
+  tone: Category;
+}
+
+const DEMO_TILT = ["-6deg", "4deg", "-3deg", "6deg"];
+const DEMO_NAMES: Record<Category, string[]> = {
+  image: ["IMG_0412", "IMG_0431", "harbor", "lake"],
+  video: ["trip", "clip", "beach", "demo"],
+  audio: ["memo", "track01", "demo", "take2"],
+};
+const FORMAT_NAME: Record<string, string> = { webp: "WebP", webm: "WebM" };
+const formatName = (id: string) => FORMAT_NAME[id] ?? id.toUpperCase();
 
 type Status = "reading" | "ready" | "running" | "done" | "error" | "cancelled";
 type Phase = "empty" | "ready" | "running" | "done";
@@ -143,7 +161,7 @@ function sameImageOptions(a: ImageOptions, b: ImageOptions): boolean {
   );
 }
 
-export default function Converter({ locale, strings, tool }: Props) {
+export default function Converter({ locale, strings, picker, tool }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<Item[]>([]);
   const itemsRef = useRef<Item[]>([]);
@@ -165,6 +183,7 @@ export default function Converter({ locale, strings, tool }: Props) {
   const [notice, setNotice] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [sheet, setSheet] = useState(false);
+  const [homeSource, setHomeSource] = useState("heic");
   const abortRef = useRef<AbortController | null>(null);
   const stopRef = useRef(false);
 
@@ -273,11 +292,14 @@ export default function Converter({ locale, strings, tool }: Props) {
       if (hasFiles(event)) event.preventDefault();
     };
     const onDrop = (event: DragEvent) => {
-      if (!hasFiles(event)) return;
+      if (!hasFiles(event) || !event.dataTransfer) return;
       event.preventDefault();
       depth = 0;
       setDragging(false);
-      if (event.dataTransfer?.files.length) addFiles(event.dataTransfer.files);
+      const files = Array.from(event.dataTransfer.files);
+      const entries = droppedEntries(event.dataTransfer);
+      if (entries.some((entry) => entry.isDirectory)) void filesFromEntries(entries).then(addFiles, () => addFiles(files));
+      else if (files.length) addFiles(files);
     };
     const onPaste = (event: ClipboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -527,18 +549,6 @@ export default function Converter({ locale, strings, tool }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, phase, start]);
 
-  const acceptChips = tool
-    ? Array.from(new Set(tool.accept.split(",").map((part) => part.trim()).filter((part) => part.startsWith(".")).map((part) => part.slice(1).toUpperCase())))
-    : [];
-
-  const toolHint = !tool
-    ? strings.emptyLine
-    : !autoStart
-      ? strings.toolHintWait
-      : OUTPUT_LABEL[tool.output]
-        ? format(strings.toolHintAuto, { format: OUTPUT_LABEL[tool.output] })
-        : strings.toolHintStart;
-
   // ── sentence ──────────────────────────────────────────────────────────
 
   const locked = phase === "running";
@@ -691,6 +701,150 @@ export default function Converter({ locale, strings, tool }: Props) {
     return fill(strings.sentConvert, { count: countNode, format: formatPill(kind) });
   };
 
+  // ── empty sentence: a tool picker before any file is added ────────────
+
+  const go = (href: string) => {
+    setOpen(null);
+    window.location.assign(href);
+  };
+
+  const current = tool ? linkForSlug(picker, tool.slug) : undefined;
+  // "" means the tool takes any file of its kind (compress, resize, …).
+  const sourceId = tool ? (current?.from ?? "") : homeSource;
+  const targetId = tool ? current?.to : targetsFor(picker, homeSource)[0]?.to;
+  const sourceKind: Category = tool?.category ?? (picker.sources.find((source) => source.id === sourceId)?.kind as Category | undefined) ?? "image";
+  const tone: Category = sourceId === "any" ? "image" : sourceKind;
+
+  const pickSource = (id: string) => {
+    setOpen(null);
+    if (id === "any") {
+      if (tool) go(picker.home);
+      else setHomeSource("any");
+      return;
+    }
+    if (tool && id === sourceId) return;
+    const link = linkFor(picker, id, targetId);
+    if (link) go(link.href);
+  };
+
+  const KIND_GROUP: Record<Category, string> = { image: strings.kindImage, video: strings.kindVideo, audio: strings.kindAudio };
+  const sourcePill = (
+    <Pill
+      label={sourceId ? (picker.sources.find((source) => source.id === sourceId)?.label ?? sourceId) : picker.kindSource[sourceKind]}
+      tone={tone}
+      open={open === "source"}
+      ariaLabel={strings.pickSource}
+      onOpenChange={toggle("source")}
+    >
+      <Menu
+        value={sourceId}
+        options={picker.sources.map((source) => ({ value: source.id, label: source.label, group: source.kind === "any" ? undefined : KIND_GROUP[source.kind] }))}
+        onPick={pickSource}
+      />
+    </Pill>
+  );
+
+  const navPill = (label: string, value: string, options: { value: string; label: string; href: string }[]) =>
+    options.length < 2 ? (
+      <Pill label={label} tone={tone} open={false} onOpenChange={() => undefined} />
+    ) : (
+      <Pill label={label} tone={tone} open={open === "target"} ariaLabel={strings.pickTarget} onOpenChange={toggle("target")}>
+        <Menu
+          value={value}
+          options={options}
+          onPick={(next) => {
+            const option = options.find((item) => item.value === next);
+            if (!tool || next !== value) go(option!.href);
+            else setOpen(null);
+          }}
+        />
+      </Pill>
+    );
+
+  const resizePanel = <ResizePanel strings={strings} image={imageOptions} onImage={onImage} />;
+  const cornersPanel = <CornersPanel strings={strings} image={imageOptions} onImage={onImage} />;
+  const videoSizes = [
+    { value: 0 as const, label: strings.original },
+    { value: 1080 as const, label: "1080p" },
+    { value: 720 as const, label: "720p" },
+    { value: 480 as const, label: "480p" },
+  ];
+
+  /** The sentence template, its target pill, and the short word shown on the demo cards. */
+  const emptyTarget = (): { template: string; pill: ReactNode; badge: string } => {
+    if (mode === "image-target-size" || mode === "image-compress") {
+      const size = picker.sizes.find((item) => item.slug === tool!.slug);
+      return {
+        template: strings.sentEmptyCompress,
+        pill: navPill(size?.label ?? "", tool!.slug, picker.sizes.map((item) => ({ value: item.slug, label: item.label, href: item.href }))),
+        badge: mode === "image-compress" ? strings.qualitySmall : `${imageOptions.targetKB} KB`,
+      };
+    }
+    if (mode === "image-resize")
+      return { template: strings.sentEmptyResize, pill: optionPill("empty-resize", "image", resizeLabel(strings, imageOptions), resizePanel), badge: resizeLabel(strings, imageOptions) };
+    if (mode === "image-corners")
+      return { template: strings.sentEmptyCorners, pill: optionPill("empty-corners", "image", `${imageOptions.cornerRadius} px`, cornersPanel), badge: `${imageOptions.cornerRadius} px` };
+    if (mode === "video-compress") {
+      const label = videoSizes.find((size) => size.value === compressOptions.maxHeight)?.label ?? "";
+      return {
+        template: strings.sentEmptyCompress,
+        pill: optionPill(
+          "empty-video-size",
+          "video",
+          label,
+          <Menu value={compressOptions.maxHeight} options={videoSizes} onPick={(maxHeight) => { onCompress({ ...compressOptions, maxHeight }); setOpen(null); }} />,
+        ),
+        badge: label,
+      };
+    }
+    if (tool && !current) return { template: strings.sentEmpty, pill: formatPill(tool.category), badge: labelFor(groupOutput[tool.category]) };
+    if (sourceId === "any") return { template: strings.sentEmpty, pill: <Pill label={strings.anyTarget} tone="image" open={false} onOpenChange={() => undefined} />, badge: "" };
+    const targets = targetsFor(picker, sourceId);
+    const target = targets.find((link) => link.to === targetId);
+    return {
+      template: strings.sentEmpty,
+      pill: navPill(target?.label ?? "", targetId ?? "", targets.map((link) => ({ value: link.to, label: link.label, href: link.href }))),
+      badge: target?.label ?? "",
+    };
+  };
+
+  const demoCards = (badge: string): DemoCard[] => {
+    if (!tool)
+      return [
+        { name: "IMG_0412.HEIC", badge: "JPG", tone: "image" },
+        { name: "IMG_0431.HEIC", badge: "JPG", tone: "image" },
+        { name: "trip.mov", badge: "MP4", tone: "video" },
+        { name: "lake.png", badge: "WebP", tone: "image" },
+      ];
+    const ext = sourceId === "heic" ? "HEIC" : sourceId || { image: "jpg", video: "mp4", audio: "mp3" }[tool.category];
+    return DEMO_NAMES[tool.category].map((name) => ({ name: `${name}.${ext}`, badge, tone: tool.category }));
+  };
+
+  const dropTitle = (): string => {
+    if (dragging) return strings.dropTitleActive;
+    if (!tool) return strings.dropTitle;
+    if (!autoStart) return strings.toolHintWait;
+    if (mode === "image-target-size") return format(strings.toolHintTarget, { size: `${imageOptions.targetKB} KB` });
+    if ((mode === "image-convert" || mode === "media-convert") && OUTPUT_LABEL[groupOutput[tool.category]])
+      return format(strings.toolHintAuto, { format: OUTPUT_LABEL[groupOutput[tool.category]] });
+    return strings.toolHintStart;
+  };
+
+  const dropLine = (): string => {
+    if (!tool) return strings.dropHint;
+    const parts = tool.accept.split(",").map((part) => part.trim());
+    const list = parts.every((part) => !part.endsWith("/*"))
+      ? Array.from(new Set(parts.filter((part) => part.startsWith(".")))).join(" / ")
+      : sourceId
+        ? format(strings.dropAlso, { format: formatName(sourceId) })
+        : { image: strings.formatsImage, video: strings.formatsVideo, audio: strings.formatsAudio }[tool.category];
+    return format(strings.dropFormats, { list });
+  };
+
+  const chooseLabel = !tool
+    ? strings.chooseFiles
+    : { image: strings.chooseImages, video: strings.chooseVideos, audio: strings.chooseAudio }[tool.category];
+
   // ── render ────────────────────────────────────────────────────────────
 
   const fileInput = (
@@ -709,34 +863,42 @@ export default function Converter({ locale, strings, tool }: Props) {
   );
 
   if (phase === "empty") {
+    const target = emptyTarget();
+    const cards = demoCards(target.badge);
     return (
       <div className={`cv${dragging ? " cv--dragging" : ""}`}>
         {fileInput}
-        <button type="button" className="cv-panel cv-empty" onClick={choose}>
-          <span className="cv-bubble" aria-hidden="true">
-            <Icon name="download" size={60} />
-          </span>
-          <span className="cv-empty__title">{dragging ? strings.dropTitleActive : strings.dropTitle}</span>
-          <span className="cv-empty__line">{toolHint}</span>
-          {acceptChips.length > 0 && (
-            <span className="cv-chips">
-              {acceptChips.slice(0, 6).map((chip) => (
-                <span key={chip} className="cv-chip">
-                  {chip}
+        <div className="cv-panel cv-app">
+          <div className="cv-head cv-head--empty">
+            <p className="cv-sentence">{fill(target.template, { source: sourcePill, target: target.pill })}</p>
+            <button type="button" className="cv-go cv-go--choose" onClick={choose}>
+              {chooseLabel}
+              <Icon name="arrow-right" size={19} />
+            </button>
+          </div>
+          <button type="button" className="cv-stage" onClick={choose}>
+            <span className="cv-demos" aria-hidden="true">
+              {cards.map((card, index) => (
+                <span key={index} className={`cv-demo cv-demo--${index + 1}`} style={{ "--r": DEMO_TILT[index], "--d": `${-index * 1.5}s` } as CSSProperties}>
+                  <span className={`cv-demo__ph cv-demo__ph--${card.tone}`}>
+                    {card.tone === "audio" ? (
+                      <Icon name="music" size={36} />
+                    ) : (
+                      <img src={`/demo/${index + 1}.webp`} alt="" width={120} height={120} loading="lazy" decoding="async" draggable={false} />
+                    )}
+                    {card.badge && <span className={`cv-demo__to cv-demo__to--${card.tone}`}>→ {card.badge}</span>}
+                  </span>
+                  <small>{card.name}</small>
                 </span>
               ))}
             </span>
-          )}
-          <span className="cv-empty__hint">
-            <span className="cv-nowrap">
-              <Icon name="lock" size={13} />
-              {strings.privacyLine}
+            <span className="cv-drop">
+              <strong>{dropTitle()}</strong>
+              <span>{dropLine()}</span>
             </span>
-            <span aria-hidden="true">·</span>
-            <span>{strings.emptyHint}</span>
-          </span>
-          {notice && <span className="cv-quiet cv-quiet--error">{notice}</span>}
-        </button>
+          </button>
+          {notice && <p className="cv-quiet cv-quiet--error cv-quiet--center">{notice}</p>}
+        </div>
       </div>
     );
   }
@@ -747,7 +909,7 @@ export default function Converter({ locale, strings, tool }: Props) {
   return (
     <div className={`cv${dragging ? " cv--dragging" : ""}`}>
       {fileInput}
-      <div className={`cv-panel cv-work cv-work--${phase}`}>
+      <div className={`cv-panel cv-app cv-work cv-work--${phase}`}>
         {phase === "done" ? (
           <div className="cv-done" aria-live="polite">
             <h2 className="cv-done__title">

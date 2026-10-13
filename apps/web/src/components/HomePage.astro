@@ -1,12 +1,13 @@
 ---
 import Base from "../layouts/Base.astro";
 import AdSlot from "./AdSlot.astro";
-import Icon from "./Icon.astro";
+import Faq from "./Faq.astro";
 import Converter from "./converter/Converter.tsx";
 import { localePath, type Locale } from "../data/locale";
-import { CATEGORY_LABEL, CATEGORY_ORDER, toolsIn } from "../data/tools";
+import { buildPicker } from "../data/picker";
+import { CATEGORY_LABEL, CATEGORY_ORDER, TOOLS, toolsIn, type Tool } from "../data/tools";
 import { HOME } from "../data/site";
-import { ui } from "../data/ui";
+import { format, ui } from "../data/ui";
 import { faqPage, graph, organization, website } from "../lib/site";
 
 interface Props {
@@ -17,52 +18,86 @@ const { locale } = Astro.props;
 const strings = ui(locale);
 const site = Astro.site!;
 const jsonLd = graph(organization(site), website(site, locale, HOME.metaDescription[locale]), faqPage(HOME.faqs, locale));
-const KIND_ICON = { image: "image", video: "film", audio: "music" } as const;
-const WHY_ICON = ["lock", "zap", "layers"] as const;
+const picker = buildPicker(TOOLS, locale);
+
+// Images lead with the most used tools; the rest sit behind "All 16".
+function columns(category: (typeof CATEGORY_ORDER)[number]): { shown: Tool[]; more: Tool[] } {
+  const tools = toolsIn(category);
+  if (category !== "image") return { shown: tools, more: [] };
+  const shown = HOME.popularImage.map((slug) => tools.find((tool) => tool.slug === slug)!);
+  return { shown, more: tools.filter((tool) => !shown.includes(tool)) };
+}
 ---
 
 <Base locale={locale} slug="" title={HOME.metaTitle[locale]} description={HOME.metaDescription[locale]} jsonLd={jsonLd}>
-  <main class="page">
-    <section class="hero hero--home">
-      <p class="eyebrow"><span class="eyebrow__dot" />{HOME.eyebrow[locale]}</p>
+  <main class="wrap">
+    <section class="hero">
+      <p class="eyebrow"><i aria-hidden="true"></i>{HOME.eyebrow[locale]}</p>
       <h1>{HOME.h1[locale]}</h1>
-      <p class="answer">{HOME.intro[locale]}</p>
+      <p class="lead">{HOME.intro[locale]}</p>
     </section>
 
     <div id="converter" class="converter-shell">
-      <Converter client:load locale={locale} strings={strings} />
+      <Converter client:load locale={locale} strings={strings} picker={picker} />
     </div>
+    <ul class="trust">
+      <li>{strings.trustLocal}</li>
+      <li>{strings.trustNoSignup}</li>
+      <li>{strings.trustBatch}</li>
+    </ul>
 
-    {
-      CATEGORY_ORDER.map((category) => (
-        <section class="section directory" id={category} aria-labelledby={`dir-${category}`}>
-          <h2 id={`dir-${category}`}>
-            <Icon name={KIND_ICON[category]} size={18} />
-            {CATEGORY_LABEL[category][locale]}
-          </h2>
-          <div class="tool-grid">
-            {toolsIn(category).map((tool) => (
-              <a class="tool-card" href={localePath(locale, tool.slug)}>
-                <span class={`tool-card__icon tool-card__icon--${category}`}><Icon name={KIND_ICON[category]} size={20} /></span>
-                <span class="tool-card__body">
-                  <strong>{tool.name[locale]}</strong>
-                  <small>{tool.metaDescription[locale]}</small>
-                </span>
-                <Icon name="arrow-right" size={16} class="tool-card__go" />
-              </a>
-            ))}
-          </div>
-        </section>
-      ))
-    }
+    <section class="block" aria-labelledby="tools">
+      <p class="kicker">{HOME.toolsKicker[locale]}</p>
+      <h2 id="tools">{HOME.toolsTitle[locale]}</h2>
+      <div class="index">
+        {
+          CATEGORY_ORDER.map((category) => {
+            const { shown, more } = columns(category);
+            return (
+              <nav class={`col col--${category}`} id={category} aria-labelledby={`col-${category}`}>
+                <h3 id={`col-${category}`}>
+                  <i aria-hidden="true" />
+                  {CATEGORY_LABEL[category][locale]}
+                </h3>
+                {shown.map((tool) => (
+                  <a href={localePath(locale, tool.slug)}>
+                    {tool.name[locale]}
+                    <span aria-hidden="true">→</span>
+                  </a>
+                ))}
+                {more.length > 0 && (
+                  <details class="col__more">
+                    <summary>
+                      <span class="col__all">{format(strings.showAll, { count: shown.length + more.length })}</span>
+                      <span class="col__fewer">{strings.showFewer}</span>
+                      <span aria-hidden="true">→</span>
+                    </summary>
+                    {more.map((tool) => (
+                      <a href={localePath(locale, tool.slug)}>
+                        {tool.name[locale]}
+                        <span aria-hidden="true">→</span>
+                      </a>
+                    ))}
+                  </details>
+                )}
+              </nav>
+            );
+          })
+        }
+      </div>
+    </section>
 
-    <section class="section why" aria-labelledby="why">
+    <section class="block" aria-labelledby="why">
+      <p class="kicker">{HOME.whyKicker[locale]}</p>
       <h2 id="why">{HOME.whyTitle[locale]}</h2>
-      <div class="why__grid">
+      <div class="facts">
         {
           HOME.why.map((item, index) => (
-            <div class="why__item">
-              <span class="why__icon"><Icon name={WHY_ICON[index]} size={18} /></span>
+            <div class="fact">
+              <p class="fact__n">
+                {index === 1 ? item.figure : <em>{item.figure}</em>}
+                {item.unit[locale] && ` ${item.unit[locale]}`}
+              </p>
               <h3>{item.title[locale]}</h3>
               <p>{item.body[locale]}</p>
             </div>
@@ -73,19 +108,6 @@ const WHY_ICON = ["lock", "zap", "layers"] as const;
 
     <AdSlot locale={locale} placement="content" />
 
-    <section class="section faq" aria-labelledby="faq">
-      <h2 id="faq">{strings.faq}</h2>
-      {
-        HOME.faqs.map((faq, index) => (
-          <details open={index === 0}>
-            <summary>
-              {faq.q[locale]}
-              <Icon name="chevron-down" size={16} />
-            </summary>
-            <p>{faq.a[locale]}</p>
-          </details>
-        ))
-      }
-    </section>
+    <Faq kicker={strings.faq} title={strings.faqTitle} faqs={HOME.faqs} locale={locale} />
   </main>
 </Base>

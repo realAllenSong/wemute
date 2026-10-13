@@ -24,16 +24,22 @@ const updated = new Date(UPDATED).toLocaleDateString(locale === "zh" ? "zh-CN" :
   year: "numeric",
   month: "long",
   day: "numeric",
+  timeZone: "UTC",
 });
 const missingContact = locale === "zh" ? "联系邮箱即将公布。" : "A contact address will be published here shortly.";
 ---
 
 <Base locale={locale} slug={page.slug} title={page.metaTitle[locale]} description={page.metaDescription[locale]} jsonLd={jsonLd}>
-  <main class="page page--prose">
+  <main class="wrap wrap--prose">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href={localePath(locale)}>{strings.breadcrumbHome}</a>
+      <span aria-hidden="true">›</span>
+      <span aria-current="page">{page.title[locale]}</span>
+    </nav>
     <article class="prose">
       <h1>{page.title[locale]}</h1>
-      <p class="prose__meta">{strings.updated} <time datetime={UPDATED}>{updated}</time></p>
-      <p class="answer">{page.intro[locale]}</p>
+      <p class="prose__meta">{strings.updated}{" "}<time datetime={UPDATED}>{updated}</time></p>
+      <p class="prose__intro">{page.intro[locale]}</p>
       {
         page.sections.map((section) => (
           <section>

@@ -1,0 +1,31 @@
+---
+import type { Locale } from "../data/locale";
+import type { Faq } from "../data/tools";
+
+interface Props {
+  kicker: string;
+  title: string;
+  faqs: Faq[];
+  locale: Locale;
+}
+
+const { kicker, title, faqs, locale } = Astro.props;
+---
+
+<section class="block" aria-labelledby="faq">
+  <p class="kicker">{kicker}</p>
+  <h2 id="faq">{title}</h2>
+  <div class="faq">
+    {
+      faqs.map((faq, index) => (
+        <details open={index === 0}>
+          <summary>
+            <h3>{faq.q[locale]}</h3>
+            <i aria-hidden="true" />
+          </summary>
+          <p>{faq.a[locale]}</p>
+        </details>
+      ))
+    }
+  </div>
+</section>

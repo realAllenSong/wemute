@@ -1,12 +1,13 @@
 ---
 import Base from "../layouts/Base.astro";
 import AdSlot from "./AdSlot.astro";
-import Icon from "./Icon.astro";
+import Faq from "./Faq.astro";
 import Converter from "./converter/Converter.tsx";
 import { localePath, type Locale } from "../data/locale";
-import { CATEGORY_LABEL, TOOL_BY_SLUG, type Tool } from "../data/tools";
+import { buildPicker } from "../data/picker";
+import { CATEGORY_LABEL, TOOLS, TOOL_BY_SLUG, type Tool } from "../data/tools";
 import { COMPARISON_ROWS, FORMATS } from "../data/formats";
-import { ui } from "../data/ui";
+import { format, ui } from "../data/ui";
 import { breadcrumbs, faqPage, graph, howTo, organization, toolApplication } from "../lib/site";
 
 interface Props {
@@ -43,18 +44,18 @@ const converterTool = {
   outputs: tool.outputs,
   preset: tool.preset,
 };
-const KIND_ICON = { image: "image", video: "film", audio: "music" } as const;
+const picker = buildPicker(TOOLS, locale);
 ---
 
 <Base locale={locale} slug={tool.slug} title={tool.metaTitle[locale]} description={tool.metaDescription[locale]} jsonLd={jsonLd}>
-  <main class="page">
+  <main class="wrap">
     <nav class="crumbs" aria-label="Breadcrumb">
       {
         crumbs.map((crumb, index) =>
           index < crumbs.length - 1 ? (
             <>
               <a href={crumb.path}>{crumb.name}</a>
-              <Icon name="chevron-right" size={13} />
+              <span aria-hidden="true">›</span>
             </>
           ) : (
             <span aria-current="page">{crumb.name}</span>
@@ -66,52 +67,50 @@ const KIND_ICON = { image: "image", video: "film", audio: "music" } as const;
     <section class="hero hero--tool">
       <h1>{tool.h1[locale]}</h1>
       <p class="answer">{tool.answer[locale]}</p>
-      <ul class="badges">
-        <li><Icon name="lock" size={14} />{strings.noUpload}</li>
-        <li><Icon name="zap" size={14} />{strings.localBadge}</li>
-        <li><Icon name="layers" size={14} />{strings.batch}</li>
-        <li><Icon name="check" size={14} />{strings.free}</li>
-      </ul>
     </section>
 
     <div id="converter" class="converter-shell">
-      <Converter client:load locale={locale} strings={strings} tool={converterTool} />
+      <Converter client:load locale={locale} strings={strings} picker={picker} tool={converterTool} />
     </div>
+    <ul class="trust">
+      <li>{strings.trustNoUpload}</li>
+      <li>{strings.trustNoSignup}</li>
+      <li>{strings.trustZip}</li>
+    </ul>
 
-    <section class="section steps" aria-labelledby="how">
-      <h2 id="how">{strings.howItWorks}</h2>
-      <ol>
+    <section class="block" aria-labelledby="how">
+      <p class="kicker">{strings.howItWorks}</p>
+      <h2 id="how">{strings.stepsTitle}</h2>
+      <ol class="steps">
         {
           tool.steps.map((step, index) => (
             <li>
-              <span class="steps__n">{index + 1}</span>
+              <span class="steps__n" aria-hidden="true">{index + 1}</span>
               <p>{step[locale]}</p>
             </li>
           ))
         }
       </ol>
-    </section>
-
-    <section class="section uses" aria-labelledby="uses">
-      <h2 id="uses">{strings.goodFor}</h2>
-      <ul>
-        {tool.useCases.map((item) => <li><Icon name="check" size={15} />{item[locale]}</li>)}
-      </ul>
+      <div class="uses">
+        <h3>{strings.goodFor}</h3>
+        <ul>
+          {tool.useCases.map((item) => <li>{item[locale]}</li>)}
+        </ul>
+      </div>
     </section>
 
     <AdSlot locale={locale} placement="content" />
 
     {
       source && target && (
-        <section class="section compare" aria-labelledby="compare">
-          <h2 id="compare">
-            {strings.compare}: {source.name} vs {target.name}
-          </h2>
-          <div class="table-wrap">
+        <section class="block" aria-labelledby="compare">
+          <p class="kicker">{strings.compare}</p>
+          <h2 id="compare">{format(strings.compareTitle, { a: source.name, b: target.name })}</h2>
+          <div class="compare">
             <table>
               <thead>
                 <tr>
-                  <th scope="col" />
+                  <td />
                   <th scope="col">{source.name}</th>
                   <th scope="col">{target.name}</th>
                 </tr>
@@ -134,36 +133,12 @@ const KIND_ICON = { image: "image", video: "film", audio: "music" } as const;
       )
     }
 
-    <section class="section faq" aria-labelledby="faq">
-      <h2 id="faq">{strings.faq}</h2>
-      {
-        tool.faqs.map((faq, index) => (
-          <details open={index === 0}>
-            <summary>
-              {faq.q[locale]}
-              <Icon name="chevron-down" size={16} />
-            </summary>
-            <p>{faq.a[locale]}</p>
-          </details>
-        ))
-      }
-    </section>
+    <Faq kicker={strings.faq} title={format(strings.faqAbout, { name: tool.name[locale] })} faqs={tool.faqs} locale={locale} />
 
-    <section class="section related" aria-labelledby="related">
-      <h2 id="related">{strings.relatedTools}</h2>
-      <div class="tool-grid">
-        {
-          related.map((item) => (
-            <a class="tool-card" href={localePath(locale, item.slug)}>
-              <span class={`tool-card__icon tool-card__icon--${item.category}`}><Icon name={KIND_ICON[item.category]} size={20} /></span>
-              <span class="tool-card__body">
-                <strong>{item.name[locale]}</strong>
-                <small>{item.metaDescription[locale]}</small>
-              </span>
-              <Icon name="arrow-right" size={16} class="tool-card__go" />
-            </a>
-          ))
-        }
+    <section class="block" aria-labelledby="related">
+      <h2 id="related" class="kicker">{strings.relatedTools}</h2>
+      <div class="related">
+        {related.map((item) => <a href={localePath(locale, item.slug)}>{item.name[locale]}</a>)}
       </div>
     </section>
 

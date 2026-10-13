@@ -13,6 +13,7 @@ export function Pill({
   tone,
   open,
   disabled,
+  ariaLabel,
   onOpenChange,
   children,
 }: {
@@ -20,6 +21,7 @@ export function Pill({
   tone: Tone;
   open: boolean;
   disabled?: boolean;
+  ariaLabel?: string;
   onOpenChange: (open: boolean) => void;
   children?: ReactNode;
 }) {
@@ -72,6 +74,7 @@ export function Pill({
         className={`cv-pill cv-pill--${tone}${open ? " is-open" : ""}`}
         aria-haspopup="true"
         aria-expanded={open}
+        aria-label={ariaLabel && typeof label === "string" ? `${ariaLabel}: ${label}` : undefined}
         disabled={disabled}
         onClick={() => onOpenChange(!open)}
       >
@@ -94,24 +97,41 @@ export function Menu<T extends string | number>({
   footer,
 }: {
   value: T;
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; group?: string }[];
   onPick: (value: T) => void;
   footer?: { label: string; onClick: () => void };
 }) {
+  // Consecutive options sharing a group become one titled column.
+  const sections: { group?: string; options: typeof options }[] = [];
+  for (const option of options) {
+    const last = sections[sections.length - 1];
+    if (last && last.group === option.group) last.options.push(option);
+    else sections.push({ group: option.group, options: [option] });
+  }
+  const grouped = sections.some((section) => section.group);
   return (
-    <div className="cv-menu" role="menu">
-      {options.map((option) => (
-        <button
-          key={String(option.value)}
-          type="button"
-          role="menuitemradio"
-          aria-checked={option.value === value}
-          className="cv-menu__item"
-          onClick={() => onPick(option.value)}
-        >
-          <span>{option.label}</span>
-          {option.value === value && <Icon name="check" size={16} />}
-        </button>
+    <div className={`cv-menu${grouped ? " cv-menu--grouped" : ""}`} role="menu">
+      {sections.map((section, index) => (
+        <div key={index} className={`cv-menu__sec${section.group ? "" : " cv-menu__sec--wide"}`} role={section.group ? "group" : undefined} aria-label={section.group}>
+          {section.group && (
+            <span className="cv-menu__group" aria-hidden="true">
+              {section.group}
+            </span>
+          )}
+          {section.options.map((option) => (
+            <button
+              key={String(option.value)}
+              type="button"
+              role="menuitemradio"
+              aria-checked={option.value === value}
+              className="cv-menu__item"
+              onClick={() => onPick(option.value)}
+            >
+              <span>{option.label}</span>
+              {option.value === value && <Icon name="check" size={16} />}
+            </button>
+          ))}
+        </div>
       ))}
       {footer && (
         <>

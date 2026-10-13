@@ -16,36 +16,47 @@ export const HOME = {
     "Convert HEIC to JPG, compress images, turn MP4 into MP3 or GIF and more — free, in your browser, with nothing uploaded. Batch-ready and private.",
     "HEIC 转 JPG、图片压缩、MP4 转 MP3 或 GIF 等，免费在浏览器中完成，文件不会上传。支持批量，安全私密。",
   ),
-  eyebrow: text("Free · private · runs in your browser", "免费 · 私密 · 在浏览器中运行"),
-  h1: text("Convert files without uploading them.", "转换文件，无需上传。"),
+  eyebrow: text("Free · runs in your browser · nothing uploaded", "免费 · 在你的浏览器里完成 · 文件不上传"),
+  h1: text("Convert files without uploading.", "转换文件，无需上传。"),
   intro: text(
-    "Drop images, video or audio and choose what they become. Wemute does the work on your own device, so it is fast, free and private by design.",
-    "拖入图片、视频或音频，选择要转换成什么。Wemute 在你自己的设备上完成处理，因此快速、免费，而且天然私密。",
+    "Choose what it should become, then drop your files in. Everything happens on your own device.",
+    "选好要变成什么，把文件拖进来。全部在你自己的设备上完成。",
   ),
-  whyTitle: text("Why convert locally?", "为什么要在本地转换？"),
+  toolsKicker: text("All tools", "所有工具"),
+  toolsTitle: text("26 everyday conversions, all right here", "二十六种常用转换，都在这里"),
+  whyKicker: text("Why Wemute", "为什么是 Wemute"),
+  whyTitle: text("Fast, free, and your files never leave you.", "快、免费，而且你的文件不会离开你。"),
   why: [
     {
-      title: text("Nothing leaves your device", "文件不离开设备"),
+      figure: "0",
+      unit: text("", "次"),
+      title: text("Uploads", "上传"),
       body: text(
-        "Most online converters upload your files to their servers. Wemute processes them inside your browser, so personal photos and documents stay with you.",
-        "大多数在线转换器会把文件上传到它们的服务器。Wemute 在浏览器内处理，个人照片和文件始终留在你手里。",
+        "Conversion happens in your browser. Photos and videos never pass through any server.",
+        "转换在浏览器里完成。照片和视频不会经过任何服务器。",
       ),
     },
     {
-      title: text("No waiting on uploads", "无需等待上传"),
+      figure: "3",
+      unit: text("sec", "秒"),
+      title: text("No queue", "不用排队"),
       body: text(
-        "There is no upload or download queue. A batch of photos converts as fast as your computer can work.",
-        "没有上传和下载排队，一批照片的转换速度只取决于你的电脑。",
+        "No upload or download wait — a batch of photos is done in seconds.",
+        "没有上传和下载等待，一批照片几秒就转好。",
       ),
     },
     {
-      title: text("Made for batches", "为批量而设计"),
+      figure: "26",
+      unit: text("", "种"),
+      title: text("Everyday conversions", "常用转换"),
       body: text(
-        "Drop a whole set, choose one result for all of them, and convert everything in one go.",
-        "一次拖入整批文件，统一选择结果，一次全部转换。",
+        "Photos, screenshots, videos and recordings — the formats you meet day to day are covered.",
+        "照片、截图、视频、录音，日常会遇到的格式基本都有。",
       ),
     },
   ],
+  /** Image tools shown before "All 16 →" in the home index. */
+  popularImage: ["heic-to-jpg", "png-to-jpg", "jpg-to-png", "webp-to-jpg", "jpg-to-webp", "compress-image", "compress-image-to-100kb", "resize-image"],
   faqs: [
     {
       q: text("Is Wemute really free?", "Wemute 真的免费吗？"),
