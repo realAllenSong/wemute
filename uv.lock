@@ -881,6 +881,20 @@ wheels = [
 ]
 
 [[package]]
+name = "pyobjc-framework-quicklookthumbnailing"
+version = "12.2.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyobjc-core", marker = "sys_platform == 'darwin'" },
+    { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'" },
+    { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f7/b5/0815101d2c3caf12464b70937957f361490334f9230417fbcc74ac21b10d/pyobjc_framework_quicklookthumbnailing-12.2.2.tar.gz", hash = "sha256:328ca6982653e9e1900bd9da6c7e6c2bfef2160c10839b09cae2308a5bb8bb63", size = 15902, upload-time = "2026-08-11T19:45:16.333Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/eb/3c/817a43167082006f2509c904a9c3e994bf563fb68873e403e05dee2991ab/pyobjc_framework_quicklookthumbnailing-12.2.2-py2.py3-none-any.whl", hash = "sha256:067e1a0de4e718bd67da2474405d9af1097523c021112449a9ac62ca6cd9ee72", size = 4333, upload-time = "2026-08-11T19:40:32.148Z" },
+]
+
+[[package]]
 name = "pyobjc-framework-vision"
 version = "12.2.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1145,6 +1159,7 @@ dependencies = [
     { name = "platformdirs" },
     { name = "py7zr" },
     { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'" },
+    { name = "pyobjc-framework-quicklookthumbnailing", marker = "sys_platform == 'darwin'" },
     { name = "pyobjc-framework-vision", marker = "sys_platform == 'darwin'" },
     { name = "pypdfium2" },
     { name = "pyside6" },
@@ -1174,6 +1189,7 @@ requires-dist = [
     { name = "platformdirs", specifier = ">=4.3,<5" },
     { name = "py7zr", specifier = ">=0.22,<2" },
     { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'", specifier = ">=11" },
+    { name = "pyobjc-framework-quicklookthumbnailing", marker = "sys_platform == 'darwin'", specifier = ">=11" },
     { name = "pyobjc-framework-vision", marker = "sys_platform == 'darwin'", specifier = ">=11" },
     { name = "pypdfium2", specifier = ">=4.30,<6" },
     { name = "pyside6", specifier = ">=6.8,<6.11" },

@@ -26,12 +26,14 @@ from wemute.capabilities import (
 )
 from wemute.domain import ConversionPlan, JobRecord, MediaKind
 from wemute.engines.archive import archive_stem
+from wemute.tools import TRIAGE_FOLDER, is_tool, name_suffix, tool_for
 
 TABULAR_SUFFIXES = {".xlsx", ".xlsm", ".csv", ".tsv"}
 
 # Lanes and how many jobs each runs at once. LibreOffice and Calibre are heavy
-# and share profile state, so they run one at a time.
-LANE_LIMITS = {"office": 1, "ebook": 1, "files": 2}
+# and share profile state, so they run one at a time. Vision shares the Neural
+# Engine and GPU, so two at once keeps the machine responsive.
+LANE_LIMITS = {"office": 1, "ebook": 1, "files": 2, "vision": 2}
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +51,8 @@ class ComponentMissing(RuntimeError):
 
 def route(kind: MediaKind, suffix: str, target: str) -> Route:
     suffix = suffix.lower()
+    if is_tool(target):
+        return Route("vision", None, "vision")
     if is_combine(target):
         return Route("combine", None, "files")
     if kind == MediaKind.DOCUMENT:
@@ -139,6 +143,8 @@ def plan_file_job(
     source = Path(job.source.path)
     jobs = members or [job]
     sources = [Path(item.source.path) for item in jobs]
+    if chosen.engine == "vision":
+        return _plan_tool(job, destination, sources, language)
 
     folder = False
     if chosen.engine == "combine":
@@ -182,6 +188,39 @@ def plan_file_job(
         request["calibre_config"] = str(calibre_config)
     return ConversionPlan(
         job.id, source, temporary, final, worker_command(request), folder_output=folder
+    )
+
+
+def _plan_tool(job: JobRecord, destination: Path, sources: list[Path], language: str) -> ConversionPlan:
+    from wemute.engines.vision_io import photo_extension
+
+    tool = tool_for(job.target_format)
+    if tool is None or job.source.kind not in tool.kinds:
+        raise ValueError(f"{job.target_format} is not available for {job.source.kind.value} files")
+    source = sources[0]
+    extension = tool.extension or photo_extension(source.suffix)
+    if tool.folder:
+        name = TRIAGE_FOLDER.get(language, TRIAGE_FOLDER["en"])
+        final = unique_output_path(source, destination, "", stem=name, plain=True)
+    elif tool.group:
+        final = unique_output_path(source, destination, extension, stem=combined_name(sources), plain=True)
+    else:
+        suffix = name_suffix(tool, language, job.source.kind)
+        final = unique_output_path(source, destination, extension, suffix=suffix or None)
+    temporary = _temporary_for(final, job.id, tool.folder)
+    request = {
+        "engine": "vision",
+        "tool": tool.engine,
+        "options": dict(tool.options),
+        "group": tool.group,
+        "sources": [str(path) for path in sources],
+        "source_kind": job.source.kind.value,
+        "output": str(temporary),
+        "extension": extension,
+        "language": language,
+    }
+    return ConversionPlan(
+        job.id, source, temporary, final, worker_command(request), folder_output=tool.folder
     )
 
 

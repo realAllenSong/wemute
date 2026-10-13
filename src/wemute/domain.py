@@ -90,6 +90,8 @@ class JobRecord:
     indeterminate: bool = False
     started_at: float = 0.0
     waiting_component: str = ""
+    # What the worker found ("找到 3 张重复、1 张模糊"); shown as the Done headline.
+    note: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)

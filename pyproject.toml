@@ -24,6 +24,7 @@ dependencies = [
   "py7zr>=0.22,<2",
   "markdown>=3.7,<4",
   "python-docx>=1.1,<2",
+  "pyobjc-framework-quicklookthumbnailing>=11 ; sys_platform == 'darwin'",
 ]
 
 [project.gui-scripts]

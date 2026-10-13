@@ -421,13 +421,25 @@ ApplicationWindow {
                                                 Accessible.name: line.modelData.countLabel + " → " + text
                                                 PillMenu {
                                                     id: formatMenu
+                                                    objectName: "formatMenu-" + line.modelData.kind
                                                     onOpened: window.openMenus++
                                                     onClosed: window.openMenus--
                                                     entries: {
                                                         var list = line.modelData.entries.slice()
                                                         if (line.modelData.kind === "image") {
-                                                            list.push({ "separator": true })
-                                                            list.push({ "key": "__options", "label": window.tr("more_options"), "icon": "settings" })
+                                                            // Image options belong to the formats, so they close
+                                                            // that section when the menu has several.
+                                                            var at = list.length
+                                                            var headers = 0
+                                                            for (var i = 0; i < list.length; i++) {
+                                                                if (list[i].columnBreak === true
+                                                                        || ((list[i].header || "").length > 0 && ++headers === 2)) {
+                                                                    at = i
+                                                                    break
+                                                                }
+                                                            }
+                                                            list.splice(at, 0, { "separator": true },
+                                                                { "key": "__options", "label": window.tr("more_options"), "icon": "settings" })
                                                         }
                                                         return list
                                                     }
@@ -855,6 +867,7 @@ ApplicationWindow {
     component Word: Item {
         property alias text: label.text
         property bool strong: false
+        visible: label.text.length > 0
         width: label.implicitWidth
         height: window.lineHeight
         Text {

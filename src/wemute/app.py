@@ -5,7 +5,7 @@ import os
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QCoreApplication, QEvent, QObject, QTimer, QUrl, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QEvent, QMetaObject, QObject, QTimer, QUrl, Qt, Signal
 from PySide6.QtGui import QFileOpenEvent
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -54,6 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--show-ai-tools", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--show-erase-editor", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--show-about", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--show-menu", metavar="KIND", help=argparse.SUPPRESS)
     parser.add_argument("--show-settings", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--show-components", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--qa-action", choices=["start", "clear"], help=argparse.SUPPRESS)
@@ -252,7 +253,32 @@ def main(argv: list[str] | None = None) -> int:
             root.deleteLater()
             QTimer.singleShot(60, QCoreApplication.quit)
 
-    if arguments.smoke_test or arguments.screenshot:
+    if arguments.show_menu:
+        def find_menu(item: QObject) -> QObject | None:
+            name = f"formatMenu-{arguments.show_menu}"
+            children = list(item.children())
+            if hasattr(item, "childItems"):
+                children += item.childItems()
+            for child in children:
+                if child.objectName() == name:
+                    return child
+                if found := find_menu(child):
+                    return found
+            return None
+
+        def open_menu(attempts: int = 12) -> None:
+            menu = find_menu(root.property("contentItem") or root)
+            if menu:
+                QMetaObject.invokeMethod(menu, "open")
+            elif attempts:
+                QTimer.singleShot(250, lambda: open_menu(attempts - 1))
+                return
+            # Startup can outlast the timers; capture once the menu has faded in.
+            if arguments.screenshot or arguments.smoke_test:
+                QTimer.singleShot(700, capture_and_maybe_quit)
+
+        QTimer.singleShot(max(1200, arguments.screenshot_delay - 700), open_menu)
+    elif arguments.smoke_test or arguments.screenshot:
         QTimer.singleShot(
             arguments.screenshot_delay if arguments.screenshot else 300, capture_and_maybe_quit
         )

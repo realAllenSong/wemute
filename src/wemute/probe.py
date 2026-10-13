@@ -4,12 +4,15 @@ import hashlib
 import json
 import mimetypes
 import subprocess
+import sys
 import tempfile
+import threading
 import zipfile
 from contextlib import ExitStack
 from pathlib import Path
 from typing import Any, Iterable
 
+import numpy as np
 from PIL import Image, ImageOps
 
 from wemute.domain import FileDescriptor, MediaKind
@@ -301,14 +304,11 @@ def _ffmpeg_thumbnail(path: Path, target: Path, kind: MediaKind) -> bool:
         return False
 
 
-_QUICK_LOOK_KINDS = {
-    MediaKind.DOCUMENT,
-    MediaKind.SPREADSHEET,
-    MediaKind.PRESENTATION,
-    MediaKind.PDF,
-    MediaKind.VECTOR,
-    MediaKind.FONT,
-}
+# Everything but photos, audio and video gets the preview Finder shows.
+_QUICK_LOOK_KINDS = frozenset(MediaKind) - {MediaKind.IMAGE, MediaKind.AUDIO, MediaKind.VIDEO}
+# Quick Look icons are drawn this big inside a transparent square, so the card's
+# crop-to-fill shows the whole icon on its tile.
+_ICON_SCALE = 0.62
 
 
 def _epub_cover(path: Path, target: Path) -> bool:
@@ -367,17 +367,114 @@ def _quick_look_thumbnail(path: Path, target: Path) -> bool:
             return False
 
 
+def _on_white_square(image: Image.Image, side: int, top: float) -> Image.Image:
+    """``image`` centred horizontally on a white square; ``top`` is the share of
+    the free height left above it (0.5 centres it)."""
+    side = max(side, image.width, image.height)
+    canvas = Image.new("RGB", (side, side), (255, 255, 255))
+    canvas.paste(image, ((side - image.width) // 2, round((side - image.height) * top)))
+    return canvas
+
+
+def _ql_generator_thumbnail(path: Path, key: str, kind: MediaKind) -> Path | None:
+    """QLThumbnailGenerator: the page or cover Finder shows, else the file's icon."""
+    if sys.platform != "darwin":
+        return None
+    try:
+        import Quartz  # noqa: F401 - registers CGImageRef so the representation's CGImage bridges
+        import QuickLookThumbnailing as ql
+        from Foundation import NSURL
+
+        from wemute.engines.vision_io import cgimage_to_pil
+    except ImportError:
+        return None
+    request = ql.QLThumbnailGenerationRequest.alloc().initWithFileAtURL_size_scale_representationTypes_(
+        NSURL.fileURLWithPath_(str(path)),
+        (360, 360),
+        2.0,
+        ql.QLThumbnailGenerationRequestRepresentationTypeAll,
+    )
+    done = threading.Event()
+    result: dict[str, object] = {}
+
+    def finished(representation, error) -> None:  # noqa: ANN001 - Objective-C callback
+        result["representation"] = representation
+        done.set()
+
+    generator = ql.QLThumbnailGenerator.sharedGenerator()
+    generator.generateBestRepresentationForRequest_completionHandler_(request, finished)
+    if not done.wait(8):
+        generator.cancelRequest_(request)
+        return None
+    representation = result.get("representation")
+    if representation is None:
+        return None
+    try:
+        image = cgimage_to_pil(representation.CGImage(), alpha=True).convert("RGBA")
+    except (TypeError, ValueError):
+        return None
+    pixels = np.asarray(image).astype(np.float32)
+    coverage = pixels[..., 3:4]
+    pixels[..., :3] = np.where(coverage > 0, pixels[..., :3] * 255.0 / np.maximum(coverage, 1.0), 0)
+    image = Image.fromarray(np.clip(pixels, 0, 255).astype(np.uint8), "RGBA")
+    THUMBNAIL_ROOT.mkdir(parents=True, exist_ok=True)
+    alpha = image.getchannel("A")
+    # Pages and covers fill their bitmap; icons and drawings leave clear corners.
+    opaque = sum(alpha.histogram()[250:]) >= alpha.width * alpha.height * 0.95
+    if representation.type() != ql.QLThumbnailRepresentationTypeIcon and opaque:
+        target = THUMBNAIL_ROOT / f"{key}-ql.jpg"
+        background = Image.new("RGB", image.size, (255, 255, 255))
+        background.paste(image, mask=alpha)
+        width, height = background.size
+        if kind == MediaKind.DATA or path.suffix.lower() in {".csv", ".tsv"}:
+            # Plain text is drawn small in the corner, where the card's badge
+            # sits: zoom to the lines and centre them below the badge.
+            ink = background.convert("L").point(lambda value: 255 if value < 200 else 0).getbbox()
+            if ink:
+                margin = round(width * 0.02)
+                lines = background.crop(
+                    (max(0, ink[0] - margin), max(0, ink[1] - margin), min(width, ink[2] + margin), min(height, ink[3] + margin))
+                )
+                lines = lines.crop((0, 0, lines.width, min(lines.height, lines.width * 1.1)))
+                if lines.width > lines.height * 4:
+                    # One long line (minified JSON): its beginning, readable.
+                    lines = lines.crop((0, 0, max(lines.height * 4, round(width * 0.4)), lines.height))
+                side = round(max(lines.width / 0.86, lines.height / 0.7))
+                background = _on_white_square(lines, side, top=0.24)
+        elif kind == MediaKind.FONT and width > height:
+            # A wide specimen would lose its letters to the square crop.
+            background = _on_white_square(background, round(width * 1.12), top=0.5)
+        elif height > width * 1.15 and kind != MediaKind.EBOOK:
+            # The card is square: show the top of a page, where its title is.
+            background = background.crop((0, 0, width, width))
+        background.thumbnail((720, 720))
+        background.save(target, format="JPEG", quality=88)
+        return target
+    # Icons (and transparent drawings like SVGs) sit centred on a clear square.
+    side = round(max(image.size) / _ICON_SCALE)
+    canvas = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    canvas.paste(image, ((side - image.width) // 2, (side - image.height) // 2), image)
+    canvas.thumbnail((480, 480))
+    target = THUMBNAIL_ROOT / f"{key}-ql.png"
+    canvas.save(target, format="PNG")
+    return target
+
+
 def create_thumbnail(path: Path, kind: MediaKind) -> str | None:
-    if kind in _QUICK_LOOK_KINDS:
-        target = THUMBNAIL_ROOT / f"{_thumbnail_key(path)}-ql.jpg"
-        if target.exists():
-            return str(target)
-        return str(target) if _quick_look_thumbnail(path, target) else None
     if kind == MediaKind.EBOOK and path.suffix.lower() == ".epub":
         target = THUMBNAIL_ROOT / f"{_thumbnail_key(path)}-cover.jpg"
-        if target.exists():
+        if target.exists() or _epub_cover(path, target):
             return str(target)
-        return str(target) if _epub_cover(path, target) else None
+    if kind in _QUICK_LOOK_KINDS:
+        key = _thumbnail_key(path)
+        for cached in (THUMBNAIL_ROOT / f"{key}-ql.jpg", THUMBNAIL_ROOT / f"{key}-ql.png"):
+            if cached.exists():
+                return str(cached)
+        generated = _ql_generator_thumbnail(path, key, kind)
+        if generated:
+            return str(generated)
+        target = THUMBNAIL_ROOT / f"{key}-ql.jpg"
+        return str(target) if _quick_look_thumbnail(path, target) else None
     if kind not in {MediaKind.IMAGE, MediaKind.AUDIO, MediaKind.VIDEO}:
         return None
     suffix = ".png" if kind == MediaKind.AUDIO else ".jpg"

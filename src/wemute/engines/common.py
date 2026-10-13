@@ -42,6 +42,21 @@ MESSAGES = {
         "stage_extracting": "解压中…",
         "stage_packing": "打包中…",
         "stage_compressing": "压缩中…",
+        "stage_recognizing": "识别文字…",
+        "stage_finding_edges": "寻找文档边缘…",
+        "stage_analyzing": "分析画面…",
+        "stage_enhancing": "增强中…",
+        "stage_comparing": "比较照片…",
+        "no_text": "没有识别到文字",
+        "no_document": "没有找到文档边缘",
+        "no_faces": "没有找到人脸",
+        "no_person": "没有找到人物",
+        "no_codes": "没有找到二维码或条码",
+        "no_horizon": "没有发现倾斜的地平线，不需要扶正",
+        "already_level": "照片已经是水平的（只差 {angle}°），不需要扶正",
+        "vision_missing": "这台 Mac 的系统版本不支持这个功能",
+        "triage_found": "找到 {duplicates} 张重复、{blurry} 张模糊的照片",
+        "triage_none": "没有发现重复或模糊的照片",
     },
     "en": {
         "office_failed": "LibreOffice could not convert this file",
@@ -70,6 +85,21 @@ MESSAGES = {
         "stage_extracting": "Extracting…",
         "stage_packing": "Packing…",
         "stage_compressing": "Compressing…",
+        "stage_recognizing": "Recognizing text…",
+        "stage_finding_edges": "Finding the page edges…",
+        "stage_analyzing": "Analyzing…",
+        "stage_enhancing": "Enhancing…",
+        "stage_comparing": "Comparing photos…",
+        "no_text": "No text was found",
+        "no_document": "No document edges were found",
+        "no_faces": "No faces were found",
+        "no_person": "No person was found",
+        "no_codes": "No QR code or barcode was found",
+        "no_horizon": "No tilted horizon was found, nothing to straighten",
+        "already_level": "Already level (off by {angle}°), nothing to straighten",
+        "vision_missing": "This feature needs a newer version of macOS",
+        "triage_found": "Found {duplicates} duplicates and {blurry} blurry photos",
+        "triage_none": "No duplicates or blurry photos found",
     },
 }
 
@@ -106,6 +136,10 @@ class Reporter:
 
     def stage(self, key: str) -> None:
         self._emit("wemute_stage=" + self.text(key))
+
+    def note(self, key: str, **values: object) -> None:
+        """A one-line result summary shown in the Done headline."""
+        self._emit("wemute_note=" + self.text(key, **values))
 
 
 # The child currently running, killed with its process group on SIGTERM.

@@ -72,6 +72,16 @@ from wemute.presentation import (
 )
 from wemute.probe import expand_paths, media_kind_for, probe_file
 from wemute.queue_model import QueueModel
+from wemute.tools import (
+    PHOTO,
+    RECOGNIZE,
+    Tool,
+    family_title,
+    is_tool,
+    menu_label,
+    section_title,
+    tools_for,
+)
 
 
 RESIZE_PRESETS = {
@@ -107,6 +117,7 @@ class _Run:
     stderr: bytearray = field(default_factory=bytearray)
     stdout: str = ""
     cancel_requested: bool = False
+    note: str = ""
     # Every job feeding a combined output ("合成一个 PDF"); just ``job`` otherwise.
     members: list[JobRecord] = field(default_factory=list)
 
@@ -454,6 +465,8 @@ class JobController(QObject):
 
     @Property(str, notify=summaryChanged)
     def doneTitle(self) -> str:
+        if self._summary[7] and not self._summary[1]:
+            return self._summary[7]
         return done_title(self._summary[0], self._summary[1], self.model.language)
 
     @Property(str, notify=summaryChanged)
@@ -522,27 +535,18 @@ class JobController(QObject):
                 )
             plain = options_for(kind, None, None if kind in MEDIA_KINDS else suffixes)
             options = options_for(kind, enabled, None if kind in MEDIA_KINDS else suffixes)
-            entries: list[dict[str, object]] = [
-                {
-                    "key": option,
-                    "label": choice_label(option, language),
-                    "checked": option == target,
-                    "icon": "" if option in plain else "sparkles",
-                }
-                for option in options
-            ]
             combined = combine_choices(kind) if len(jobs) > 1 else []
-            if combined:
-                entries.append({"separator": True})
-                entries.extend(
-                    {
-                        "key": option,
-                        "label": combine_menu_label(option, language),
-                        "checked": option == target,
-                        "icon": "layers",
-                    }
-                    for option in combined
-                )
+            offered_tools = tools_for(kind, len(jobs))
+            if is_tool(target):
+                extra = ""
+            entries = _menu_entries(
+                [option for option in options if option in plain],
+                combined,
+                offered_tools,
+                [option for option in options if option not in plain],
+                target,
+                language,
+            )
             lead, verb = sentence_words(kind, target, language)
             component = self._group_component(jobs, language)
             if component["component"] in offered:
@@ -557,7 +561,7 @@ class JobController(QObject):
                     "verb": verb,
                     "target": target,
                     "targetLabel": choice_label(target, language) if target else "",
-                    "options": [*options, *combined],
+                    "options": [*options, *combined, *(tool.key for tool in offered_tools)],
                     "entries": entries,
                     "extra": extra,
                     **component,
@@ -607,15 +611,19 @@ class JobController(QObject):
             for job in batch
         )
         # Members of a combined output share one file; count its size once.
-        outputs = {job.output_path or job.id: job.output_size or 0 for job in succeeded}
+        # Recognized text or an edited photo is no "saving", so tools stay out of the sizes.
+        sized = [job for job in succeeded if not is_tool(job.target_format)]
+        outputs = {job.output_path or job.id: job.output_size or 0 for job in sized}
+        notes = {job.note for job in succeeded}
         return (
             len(succeeded),
             failed,
-            sum(job.source.size for job in succeeded),
+            sum(job.source.size for job in sized),
             sum(outputs.values()),
             finished,
             len(batch),
             self.model.language,
+            next(iter(notes)) if len(notes) == 1 else "",
         )
 
     def _refresh_summary(self, *_args: object) -> None:
@@ -1279,7 +1287,11 @@ class JobController(QObject):
     def _lane_for(self, job: JobRecord) -> str:
         if job.operation != OperationKind.CONVERT:
             return "ai"
-        if job.source.kind in MEDIA_KINDS and not is_combine(job.target_format):
+        if (
+            job.source.kind in MEDIA_KINDS
+            and not is_combine(job.target_format)
+            and not is_tool(job.target_format)
+        ):
             return job.source.kind.value
         return lane_for(job)
 
@@ -1510,6 +1522,8 @@ class JobController(QObject):
                     self._set_stage(run, label=raw.strip())
                 elif key == "wemute_indeterminate":
                     self._set_stage(run, indeterminate=raw.strip() == "1")
+                elif key == "wemute_note":
+                    run.note = raw.strip()
                 elif key in {"out_time_us", "out_time_ms"} and duration:
                     self._set_progress(run, int(raw) / (duration * 1_000_000))
                 elif key == "progress" and raw == "end":
@@ -1641,6 +1655,7 @@ class JobController(QObject):
             job.status = status
             job.stage = ""
             job.indeterminate = False
+            job.note = run.note if status == JobStatus.SUCCEEDED else ""
             if status == JobStatus.SUCCEEDED:
                 job.output_size = output_size
                 job.output_path = str(plan.final_output)
@@ -1924,3 +1939,91 @@ class JobController(QObject):
     def _set_error(self, message: str) -> None:
         self._last_error = message
         self.errorChanged.emit()
+
+
+def _menu_entries(
+    formats: list[str],
+    combined: list[str],
+    offered_tools: list[Tool],
+    ai: list[str],
+    target: str,
+    language: str,
+) -> list[dict[str, object]]:
+    """Pill menu rows, in titled sections and two columns once tools join the formats."""
+    format_rows: list[dict[str, object]] = [
+        {"key": option, "label": choice_label(option, language), "checked": option == target, "icon": ""}
+        for option in formats
+    ]
+    if combined:
+        if format_rows:
+            format_rows.append({"separator": True})
+        format_rows.extend(
+            {
+                "key": option,
+                "label": combine_menu_label(option, language),
+                "checked": option == target,
+                "icon": "layers",
+            }
+            for option in combined
+        )
+    sections: list[tuple[str, list[dict[str, object]]]] = [("formats", format_rows)]
+    for section in (RECOGNIZE, PHOTO):
+        rows: list[dict[str, object]] = []
+        families: dict[str, dict[str, object]] = {}
+        for tool in offered_tools:
+            if tool.section != section:
+                continue
+            checked = tool.key == target
+            if not tool.family:
+                rows.append(
+                    {"key": tool.key, "label": menu_label(tool.key, language), "checked": checked, "icon": tool.icon}
+                )
+                continue
+            row = families.get(tool.family)
+            if row is None:
+                row = {
+                    "key": tool.key,
+                    "label": family_title(tool.family, language),
+                    "checked": False,
+                    "icon": tool.icon,
+                    "variants": [],
+                }
+                families[tool.family] = row
+                rows.append(row)
+            row["checked"] = bool(row["checked"]) or checked
+            row["variants"].append({"key": tool.key, "label": menu_label(tool.key, language), "checked": checked})
+        sections.append((section, rows))
+    sections.append(
+        (
+            "ai",
+            [
+                {"key": option, "label": choice_label(option, language), "checked": option == target, "icon": "sparkles"}
+                for option in ai
+            ],
+        )
+    )
+    present = dict((name, rows) for name, rows in sections if rows)
+    if set(present) <= {"formats", "ai"}:
+        # Formats with a few AI actions read fine as one list, as before.
+        return [*present.get("formats", []), *present.get("ai", [])]
+    if formats:
+        # Many formats sit as a grid of chips so the sections fit side by side.
+        grid = {
+            "key": formats[0],
+            "grid": [
+                {"key": option, "label": choice_label(option, language), "checked": option == target}
+                for option in formats
+            ],
+        }
+        present["formats"] = [grid, *present["formats"][len(formats):]]
+    entries: list[dict[str, object]] = []
+    for column in (("formats", PHOTO), (RECOGNIZE, "ai")):
+        names = [name for name in column if name in present]
+        if not names:
+            continue
+        if entries:
+            entries.append({"columnBreak": True})
+        for name in names:
+            entries.append({"header": section_title(name, language)})
+            entries.extend(present[name])
+    return entries

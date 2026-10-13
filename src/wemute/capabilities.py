@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from wemute.domain import MediaKind, OperationKind
+from wemute.tools import is_group_tool, is_tool, tool_for
 
 
 @dataclass(frozen=True, slots=True)
@@ -264,7 +265,8 @@ def combine_choices(kind: MediaKind) -> list[str]:
 
 
 def is_combine(choice: str) -> bool:
-    return choice in COMBINE_EXTENSIONS
+    """One output from the whole group (merged PDFs, archives, group tools)."""
+    return choice in COMBINE_EXTENSIONS or is_group_tool(choice)
 
 
 def file_target(kind: MediaKind, label: str) -> FileTarget | None:
@@ -308,6 +310,9 @@ def default_file_target(kind: MediaKind, suffix: str) -> str | None:
 
 
 def target_extension(kind: MediaKind, label: str) -> str | None:
+    if is_tool(label):
+        tool = tool_for(label)
+        return (tool.extension or None) if tool else None
     if label in COMBINE_EXTENSIONS:
         return COMBINE_EXTENSIONS[label]
     if kind in FILE_TARGETS:
@@ -404,6 +409,9 @@ def target_definition(label: str) -> TargetDefinition:
 
 def is_compatible(kind: MediaKind, target: str, suffix: str | None = None) -> bool:
     """Whether ``target`` is an output of ``kind`` (and of that source format, if given)."""
+    if is_tool(target):
+        tool = tool_for(target)
+        return bool(tool and kind in tool.kinds)
     if target in COMBINE_EXTENSIONS:
         return target in combine_choices(kind)
     if kind in FILE_TARGETS:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
+from wemute import tools
 from wemute.domain import FileDescriptor, JobRecord, JobStatus, MediaKind
 
 
@@ -316,6 +317,13 @@ _CHOICE_LABELS = {
         "Merged PDF": "一个 PDF",
         "One ZIP": "一个 ZIP",
         "One 7Z": "一个 7Z",
+        "Remove Background": "抠图去背景",
+        "Upscale Photo 2×": "照片放大 2×",
+        "Upscale Photo 4×": "照片放大 4×",
+        "Upscale Illustration 2×": "插画放大 2×",
+        "Upscale Illustration 4×": "插画放大 4×",
+        "Erase Object": "擦除物体",
+        "Separate Vocals": "分离人声",
     },
     "en": {
         "PNG (per page)": "PNG per page",
@@ -348,6 +356,8 @@ _COMBINE_MENU = {
 
 
 def choice_label(choice: str, language: str = "en") -> str:
+    if (label := tools.pill_label(choice, language)) is not None:
+        return label
     return _CHOICE_LABELS.get(language, _CHOICE_LABELS["en"]).get(choice, choice)
 
 
@@ -357,6 +367,8 @@ def combine_menu_label(choice: str, language: str = "en") -> str:
 
 def sentence_words(kind: MediaKind, target: str, language: str = "en") -> tuple[str, str]:
     """Lead and verb around the count: "把 … 转成", "Merge … into"."""
+    if (words := tools.sentence_words(target, language)) is not None:
+        return words
     zh = language == "zh"
     if target == "One PDF":
         return ("把", "合成") if zh else ("Combine", "into")

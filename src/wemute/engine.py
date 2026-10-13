@@ -14,6 +14,7 @@ from wemute.capabilities import is_combine, release_output, target_definition, u
 from wemute.domain import MEDIA_KINDS, ConversionPlan, JobRecord, MediaKind, OperationKind
 from wemute.ai_engine import AIEngineAdapter
 from wemute.paths import CACHE_ROOT, resolve_engine
+from wemute.tools import is_tool
 
 
 class EngineUnavailableError(RuntimeError):
@@ -46,7 +47,11 @@ class FfmpegAdapter:
     ) -> ConversionPlan:
         if job.operation != OperationKind.CONVERT:
             return self.ai_adapter.plan(job, destination)
-        if job.source.kind not in MEDIA_KINDS or is_combine(job.target_format):
+        if (
+            job.source.kind not in MEDIA_KINDS
+            or is_combine(job.target_format)
+            or is_tool(job.target_format)
+        ):
             from wemute.engines import plan_file_job
 
             return plan_file_job(

@@ -28,8 +28,46 @@ def _office(request: dict, reporter: Reporter, source: Path, output: Path, exten
     )
 
 
+def _vision(request: dict, reporter: Reporter) -> None:
+    """Apple Vision and Core Image tools (macOS); imported only when used."""
+    from wemute.engines import ocr, photo, scan
+
+    tool = request["tool"]
+    options = request.get("options", {})
+    sources = [Path(value) for value in request["sources"]]
+    output = Path(request["output"])
+    extension = request["extension"]
+    if tool == "ocr":
+        target = options.get("format", "txt")
+        if request.get("source_kind") == "pdf":
+            ocr.pdf_ocr(sources[0], output, "pdf" if target == "pdf" else "txt", reporter)
+        elif target == "pdf":
+            ocr.images_to_searchable_pdf(sources, output, reporter)
+        else:
+            ocr.images_to_text(sources, output, target, reporter)
+    elif tool == "scan":
+        mode = options.get("mode", "color")
+        if extension == ".pdf":
+            scan.scan_to_pdf(sources, output, mode, reporter)
+        else:
+            scan.scan_to_image(sources[0], output, mode, reporter)
+    elif tool == "codes":
+        photo.codes_to_file(sources, output, extension == ".csv", reporter)
+    elif tool == "triage":
+        duplicates, blurry = photo.triage(sources, output, reporter)
+        if duplicates or blurry:
+            reporter.note("triage_found", duplicates=duplicates, blurry=blurry)
+        else:
+            reporter.note("triage_none")
+    else:
+        photo.run_photo_tool(tool, sources[0], output, extension, options, reporter)
+
+
 def run(request: dict, reporter: Reporter) -> None:
     engine = request["engine"]
+    if engine == "vision":
+        _vision(request, reporter)
+        return
     target = request["target"]
     sources = [Path(value) for value in request["sources"]]
     source = sources[0]
