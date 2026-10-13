@@ -89,10 +89,10 @@ Item {
         width: card.width
         height: card.height
         y: card.lifted ? -4 : 0
-        rotation: card.lifted ? 0 : card.tilts[Math.max(0, card.cardIndex) % card.tilts.length]
+        rotation: Theme.reduceMotion ? 0 : (card.lifted ? 0 : card.tilts[Math.max(0, card.cardIndex) % card.tilts.length])
         antialiasing: true
-        Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-        Behavior on rotation { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        Behavior on y { NumberAnimation { duration: Theme.reduceMotion ? 0 : 180; easing.type: Easing.OutCubic } }
+        Behavior on rotation { NumberAnimation { duration: Theme.reduceMotion ? 0 : 220; easing.type: Easing.OutCubic } }
 
         RectangularShadow {
             anchors.fill: face

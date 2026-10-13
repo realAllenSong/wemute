@@ -249,11 +249,12 @@ def person_mask(image: Image.Image) -> np.ndarray:
 
 
 def replace_background(image: Image.Image, mask: np.ndarray, color: tuple[int, int, int]) -> Image.Image:
-    from wemute.mattes import decontaminate_edges, finish_alpha, guided_refine
+    from wemute.mattes import color_difference_alpha, decontaminate_edges, finish_alpha, guided_refine
 
     rgb = np.asarray(flatten(image))
     radius = max(2, round(max(image.size) / 320))
     alpha = finish_alpha(guided_refine(rgb, mask, radius))
+    alpha = color_difference_alpha(rgb, alpha, radius)
     colors = decontaminate_edges(rgb, alpha, radius).astype(np.float32)
     background = np.array(color, np.float32)
     composed = colors * alpha[..., None] + background * (1.0 - alpha[..., None])

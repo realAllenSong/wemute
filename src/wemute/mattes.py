@@ -127,3 +127,44 @@ def decontaminate_edges(rgb: np.ndarray, alpha: np.ndarray, radius: int) -> np.n
         region, np.clip(np.rint(solved), 0, 255).astype(np.uint8), rgb[top:bottom, left:right]
     )
     return result
+
+
+def color_difference_alpha(rgb: np.ndarray, alpha: np.ndarray, radius: int) -> np.ndarray:
+    """Re-derive alpha in the uncertain band from colour, like a chroma key.
+
+    Person segmentation is soft around loose hair, so dark strands come out
+    half transparent and turn the new backdrop's colour (red hair on a red
+    ID photo). With ``B`` the nearby original backdrop and ``F`` the nearby
+    solid subject colour, a pixel ``C`` is ``α = (C − B)·(F − B) / |F − B|²``.
+    It is only trusted where subject and backdrop are clearly different.
+    """
+    band = dilate((alpha > 0.004) & (alpha < 0.996), radius * 2)
+    if not band.any():
+        return alpha
+    rows, cols = np.nonzero(band)
+    reach = radius * 6
+    top, left = max(0, rows.min() - reach), max(0, cols.min() - reach)
+    bottom = min(alpha.shape[0], rows.max() + 1 + reach)
+    right = min(alpha.shape[1], cols.max() + 1 + reach)
+    a = alpha[top:bottom, left:right].astype(np.float64)
+    colors = rgb[top:bottom, left:right].astype(np.float64)
+    back_weight = (a <= 0.02).astype(np.float64)
+    fore_weight = (a >= 0.98).astype(np.float64)
+    back_sum = _box_mean(back_weight, reach)
+    fore_sum = _box_mean(fore_weight, reach)
+    back = np.dstack([_box_mean(colors[..., c] * back_weight, reach) for c in range(3)])
+    fore = np.dstack([_box_mean(colors[..., c] * fore_weight, reach) for c in range(3)])
+    back /= np.maximum(back_sum, 1e-6)[..., None]
+    fore /= np.maximum(fore_sum, 1e-6)[..., None]
+    span = fore - back
+    length2 = np.einsum("...c,...c->...", span, span)
+    keyed = np.einsum("...c,...c->...", colors - back, span) / np.maximum(length2, 1e-6)
+    keyed = np.clip(keyed, 0.0, 1.0)
+    # Fade trust in from a colour distance of 40 to 80 (out of ~441).
+    trust = np.clip((np.sqrt(length2) - 40.0) / 40.0, 0.0, 1.0)
+    trust *= (back_sum > 1e-3) & (fore_sum > 1e-3)
+    local_band = band[top:bottom, left:right]
+    mixed = np.where(local_band, trust * keyed + (1.0 - trust) * a, a)
+    result = alpha.copy()
+    result[top:bottom, left:right] = mixed.astype(np.float32)
+    return finish_alpha(result)

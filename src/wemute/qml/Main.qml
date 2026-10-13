@@ -30,6 +30,26 @@ ApplicationWindow {
     readonly property string phase: jobController.phase
 
     Binding { target: Theme; property: "language"; value: i18n.language }
+    Binding { target: Theme; property: "appearance"; value: appSettings.appearance }
+    Binding { target: Theme; property: "reduceMotion"; value: appSettings.reduceMotion }
+
+    property alias settingsWindow: settingsWindow
+
+    function openSettings(page) {
+        settingsWindow.mainWindow = window
+        settingsWindow.show(page || "general")
+    }
+    function openPalette(query) {
+        commandPalette.openWith(query || "")
+    }
+    function openToolsMenu() {
+        toolsMenu.maxHeight = window.height - toolsButton.mapToItem(null, 0, 0).y - toolsButton.height - 30
+        toolsMenu.popup(toolsButton, toolsButton.width - toolsMenu.width, toolsButton.height + 6)
+    }
+    function openShortcuts() {
+        shortcutsSheet.open()
+    }
+
     readonly property bool running: phase === "running"
     // Height of the native title bar row that holds the traffic lights.
     readonly property int chromeHeight: 28
@@ -40,7 +60,8 @@ ApplicationWindow {
     readonly property int lineHeight: Math.round(sentenceSize * 1.75)
     property int openMenus: 0
     property bool showSelection: false
-    readonly property bool hasPopupOpen: openMenus > 0 || settingsPanel.opened
+    readonly property bool hasPopupOpen: openMenus > 0 || settingsWindow.visible
+        || commandPalette.opened || shortcutsSheet.opened
         || imageOptionsPopup.opened || eraseMaskPopup.opened
     readonly property int columns: cardFlow.columns
 
@@ -70,7 +91,30 @@ ApplicationWindow {
     }
     Shortcut {
         sequences: [StandardKey.Preferences]
-        onActivated: settingsPanel.openTab("general")
+        onActivated: window.openSettings("general")
+    }
+    Shortcut {
+        sequence: "Ctrl+K"
+        enabled: !window.hasPopupOpen
+        onActivated: window.openPalette("")
+    }
+
+    Connections {
+        target: actionCenter
+        function onCommandRequested(command) {
+            if (command === "add_files")
+                fileDialog.open()
+            else if (command.indexOf("settings:") === 0)
+                window.openSettings(command.substring(9))
+            else if (command === "palette")
+                window.openPalette("")
+            else if (command === "tools")
+                window.openToolsMenu()
+            else if (command === "shortcuts")
+                window.openShortcuts()
+            else if (command === "privacy")
+                window.openSettings("about")
+        }
     }
     Shortcut {
         sequences: ["Return", "Enter"]
@@ -169,22 +213,45 @@ ApplicationWindow {
             font.weight: Font.Bold
         }
 
-        WButton {
+        Row {
+            id: toolbarRight
             anchors.right: parent.right
             anchors.rightMargin: 12
             anchors.verticalCenter: parent.top
             anchors.verticalCenterOffset: window.chromeHeight / 2 + 1
-            kind: "ghost"
-            iconName: "gear"
-            iconSize: 16
-            implicitWidth: 30
-            implicitHeight: 28
-            opacity: hovered ? 1 : 0.75
-            onClicked: settingsPanel.openTab("general")
-            Accessible.name: window.tr("nav_settings")
-            ToolTip.visible: hovered
-            ToolTip.delay: 600
-            ToolTip.text: window.tr("nav_settings") + "  ⌘,"
+            spacing: 6
+
+            ToolbarButton {
+                id: toolsButton
+                text: window.tr("toolbar_tools")
+                iconName: "sparkles"
+                chevron: true
+                open: toolsMenu.visible
+                onClicked: window.openToolsMenu()
+                Accessible.name: window.tr("toolbar_tools")
+                ToolTip.visible: hovered
+                ToolTip.delay: 600
+                ToolTip.text: window.tr("toolbar_tools")
+            }
+            ToolbarButton {
+                text: "⌘K"
+                iconName: "search"
+                quiet: true
+                onClicked: window.openPalette("")
+                Accessible.name: window.tr("sc_search")
+                ToolTip.visible: hovered
+                ToolTip.delay: 600
+                ToolTip.text: window.tr("sc_search")
+            }
+            ToolbarButton {
+                text: window.tr("nav_settings")
+                iconName: "settings"
+                onClicked: window.openSettings("general")
+                Accessible.name: window.tr("nav_settings")
+                ToolTip.visible: hovered
+                ToolTip.delay: 600
+                ToolTip.text: window.tr("nav_settings") + "  ⌘,"
+            }
         }
     }
 
@@ -209,7 +276,7 @@ ApplicationWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: 150
                 height: 150
-                rotation: -6
+                rotation: Theme.reduceMotion ? 0 : -6
                 scale: dropArea.containsDrag ? 1.07 : 1
                 Behavior on scale { NumberAnimation { duration: 260; easing.type: Easing.OutBack } }
 
@@ -644,6 +711,7 @@ ApplicationWindow {
                                     }
                                     NumberAnimation on x {
                                         running: jobController.anyIndeterminate && window.running
+                                                && !Theme.reduceMotion
                                         loops: Animation.Infinite
                                         from: -meterSweep.width
                                         to: meterSweep.parent.width
@@ -1034,10 +1102,25 @@ ApplicationWindow {
 
     // ── sheets ───────────────────────────────────────────────────────────
 
-    SettingsSheet {
-        id: settingsPanel
-        objectName: "settingsPanel"
-        onChooseFolderRequested: folderDialog.open()
+    SettingsWindow {
+        id: settingsWindow
+        objectName: "settingsWindow"
+        mainWindow: window
+    }
+
+    ToolsMenu {
+        id: toolsMenu
+        parent: window.contentItem
+    }
+
+    CommandPalette {
+        id: commandPalette
+        objectName: "commandPalette"
+    }
+
+    ShortcutsSheet {
+        id: shortcutsSheet
+        objectName: "shortcutsSheet"
     }
 
     ImageOptionsSheet {

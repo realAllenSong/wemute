@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from wemute import __version__
 from wemute.app_info import AppInfoController, THIRD_PARTY_COMPONENTS
 
 
 def test_app_info_exposes_current_version() -> None:
-    assert AppInfoController().version == "0.3.1"
+    assert AppInfoController().version == __version__
 
 
 def test_third_party_rows_are_https_and_complete() -> None:

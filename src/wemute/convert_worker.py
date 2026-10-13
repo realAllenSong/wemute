@@ -8,6 +8,7 @@ on failure the last stderr line is the message shown to the user.
 from __future__ import annotations
 
 import json
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -160,4 +161,9 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    code = main()
+    sys.stdout.flush()
+    sys.stderr.flush()
+    # Vision and Core Image sometimes get the process killed while the interpreter
+    # tears down, after the output is complete; skip the teardown.
+    os._exit(code)

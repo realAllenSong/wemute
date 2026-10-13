@@ -34,6 +34,7 @@ from wemute.capabilities import (
     is_combine,
     is_compatible,
     options_for,
+    set_output_tag,
     target_extension,
 )
 from wemute.domain import (
@@ -92,6 +93,9 @@ RESIZE_PRESETS = {
 }
 QUALITY_PRESETS = {"small": 72, "balanced": 84, "best": 92}
 CORNER_PRESETS = {"none": 0, "soft": 24, "round": 64}
+# 设置 · 默认格式, in the order the sentence reads.
+SETTINGS_KINDS = SENTENCE_ORDER
+NAME_SUFFIX = "-wemute"
 
 
 def _lane_limits() -> dict[str, int]:
@@ -193,6 +197,8 @@ class JobController(QObject):
         self._preferences = self._load_preferences()
         self._recent_destination = str(self.settings.value("recent_destination", ""))
         self._phase = "empty"
+        # A tool picked from the menus before any matching file was open.
+        self._armed: dict[MediaKind, str] | None = None
         self._groups: list[dict[str, object]] = []
         self._summary: tuple = ()
         self._probeReady.connect(self._on_probe_ready)
@@ -364,7 +370,12 @@ class JobController(QObject):
         remembered = self._preferences.get("formats", {}).get(kind.value)
         if remembered and is_compatible(kind, remembered):
             return remembered
-        return DEFAULT_BY_KIND.get(kind, "") or (default_target(kind, "") or "")
+        fallback = options_for(kind)
+        return (
+            DEFAULT_BY_KIND.get(kind, "")
+            or default_target(kind, "")
+            or (fallback[0] if fallback else "")
+        )
 
     @Slot(str, str)
     def setDefaultFormat(self, kind_value: str, label: str) -> None:
@@ -744,6 +755,7 @@ class JobController(QObject):
         unsupported: list[str] = list(payload.get("unsupported", []))  # type: ignore[arg-type]
         unreadable: list[str] = list(payload.get("unreadable", []))  # type: ignore[arg-type]
         duplicates = int(payload.get("duplicates", 0))  # type: ignore[arg-type]
+        armed = self._armed
         additions: list[JobRecord] = []
         # Files dropped onto a finished batch start a new one.
         if descriptors and self._phase == "done":
@@ -767,6 +779,7 @@ class JobController(QObject):
         self.model.replace([*self.model.jobs, *additions])
         self._probing = False
         self.probingChanged.emit()
+        self._apply_armed(additions, armed)
         message, kind = intake_notice(unsupported, unreadable, duplicates, self.model.language)
         if message:
             self._show_notice(message, kind)
@@ -855,8 +868,12 @@ class JobController(QObject):
             kind = MediaKind(kind_value)
         except ValueError:
             return
+        self._apply_group_choice(kind, target, remember=True)
+
+    def _apply_group_choice(self, kind: MediaKind, target: str, remember: bool) -> bool:
+        """Put ``target`` on every editable file of ``kind``; whether any could take it."""
         if not is_choice_compatible(kind, target, self.model.enabled_ai_actions):
-            return
+            return False
         if target == ACTIONS[OperationKind.ERASE_OBJECT].label:
             first = next(
                 (
@@ -870,23 +887,124 @@ class JobController(QObject):
                 self.eraseMaskRequested.emit(
                     first.id, QUrl.fromLocalFile(first.source.path).toString(), True
                 )
-            return
+            return first is not None
         changed = False
+        accepted = False
         for job in self.model.jobs:
             if job.source.kind != kind or job.status == JobStatus.RUNNING:
                 continue
             previous = (job.operation, job.target_format, dict(job.operation_options))
             if not apply_choice(job, target):
                 continue
+            accepted = True
             if previous == (job.operation, job.target_format, job.operation_options):
                 continue
             self._reset_job(job)
             changed = True
-        self._remember_target(kind, target)
+        if remember:
+            self._remember_target(kind, target)
         if changed:
             self.model.refresh()
             self._persist()
             self.queueStateChanged.emit()
+        return accepted
+
+    # ------------------------------------------------- tools menu and ⌘K
+
+    def apply_action(self, choices: dict[MediaKind, str], hint: str) -> str:
+        """A tool chosen from the menus: "applied" to the open files of its kinds,
+        or "armed" for the next drop with ``hint`` saying what to drop."""
+        zh = self.model.language == "zh"
+        if self._busy:
+            self._show_notice(
+                "正在转换，完成后再选择工具" if zh else "Converting — choose a tool when it's done"
+            )
+            return "busy"
+        present = {job.source.kind for job in self.model.jobs} & choices.keys()
+        if present:
+            applied = [kind for kind in present if self._apply_group_choice(kind, choices[kind], remember=False)]
+            if applied:
+                self._armed = None
+                if self._notice_action == "armed":
+                    self.dismissNotice()
+                return "applied"
+        self._armed = dict(choices)
+        self._show_notice(hint, "info", action="armed", sticky=True)
+        return "armed"
+
+    def notify(self, message: str, kind: str = "info") -> None:
+        self._show_notice(message, kind)
+
+    @Property(bool, notify=noticeChanged)
+    def toolArmed(self) -> bool:
+        return self._armed is not None
+
+    def _apply_armed(self, additions: list[JobRecord], armed: dict[MediaKind, str] | None) -> None:
+        if not armed:
+            return
+        kinds = {job.source.kind for job in additions} & armed.keys()
+        if not kinds:
+            self._armed = armed
+            return
+        self._armed = None
+        for kind in kinds:
+            self._apply_group_choice(kind, armed[kind], remember=False)
+        if self._notice_action == "armed":
+            self.dismissNotice()
+
+    # ------------------------------------------------------ settings window
+
+    @Slot(result="QVariantList")
+    def defaultFormatRows(self) -> list[dict[str, object]]:
+        """Every kind with its default output, for 设置 · 转换 · 默认格式."""
+        from wemute.presentation import GROUP_LABELS
+
+        language = self.model.language
+        rows: list[dict[str, object]] = []
+        for kind in SETTINGS_KINDS:
+            options = options_for(kind)
+            if not options:
+                continue
+            current = self.defaultFormat(kind.value)
+            rows.append(
+                {
+                    "kind": kind.value,
+                    "label": GROUP_LABELS.get(language, GROUP_LABELS["en"])[kind],
+                    "value": current,
+                    "valueLabel": choice_label(current, language),
+                    "options": [
+                        {"key": option, "label": choice_label(option, language), "checked": option == current}
+                        for option in options
+                    ],
+                }
+            )
+        return rows
+
+    @Property(str, notify=destinationChanged)
+    def destinationPath(self) -> str:
+        return self._destination
+
+    @Property(bool, notify=preferencesChanged)
+    def addNameSuffix(self) -> bool:
+        return bool(self._preferences.get("name_suffix", False))
+
+    @addNameSuffix.setter
+    def addNameSuffix(self, value: bool) -> None:
+        if bool(value) == self.addNameSuffix:
+            return
+        self._preferences["name_suffix"] = bool(value)
+        self._save_preferences()
+        self.preferencesChanged.emit()
+
+    @Slot()
+    def resetPreferences(self) -> None:
+        """重置所有设置: formats, toggles, naming, image defaults and the folder."""
+        self._preferences = {}
+        self._save_preferences()
+        self._recent_destination = ""
+        self.settings.remove("recent_destination")
+        self.resetDestination()
+        self.preferencesChanged.emit()
 
     @Slot(str)
     def setImageResizePreset(self, preset: str) -> None:
@@ -1424,6 +1542,7 @@ class JobController(QObject):
         destination = Path(self._destination) if self._destination else source.parent
         jobs = members or [job]
         self.adapter.language = self.model.language
+        set_output_tag(NAME_SUFFIX if self.addNameSuffix else "")
         try:
             plan = (
                 self.adapter.plan(job, destination, members=members)
@@ -1867,6 +1986,8 @@ class JobController(QObject):
     @Slot()
     def dismissNotice(self) -> None:
         self._undo_snapshot = None
+        if self._notice_action == "armed":
+            self._armed = None
         if not self._notice:
             return
         self._notice = ""

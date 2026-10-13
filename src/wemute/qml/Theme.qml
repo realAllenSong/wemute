@@ -2,10 +2,15 @@ pragma Singleton
 import QtQuick
 
 // "Ice" — a soft glass panel floating on cool pastel glows. Kind colours:
-// image = cobalt, video = teal, audio = violet. Follows the system appearance.
+// image = cobalt, video = teal, audio = violet. Follows the system appearance
+// unless 设置 · 外观 picks light or dark.
 QtObject {
     id: theme
-    readonly property bool dark: Application.styleHints.colorScheme === Qt.ColorScheme.Dark
+    // "system" | "light" | "dark", and 减少动效. Set from Main.qml.
+    property string appearance: "system"
+    property bool reduceMotion: false
+    readonly property bool dark: appearance === "dark"
+        || (appearance !== "light" && Application.styleHints.colorScheme === Qt.ColorScheme.Dark)
 
     // Background and glass
     readonly property color base: dark ? "#0D1220" : "#F2F5FB"

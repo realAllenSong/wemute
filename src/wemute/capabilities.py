@@ -429,8 +429,8 @@ def unique_output_path(
     stem: str | None = None,
     plain: bool = False,
 ) -> Path:
-    stem = stem or source.stem
-    same_extension = not plain and source.suffix.lower() == extension.lower()
+    stem = (stem or source.stem) + _OUTPUT_TAG
+    same_extension = not plain and not _OUTPUT_TAG and source.suffix.lower() == extension.lower()
     base = f"{stem}{suffix}" if suffix else (
         f"{stem} converted" if same_extension else stem
     )
@@ -445,6 +445,15 @@ def unique_output_path(
         number += 1
     _RESERVED_OUTPUTS.add(candidate.resolve())
     return candidate
+
+
+# 设置 · 文件命名: appended to every output name ("IMG_0412-wemute.jpg") when set.
+_OUTPUT_TAG = ""
+
+
+def set_output_tag(tag: str) -> None:
+    global _OUTPUT_TAG
+    _OUTPUT_TAG = tag
 
 
 # Jobs run in parallel, so a name chosen for one job must stay unavailable to the

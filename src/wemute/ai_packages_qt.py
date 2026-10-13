@@ -10,6 +10,14 @@ from wemute.ai_engine import AIEngineAdapter
 from wemute.domain import OperationKind
 from wemute.model_packages import DownloadCancelled, ModelPackageManager
 
+# The manifest is English; Chinese names and blurbs for the 组件 page.
+_ZH_TEXT = {
+    "birefnet": ("高质量去背景", "更大的本地模型，适合细发丝、半透明边缘和难抠的主体。不上传任何内容。"),
+    "realesrgan-photo": ("图片放大", "本地 2× 和 4× 放大，针对照片和插画调校。"),
+    "lama": ("擦除物体与水印", "用画笔涂掉物体或标记，本地补全背景。请只处理你有权编辑的图片。"),
+    "mlx-audio-separator": ("人声与伴奏分离", "在本地把歌曲拆成人声和伴奏两条音轨。"),
+}
+
 
 class AIModelController(QObject):
     catalogChanged = Signal()
@@ -35,6 +43,12 @@ class AIModelController(QObject):
         self._error = ""
         self._progressReady.connect(self._on_progress)
         self._installFinished.connect(self._on_finished)
+        self._language = "en"
+
+    def set_language(self, language: str) -> None:
+        if language != self._language:
+            self._language = language
+            self.catalogChanged.emit()
 
     @Property("QVariantList", notify=catalogChanged)
     def catalog(self) -> list[dict[str, object]]:
@@ -43,11 +57,14 @@ class AIModelController(QObject):
             installed = self.packages.installed(manifest)
             installing = manifest.id == self._active_id
             partial_size = self.packages.partial_size(manifest)
+            name, description = manifest.name, manifest.description
+            if self._language == "zh" and manifest.id in _ZH_TEXT:
+                name, description = _ZH_TEXT[manifest.id]
             rows.append(
                 {
                     "id": manifest.id,
-                    "name": manifest.name,
-                    "description": manifest.description,
+                    "name": name,
+                    "description": description,
                     "sizeLabel": self._size_label(manifest.size_bytes),
                     "license": manifest.license,
                     "licenseUrl": manifest.license_url,

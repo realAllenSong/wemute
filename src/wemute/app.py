@@ -5,7 +5,17 @@ import os
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QCoreApplication, QEvent, QMetaObject, QObject, QTimer, QUrl, Qt, Signal
+from PySide6.QtCore import (
+    Q_ARG,
+    QCoreApplication,
+    QEvent,
+    QMetaObject,
+    QObject,
+    QTimer,
+    QUrl,
+    Qt,
+    Signal,
+)
 from PySide6.QtGui import QFileOpenEvent
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -23,7 +33,13 @@ from wemute.probe import probe_file
 from wemute.queue_model import QueueModel
 from wemute.model_packages import ModelPackageManager
 from wemute.updater import SparkleUpdater
+from wemute.actions_qt import ActionCenter
+from wemute.paths import DATA_ROOT
+from wemute.preferences import PreferenceStore
+from wemute.settings_qt import AppSettings, Integrations
 from wemute import __version__
+
+SETTINGS_PAGES = ("general", "appearance", "convert", "components", "integrations", "about")
 
 
 class WemuteApplication(QApplication):
@@ -55,11 +71,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--show-erase-editor", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--show-about", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--show-menu", metavar="KIND", help=argparse.SUPPRESS)
-    parser.add_argument("--show-settings", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--show-settings", nargs="?", const="general", choices=SETTINGS_PAGES, help=argparse.SUPPRESS
+    )
+    parser.add_argument("--show-palette", nargs="?", const="", metavar="QUERY", help=argparse.SUPPRESS)
+    parser.add_argument("--show-tools-menu", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--show-shortcuts", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--dump-menu", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--show-components", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--qa-action", choices=["start", "clear"], help=argparse.SUPPRESS)
     parser.add_argument("--qa-action-delay", type=int, default=1200, help=argparse.SUPPRESS)
-    parser.add_argument("--appearance", choices=["light", "dark"], help=argparse.SUPPRESS)
+    parser.add_argument("--appearance", choices=["system", "light", "dark"], help=argparse.SUPPRESS)
     parser.add_argument("--language", choices=["en", "zh"], help=argparse.SUPPRESS)
     parser.add_argument("--require-updater", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--image-worker", action="store_true", help=argparse.SUPPRESS)
@@ -106,6 +128,41 @@ def _hide_native_title(window: QObject) -> None:
         pass
 
 
+def _native_menu_titles() -> list[str]:
+    """Titles in the real NSApp main menu, as AppKit sees it."""
+    if sys.platform != "darwin":
+        return []
+    try:
+        import ctypes
+
+        objc = ctypes.cdll.LoadLibrary("/usr/lib/libobjc.dylib")
+        objc.sel_registerName.restype = ctypes.c_void_p
+        objc.sel_registerName.argtypes = [ctypes.c_char_p]
+        objc.objc_getClass.restype = ctypes.c_void_p
+        objc.objc_getClass.argtypes = [ctypes.c_char_p]
+        address = ctypes.cast(objc.objc_msgSend, ctypes.c_void_p).value
+        send = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)(address)
+        send_long = ctypes.CFUNCTYPE(ctypes.c_long, ctypes.c_void_p, ctypes.c_void_p)(address)
+        item_at = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_long)(
+            address
+        )
+        utf8 = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_void_p, ctypes.c_void_p)(address)
+        sel = objc.sel_registerName
+        ns_app = send(objc.objc_getClass(b"NSApplication"), sel(b"sharedApplication"))
+        menu = send(ns_app, sel(b"mainMenu")) if ns_app else None
+        if not menu:
+            return []
+        titles = []
+        for index in range(send_long(menu, sel(b"numberOfItems"))):
+            item = item_at(menu, sel(b"itemAtIndex:"), index)
+            title = send(item, sel(b"title")) if item else None
+            raw = utf8(title, sel(b"UTF8String")) if title else None
+            titles.append(raw.decode() if raw else "")
+        return titles
+    except Exception:  # pragma: no cover - platform specific
+        return []
+
+
 def main(argv: list[str] | None = None) -> int:
     arguments = build_parser().parse_args(argv)
     if arguments.image_worker:
@@ -127,7 +184,11 @@ def main(argv: list[str] | None = None) -> int:
     if arguments.convert_worker:
         from wemute.convert_worker import main as convert_worker_main
 
-        return convert_worker_main(arguments.paths)
+        code = convert_worker_main(arguments.paths)
+        sys.stdout.flush()
+        sys.stderr.flush()
+        # See wemute.convert_worker: skip the interpreter teardown after Vision.
+        os._exit(code)
     if arguments.audio_runtime_smoke_test:
         import demucs_mlx  # noqa: F401
         import mlx_audio_io as mac
@@ -145,11 +206,10 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationName("Wemute")
     app.setOrganizationName("Wemute")
     app.setApplicationVersion(__version__)
+    app_settings = AppSettings(PreferenceStore(DATA_ROOT / "settings.json"))
     if arguments.appearance:
-        app.styleHints().setColorScheme(
-            Qt.ColorScheme.Light if arguments.appearance == "light" else Qt.ColorScheme.Dark
-        )
-
+        app_settings.override_appearance(arguments.appearance)
+    integrations = Integrations()
 
     model = QueueModel()
     packages = ModelPackageManager()
@@ -168,11 +228,25 @@ def main(argv: list[str] | None = None) -> int:
         i18n.override(arguments.language)
     model.set_language(i18n.language)
     i18n.languageChanged.connect(lambda: model.set_language(i18n.language))
+    ai_model_controller.set_language(i18n.language)
+    i18n.languageChanged.connect(lambda: ai_model_controller.set_language(i18n.language))
+    # The default-format grid in 设置 · 转换 shows translated labels.
+    i18n.languageChanged.connect(controller.preferencesChanged)
+
+    action_center = ActionCenter(
+        controller, app_settings, i18n, ai_models=ai_model_controller, updater=updater_controller
+    )
+    native_menu = None
+    if sys.platform == "darwin":
+        from wemute.menubar import NativeMenuBar
+
+        native_menu = NativeMenuBar(action_center, controller, app_settings, i18n)
 
     if arguments.demo_dir:
         controller.seed_demo(_demo_descriptors(arguments.demo_dir))
     else:
-        controller.restore()
+        if app_settings.restoreSession:
+            controller.restore()
         if arguments.paths:
             controller.add_paths(arguments.paths)
 
@@ -201,6 +275,10 @@ def main(argv: list[str] | None = None) -> int:
     context.setContextProperty("appInfoController", app_info_controller)
     context.setContextProperty("updaterController", updater_controller)
     context.setContextProperty("i18n", i18n)
+    context.setContextProperty("appSettings", app_settings)
+    context.setContextProperty("integrations", integrations)
+    context.setContextProperty("actionCenter", action_center)
+    context.setContextProperty("nativeMenus", native_menu is not None)
     engine.load(QUrl.fromLocalFile(str(QML_ROOT / "Main.qml")))
     if not engine.rootObjects():
         controller.shutdown()
@@ -208,19 +286,36 @@ def main(argv: list[str] | None = None) -> int:
 
     root = engine.rootObjects()[0]
     _hide_native_title(root)
+    settings_window = root.findChild(QObject, "settingsWindow")
+    if settings_window is not None:
+        settings_window.visibleChanged.connect(
+            lambda: settings_window.property("visible") and _hide_native_title(settings_window)
+        )
     if arguments.show_image_options:
         popup = root.findChild(QObject, "imageOptionsPopup")
         if popup:
             QTimer.singleShot(900, popup.open)
-    settings_panel = root.findChild(QObject, "settingsPanel")
-    if arguments.show_ai_tools and settings_panel:
-        QTimer.singleShot(900, lambda: (settings_panel.setProperty("tab", "ai"), settings_panel.open()))
-    if arguments.show_settings and settings_panel:
-        QTimer.singleShot(900, settings_panel.open)
-    if arguments.show_components and settings_panel:
+
+    settings_page = arguments.show_settings
+    if arguments.show_ai_tools or arguments.show_components:
+        settings_page = "components"
+    elif arguments.show_about:
+        settings_page = "about"
+    if settings_page:
         QTimer.singleShot(
-            900, lambda: (settings_panel.setProperty("tab", "components"), settings_panel.open())
+            900, lambda: QMetaObject.invokeMethod(root, "openSettings", Q_ARG("QVariant", settings_page))
         )
+    if arguments.show_palette is not None:
+        QTimer.singleShot(
+            900,
+            lambda: QMetaObject.invokeMethod(
+                root, "openPalette", Q_ARG("QVariant", arguments.show_palette)
+            ),
+        )
+    if arguments.show_tools_menu:
+        QTimer.singleShot(900, lambda: QMetaObject.invokeMethod(root, "openToolsMenu"))
+    if arguments.show_shortcuts:
+        QTimer.singleShot(900, lambda: QMetaObject.invokeMethod(root, "openShortcuts"))
     if arguments.qa_action == "start":
         QTimer.singleShot(arguments.qa_action_delay, controller.startAll)
     elif arguments.qa_action == "clear":
@@ -238,17 +333,29 @@ def main(argv: list[str] | None = None) -> int:
                     False,
                 ),
             )
-    if arguments.show_about and settings_panel:
-        QTimer.singleShot(900, lambda: (settings_panel.setProperty("tab", "about"), settings_panel.open()))
 
     def capture_and_maybe_quit() -> None:
+        if arguments.smoke_test and native_menu is not None:
+            titles = _native_menu_titles()
+            if arguments.dump_menu:
+                print("menu bar:", " · ".join(titles), flush=True)
+            # The application menu plus 文件 编辑 显示 工具 窗口 帮助.
+            if len(titles) < 7:
+                print(f"native menu bar missing: {titles}", file=sys.stderr, flush=True)
+                QCoreApplication.exit(5)
+                return
         if arguments.screenshot:
             arguments.screenshot.parent.mkdir(parents=True, exist_ok=True)
-            image = root.grabWindow()
+            target = root
+            if settings_page and settings_window is not None and settings_window.property("visible"):
+                target = settings_window
+            image = target.grabWindow()
             if not image.save(str(arguments.screenshot)):
                 QCoreApplication.exit(3)
                 return
         if arguments.screenshot or arguments.smoke_test:
+            if settings_window is not None:
+                settings_window.setProperty("visible", False)
             root.setProperty("visible", False)
             root.deleteLater()
             QTimer.singleShot(60, QCoreApplication.quit)

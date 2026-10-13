@@ -5,7 +5,11 @@ PillMenu 1.0 PillMenu.qml
 IceButton 1.0 IceButton.qml
 FileCard 1.0 FileCard.qml
 Sheet 1.0 Sheet.qml
-SettingsSheet 1.0 SettingsSheet.qml
+SettingsWindow 1.0 SettingsWindow.qml
+ShortcutsSheet 1.0 ShortcutsSheet.qml
+ToolbarButton 1.0 ToolbarButton.qml
+ToolsMenu 1.0 ToolsMenu.qml
+CommandPalette 1.0 CommandPalette.qml
 ImageOptionsSheet 1.0 ImageOptionsSheet.qml
 WButton 1.0 WButton.qml
 Tag 1.0 Tag.qml
