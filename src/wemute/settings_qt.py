@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import shlex
+import subprocess
+import sys
 from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import Property, QObject, QProcess, Qt, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 
-from wemute.integrations import THUNDERTALK_APP, detect_app
+from wemute import finder_actions, shortcut_file
+from wemute.integrations import detect_app, thundertalk_app, thundertalk_cli_version
+from wemute.paths import CACHE_ROOT
 from wemute.preferences import APPEARANCES, Preferences, PreferenceStore
 
 
@@ -123,27 +128,77 @@ class Integrations(QObject):
 
     changed = Signal()
 
-    def __init__(self, thundertalk: Path = THUNDERTALK_APP) -> None:
+    def __init__(self, thundertalk: Path | None = None, language=None) -> None:  # noqa: ANN001
         super().__init__()
-        self._thundertalk_path = thundertalk
-        self._thundertalk = detect_app(thundertalk)
+        self._language = language or (lambda: "en")
+        self._error = ""
+        self._thundertalk_path = thundertalk or thundertalk_app()
+        self._thundertalk = self._probe()
+
+    def _probe(self) -> dict[str, object]:
+        detected = detect_app(self._thundertalk_path)
+        detected["cli"] = bool(detected["installed"]) and thundertalk_cli_version(self._thundertalk_path) >= 1
+        return detected
 
     @Property("QVariantMap", notify=changed)
     def thunderTalk(self) -> dict[str, object]:
         return dict(self._thundertalk)
 
-    # Neither is built yet; the settings rows say "即将推出".
     @Property(bool, constant=True)
     def finderActionAvailable(self) -> bool:
-        return False
+        return sys.platform == "darwin"
 
     @Property(bool, constant=True)
     def shortcutsAvailable(self) -> bool:
-        return False
+        return shortcut_file.available()
+
+    @Property(bool, notify=changed)
+    def finderActionsInstalled(self) -> bool:
+        return bool(finder_actions.installed())
+
+    @Property(str, notify=changed)
+    def lastError(self) -> str:
+        return self._error
+
+    @Slot()
+    def installFinderActions(self) -> None:
+        try:
+            finder_actions.install(
+                self._language(),
+                thundertalk=bool(self._thundertalk.get("cli")),
+                app_bundle=finder_actions.app_bundle_path(),
+            )
+            self._error = ""
+        except OSError as exc:
+            self._error = str(exc)
+        self.changed.emit()
+
+    @Slot()
+    def removeFinderActions(self) -> None:
+        finder_actions.remove()
+        self.changed.emit()
+
+    @Slot()
+    def installShortcut(self) -> None:
+        """Sign the shortcut and open it; Shortcuts asks the user to add it."""
+        try:
+            signed = shortcut_file.build_signed(
+                finder_actions.wemute_command(), CACHE_ROOT / "shortcut", self._language()
+            )
+            self._error = ""
+            QProcess.startDetached("/usr/bin/open", [str(signed)])
+        except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
+            self._error = str(exc)
+        self.changed.emit()
+
+    @Slot(result=str)
+    def cliCommand(self) -> str:
+        """For 「复制命令」: what to paste into a Run Shell Script action."""
+        return shlex.join(finder_actions.wemute_command()) + ' --cli convert --action remove_background "$@"'
 
     @Slot()
     def refresh(self) -> None:
-        detected = detect_app(self._thundertalk_path)
+        detected = self._probe()
         if detected != self._thundertalk:
             self._thundertalk = detected
             self.changed.emit()

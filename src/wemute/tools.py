@@ -1,4 +1,5 @@
-"""Apple Vision and Core Image tools offered as choices in the sentence menus.
+"""Tools offered as choices in the sentence menus: Apple Vision and Core Image
+for photos and scans, and ThunderTalk for subtitles and read-aloud.
 
 A tool is a choice like a format: it is stored in ``JobRecord.target_format``
 under its key and runs in the document worker (``wemute.convert_worker``) so
@@ -18,8 +19,17 @@ from wemute.domain import MediaKind
 
 RECOGNIZE = "recognize"
 PHOTO = "photo"
+SPEECH = "speech"
 _IMAGE = frozenset({MediaKind.IMAGE})
 _IMAGE_PDF = frozenset({MediaKind.IMAGE, MediaKind.PDF})
+_AV = frozenset({MediaKind.AUDIO, MediaKind.VIDEO})
+_TEXT_PDF = frozenset({MediaKind.DATA, MediaKind.PDF, MediaKind.DOCUMENT})
+
+# What a tool needs on this Mac.
+NEEDS_VISION = "vision"
+NEEDS_THUNDERTALK = "thundertalk"
+# Engines that run through ThunderTalk's CLI rather than Vision.
+SPEECH_ENGINES = frozenset({"transcribe", "speak"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +47,10 @@ class Tool:
     family: str = ""
     min_files: int = 1
     icon: str = ""
+
+    @property
+    def needs(self) -> str:
+        return NEEDS_THUNDERTALK if self.engine in SPEECH_ENGINES else NEEDS_VISION
 
 
 TOOLS: tuple[Tool, ...] = (
@@ -64,6 +78,10 @@ TOOLS: tuple[Tool, ...] = (
     Tool("ID photo red", _IMAGE, PHOTO, "id_photo", options=(("color", "red"),), family="id_photo", icon="id-card"),
     Tool("Straighten", _IMAGE, PHOTO, "straighten", icon="level"),
     Tool("Auto enhance", _IMAGE, PHOTO, "enhance", icon="wand"),
+    Tool("Subtitles SRT", _AV, SPEECH, "transcribe", ".srt", options=(("format", "srt"),), family="subtitles", icon="captions"),
+    Tool("Subtitles VTT", _AV, SPEECH, "transcribe", ".vtt", options=(("format", "vtt"),), family="subtitles", icon="captions"),
+    Tool("Transcript TXT", _AV, SPEECH, "transcribe", ".txt", options=(("format", "txt"),), family="subtitles", icon="captions"),
+    Tool("Read aloud M4A", _TEXT_PDF, SPEECH, "speak", ".m4a", icon="audio-lines"),
 )
 
 TOOL_BY_KEY = {tool.key: tool for tool in TOOLS}
@@ -85,9 +103,19 @@ def vision_available() -> bool:
     )
 
 
+def thundertalk_available() -> bool:
+    from wemute.integrations import thundertalk_available as available
+
+    return available()
+
+
+def tool_ready(tool: Tool) -> bool:
+    return thundertalk_available() if tool.needs == NEEDS_THUNDERTALK else vision_available()
+
+
 def tool_for(key: str) -> Tool | None:
     tool = TOOL_BY_KEY.get(key)
-    return tool if tool and vision_available() else None
+    return tool if tool and tool_ready(tool) else None
 
 
 def is_tool(key: str) -> bool:
@@ -101,20 +129,18 @@ def is_group_tool(key: str) -> bool:
 
 def tools_for(kind: MediaKind, count: int = 1) -> list[Tool]:
     """Tools offered for a group of ``count`` files of ``kind``, menu order."""
-    if not vision_available():
-        return []
     return [
         tool
         for tool in TOOLS
-        if kind in tool.kinds and (not tool.group or count >= tool.min_files)
+        if kind in tool.kinds and (not tool.group or count >= tool.min_files) and tool_ready(tool)
     ]
 
 
 # ── wording ──────────────────────────────────────────────────────────────
 
 SECTION_TITLES = {
-    "zh": {"formats": "格式", RECOGNIZE: "识别与整理", PHOTO: "照片工具", "ai": "AI"},
-    "en": {"formats": "Formats", RECOGNIZE: "Recognize & organize", PHOTO: "Photo tools", "ai": "AI"},
+    "zh": {"formats": "格式", RECOGNIZE: "识别与整理", PHOTO: "照片工具", SPEECH: "语音 · ThunderTalk", "ai": "AI"},
+    "en": {"formats": "Formats", RECOGNIZE: "Recognize & organize", PHOTO: "Photo tools", SPEECH: "Speech · ThunderTalk", "ai": "AI"},
 }
 
 # key: (menu label, pill label). Variants show only their chip in the menu.
@@ -144,6 +170,10 @@ _TEXT = {
         "ID photo red": ("红", "证件照换红底"),
         "Straighten": ("自动扶正", "自动扶正"),
         "Auto enhance": ("一键增强", "一键增强"),
+        "Subtitles SRT": ("SRT", "SRT 字幕"),
+        "Subtitles VTT": ("VTT", "VTT 字幕"),
+        "Transcript TXT": ("文字稿", "文字稿"),
+        "Read aloud M4A": ("朗读成音频", "M4A 音频"),
     },
     "en": {
         "Text (OCR)": ("TXT", "text"),
@@ -170,6 +200,10 @@ _TEXT = {
         "ID photo red": ("Red", "ID photo · red"),
         "Straighten": ("Straighten", "straightening"),
         "Auto enhance": ("Auto enhance", "auto enhance"),
+        "Subtitles SRT": ("SRT", "SRT subtitles"),
+        "Subtitles VTT": ("VTT", "VTT subtitles"),
+        "Transcript TXT": ("Transcript", "a transcript"),
+        "Read aloud M4A": ("Read aloud", "M4A audio"),
     },
 }
 
@@ -182,6 +216,7 @@ FAMILY_TITLES = {
         "crop": "智能裁剪",
         "faces": "人脸打码",
         "id_photo": "证件照换底",
+        "subtitles": "生成字幕",
     },
     "en": {
         "ocr": "Recognize text",
@@ -191,6 +226,7 @@ FAMILY_TITLES = {
         "crop": "Smart crop",
         "faces": "Hide faces",
         "id_photo": "ID photo",
+        "subtitles": "Subtitles",
     },
 }
 
@@ -201,6 +237,8 @@ _WORDS = {
         "scan": ("把", "扫描成"),
         "codes": ("识别", "里的"),
         "triage": ("从", "里"),
+        "transcribe": ("把", "生成"),
+        "speak": ("把", "朗读成"),
         PHOTO: ("给", ""),
     },
     "en": {
@@ -208,6 +246,8 @@ _WORDS = {
         "scan": ("Scan", "into"),
         "codes": ("Read the codes in", "as"),
         "triage": ("Check", "for"),
+        "transcribe": ("Turn", "into"),
+        "speak": ("Read", "aloud as"),
         PHOTO: ("Edit", "with"),
     },
 }

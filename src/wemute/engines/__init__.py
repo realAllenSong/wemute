@@ -26,14 +26,15 @@ from wemute.capabilities import (
 )
 from wemute.domain import ConversionPlan, JobRecord, MediaKind
 from wemute.engines.archive import archive_stem
-from wemute.tools import TRIAGE_FOLDER, is_tool, name_suffix, tool_for
+from wemute.tools import SPEECH_ENGINES, TOOL_BY_KEY, TRIAGE_FOLDER, is_tool, name_suffix, tool_for
 
 TABULAR_SUFFIXES = {".xlsx", ".xlsm", ".csv", ".tsv"}
 
 # Lanes and how many jobs each runs at once. LibreOffice and Calibre are heavy
 # and share profile state, so they run one at a time. Vision shares the Neural
-# Engine and GPU, so two at once keeps the machine responsive.
-LANE_LIMITS = {"office": 1, "ebook": 1, "files": 2, "vision": 2}
+# Engine and GPU, so two at once keeps the machine responsive. ThunderTalk
+# loads a speech model per run, so one at a time.
+LANE_LIMITS = {"office": 1, "ebook": 1, "files": 2, "vision": 2, "speech": 1}
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +53,8 @@ class ComponentMissing(RuntimeError):
 def route(kind: MediaKind, suffix: str, target: str) -> Route:
     suffix = suffix.lower()
     if is_tool(target):
+        if TOOL_BY_KEY[target].engine in SPEECH_ENGINES:
+            return Route("speech", None, "speech")
         return Route("vision", None, "vision")
     if is_combine(target):
         return Route("combine", None, "files")
@@ -143,7 +146,7 @@ def plan_file_job(
     source = Path(job.source.path)
     jobs = members or [job]
     sources = [Path(item.source.path) for item in jobs]
-    if chosen.engine == "vision":
+    if chosen.engine in {"vision", "speech"}:
         return _plan_tool(job, destination, sources, language)
 
     folder = False
@@ -209,7 +212,7 @@ def _plan_tool(job: JobRecord, destination: Path, sources: list[Path], language:
         final = unique_output_path(source, destination, extension, suffix=suffix or None)
     temporary = _temporary_for(final, job.id, tool.folder)
     request = {
-        "engine": "vision",
+        "engine": "speech" if tool.engine in SPEECH_ENGINES else "vision",
         "tool": tool.engine,
         "options": dict(tool.options),
         "group": tool.group,
@@ -219,6 +222,11 @@ def _plan_tool(job: JobRecord, destination: Path, sources: list[Path], language:
         "extension": extension,
         "language": language,
     }
+    if tool.engine in SPEECH_ENGINES:
+        from wemute.integrations import thundertalk_binary
+
+        request["thundertalk"] = str(thundertalk_binary())
+        request["source_suffix"] = source.suffix.lower()
     return ConversionPlan(
         job.id, source, temporary, final, worker_command(request), folder_output=tool.folder
     )

@@ -69,6 +69,11 @@ def run(request: dict, reporter: Reporter) -> None:
     if engine == "vision":
         _vision(request, reporter)
         return
+    if engine == "speech":
+        from wemute.engines import speech
+
+        speech.run(request, reporter)
+        return
     target = request["target"]
     sources = [Path(value) for value in request["sources"]]
     source = sources[0]

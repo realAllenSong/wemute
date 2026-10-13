@@ -76,6 +76,7 @@ from wemute.queue_model import QueueModel
 from wemute.tools import (
     PHOTO,
     RECOGNIZE,
+    SPEECH,
     Tool,
     family_title,
     is_tool,
@@ -2088,7 +2089,7 @@ def _menu_entries(
             for option in combined
         )
     sections: list[tuple[str, list[dict[str, object]]]] = [("formats", format_rows)]
-    for section in (RECOGNIZE, PHOTO):
+    for section in (RECOGNIZE, PHOTO, SPEECH):
         rows: list[dict[str, object]] = []
         families: dict[str, dict[str, object]] = {}
         for tool in offered_tools:
@@ -2138,7 +2139,7 @@ def _menu_entries(
         }
         present["formats"] = [grid, *present["formats"][len(formats):]]
     entries: list[dict[str, object]] = []
-    for column in (("formats", PHOTO), (RECOGNIZE, "ai")):
+    for column in (("formats", PHOTO), (RECOGNIZE, SPEECH, "ai")):
         names = [name for name in column if name in present]
         if not names:
             continue

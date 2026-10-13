@@ -30,6 +30,7 @@ Text = tuple[str, str]  # (zh, en)
 
 VISION = "vision"
 UPDATER = "updater"
+THUNDERTALK = "thundertalk"
 
 SECTIONS: dict[str, Text] = {
     "convert": ("转换", "Convert"),
@@ -50,6 +51,7 @@ GROUPS: dict[str, tuple[Text, str]] = {
     "id_photo": (("证件照换底", "ID photo background"), "id-card"),
     "crop": (("智能裁剪", "Smart crop"), "crop"),
     "photo_more": (("更多照片工具", "More photo tools"), "wand"),
+    "subtitles": (("生成字幕", "Subtitles"), "captions"),
 }
 
 KIND_NOUNS: dict[MediaKind, Text] = {
@@ -446,6 +448,36 @@ _NAMED: tuple[Action, ...] = (
         keywords=("人声", "伴奏", "消音", "卡拉ok", "vocals", "karaoke", "instrumental", "stems", "ai"),
         requires=OperationKind.SEPARATE_VOCALS,
     ),
+    *(
+        Action(
+            f"subtitles_{fmt.lower()}", "av", (zh, en), "captions", "video", group="subtitles",
+            palette_title=(f"给视频或音频生成{zh_long}", f"Make {en_long} from videos or audio"),
+            category=("语音 · ThunderTalk", "Speech · ThunderTalk"),
+            choices=_tool(key),
+            hint=(f"拖入视频或音频就会生成{zh_long}", f"drop videos or audio to get {en_long}"),
+            keywords=("字幕", "听写", "转文字", "语音识别", "subtitle", "caption", "transcribe",
+                      "speech to text", "asr", "thundertalk", fmt.lower()),
+            targets=(fmt.lower(),),
+            requires=THUNDERTALK,
+        )
+        for key, fmt, zh, en, zh_long, en_long in (
+            ("Subtitles SRT", "SRT", "SRT 字幕", "SRT subtitles", " SRT 字幕", "SRT subtitles"),
+            ("Subtitles VTT", "VTT", "VTT 字幕", "VTT subtitles", " VTT 字幕", "VTT subtitles"),
+            ("Transcript TXT", "TXT", "文字稿", "Transcript", "文字稿", "a transcript"),
+        )
+    ),
+    Action(
+        "read_aloud", "av", ("朗读成音频", "Read aloud"), "audio-lines", "audio",
+        palette_title=("把文字朗读成音频", "Read text aloud into audio"),
+        category=("语音 · ThunderTalk", "Speech · ThunderTalk"),
+        choices=_tool("Read aloud M4A"),
+        hint=("拖入 TXT、Markdown、Word 或 PDF 就会朗读成音频",
+              "drop TXT, Markdown, Word or PDF files to hear them read aloud"),
+        keywords=("朗读", "配音", "语音合成", "读出来", "有声", "tts", "read aloud", "voice", "speak",
+                  "text to speech", "thundertalk", "m4a"),
+        targets=("m4a",),
+        requires=THUNDERTALK,
+    ),
     # ── 更多 ──────────────────────────────────────────────────────────────
     Action(
         "finder_action", "more", ("安装 Finder 右键操作…", "Install Finder Quick Action…"), "folder", "neutral",
@@ -570,10 +602,14 @@ Availability = Callable[[Action], str]
 "hidden" when this Mac cannot offer it."""
 
 
-def availability(enabled_ai: set[OperationKind], vision: bool, updater: bool) -> Availability:
+def availability(
+    enabled_ai: set[OperationKind], vision: bool, updater: bool, thundertalk: bool = False
+) -> Availability:
     def check(action: Action) -> str:
         if action.requires == VISION:
             return "" if vision else "hidden"
+        if action.requires == THUNDERTALK:
+            return "" if thundertalk else "needs_app"
         if action.requires == UPDATER:
             return "" if updater else "hidden"
         if isinstance(action.requires, OperationKind):
@@ -595,7 +631,12 @@ def _row(action: Action, language: str, state: str) -> dict[str, object]:
         "tint": action.tint,
         "shortcut": action.shortcut,
         "available": state == "",
+        "tag": TAGS.get(state, ""),
     }
+
+
+# The i18n key of the small tag on rows that cannot run yet.
+TAGS = {"missing": "needs_download", "needs_app": "needs_thundertalk"}
 
 
 def menu_tree(
@@ -720,7 +761,7 @@ def search(query: str, language: str, check: Availability, limit: int = 40) -> l
         score = _score(action, tokens, compact, language)
         if score is None:
             continue
-        if check(action) == "missing":
+        if check(action) in TAGS:
             score -= 1.5
         scored.append((score, order, action))
     scored.sort(key=lambda item: (-item[0], item[1]))

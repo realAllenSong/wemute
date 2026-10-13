@@ -4,6 +4,7 @@ from PySide6.QtCore import Property, QMetaObject, QObject, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 
 from wemute.actions import (
+    TAGS,
     ACTION_BY_ID,
     Action,
     availability,
@@ -17,7 +18,7 @@ from wemute.ai_packages_qt import AIModelController
 from wemute.controller import JobController
 from wemute.i18n import I18n
 from wemute.settings_qt import AppSettings
-from wemute.tools import vision_available
+from wemute.tools import thundertalk_available, vision_available
 from wemute.updater import SparkleUpdater
 
 
@@ -74,6 +75,7 @@ class ActionCenter(QObject):
             self.controller.model.enabled_ai_actions,
             vision_available(),
             bool(self.updater and self.updater.available),
+            thundertalk_available(),
         )(action)
 
     def tree(self) -> list[dict[str, object]]:
@@ -97,6 +99,7 @@ class ActionCenter(QObject):
                     "tint": action.tint,
                     "shortcut": action.shortcut,
                     "available": self.check(action) == "",
+                    "tag": TAGS.get(self.check(action), ""),
                 }
             )
         return rows
@@ -116,6 +119,11 @@ class ActionCenter(QObject):
             return
         if action.command:
             self.run_command(action.command)
+            return
+        if state == "needs_app":
+            name = text(action.palette_title or action.title, self.language).rstrip("…")
+            self.controller.notify(self.i18n.t("action_needs_thundertalk").replace("{name}", name))
+            self.commandRequested.emit("settings:integrations")
             return
         if state == "missing":
             name = text(action.palette_title or action.title, self.language).rstrip("…")

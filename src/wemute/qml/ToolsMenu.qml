@@ -72,7 +72,7 @@ Menu {
                     "text": row.label,
                     "actionId": row.id,
                     "shortcutText": root.shortcutLabel(row.shortcut),
-                    "missing": !row.available
+                    "tag": row.tag || ""
                 }))
             }
         }
@@ -114,7 +114,7 @@ Menu {
         id: item
         property string actionId: ""
         property string shortcutText: ""
-        property bool missing: false
+        property string tag: ""
         implicitWidth: 288
         implicitHeight: 30
         leftPadding: 10
@@ -143,8 +143,8 @@ Menu {
                 spacing: 6
                 Tag {
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: item.missing
-                    text: root.tr("needs_download")
+                    visible: item.tag.length > 0
+                    text: visible ? root.tr(item.tag) : ""
                 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter

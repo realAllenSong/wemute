@@ -879,46 +879,74 @@ Window {
                         SettingRow {
                             divider: false
                             title: settings.tr("finder_action")
-                            description: settings.tr("finder_action_desc")
+                            description: integrations.finderActionsInstalled
+                                ? settings.tr("finder_action_installed")
+                                : settings.tr("finder_action_desc")
                             Tag {
                                 anchors.verticalCenter: parent.verticalCenter
-                                visible: !integrations.finderActionAvailable
-                                text: settings.tr("coming_soon")
+                                visible: integrations.finderActionsInstalled
+                                text: settings.tr("installed")
+                                tone: "teal"
                             }
                             WButton {
                                 anchors.verticalCenter: parent.verticalCenter
                                 enabled: integrations.finderActionAvailable
-                                text: settings.tr("install")
+                                text: integrations.finderActionsInstalled ? settings.tr("uninstall") : settings.tr("install")
+                                onClicked: integrations.finderActionsInstalled
+                                    ? integrations.removeFinderActions()
+                                    : integrations.installFinderActions()
                             }
                         }
                         SettingRow {
                             title: settings.tr("shortcuts_app")
                             description: settings.tr("shortcuts_app_desc")
-                            Tag {
+                            WButton {
                                 anchors.verticalCenter: parent.verticalCenter
-                                visible: !integrations.shortcutsAvailable
-                                text: settings.tr("coming_soon")
+                                visible: integrations.shortcutsAvailable
+                                text: settings.tr("copy_command")
+                                onClicked: {
+                                    clipboardHelper.text = integrations.cliCommand()
+                                    clipboardHelper.selectAll()
+                                    clipboardHelper.copy()
+                                    text = settings.tr("copied")
+                                    copiedReset.restart()
+                                }
+                                Timer {
+                                    id: copiedReset
+                                    interval: 1600
+                                    onTriggered: parent.text = settings.tr("copy_command")
+                                }
                             }
                             WButton {
                                 anchors.verticalCenter: parent.verticalCenter
                                 enabled: integrations.shortcutsAvailable
-                                text: settings.tr("install")
+                                text: settings.tr("add_to_shortcuts")
+                                onClicked: integrations.installShortcut()
                             }
                         }
                     }
+                    Note {
+                        visible: integrations.lastError.length > 0
+                        text: integrations.lastError
+                        color: Theme.error
+                    }
+                    // Copying needs a text item; it is never shown.
+                    TextEdit { id: clipboardHelper; visible: false }
                     Group {
                         SettingRow {
                             id: thunderTalkRow
                             readonly property var app: integrations.thunderTalk
                             divider: false
                             title: "ThunderTalk"
-                            description: settings.tr("thundertalk_desc") + "\n" + (app.installed
-                                ? settings.fill("thundertalk_found", "version", app.version || "—")
-                                : settings.tr("thundertalk_missing"))
+                            description: settings.tr("thundertalk_desc") + "\n" + (!app.installed
+                                ? settings.tr("thundertalk_missing")
+                                : settings.fill("thundertalk_found", "version", app.version || "—")
+                                  + " · " + settings.tr(app.cli ? "thundertalk_ready" : "thundertalk_outdated"))
                             Tag {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: thunderTalkRow.app.installed ? settings.tr("detected") : settings.tr("not_detected")
-                                tone: thunderTalkRow.app.installed ? "teal" : "neutral"
+                                text: !thunderTalkRow.app.installed ? settings.tr("not_detected")
+                                    : (thunderTalkRow.app.cli ? settings.tr("connected") : settings.tr("needs_update"))
+                                tone: thunderTalkRow.app.cli ? "teal" : (thunderTalkRow.app.installed ? "error" : "neutral")
                             }
                             WButton {
                                 anchors.verticalCenter: parent.verticalCenter

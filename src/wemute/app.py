@@ -164,6 +164,12 @@ def _native_menu_titles() -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    raw = sys.argv[1:] if argv is None else argv
+    if raw[:1] == ["--cli"]:
+        # Finder Quick Actions, Shortcuts and scripts: no window, no Dock icon.
+        from wemute.cli import main as cli_main
+
+        return cli_main(raw[1:])
     arguments = build_parser().parse_args(argv)
     if arguments.image_worker:
         if len(arguments.paths) not in {3, 4}:
@@ -209,7 +215,7 @@ def main(argv: list[str] | None = None) -> int:
     app_settings = AppSettings(PreferenceStore(DATA_ROOT / "settings.json"))
     if arguments.appearance:
         app_settings.override_appearance(arguments.appearance)
-    integrations = Integrations()
+    integrations = Integrations(language=lambda: i18n.language)
 
     model = QueueModel()
     packages = ModelPackageManager()
@@ -235,6 +241,11 @@ def main(argv: list[str] | None = None) -> int:
 
     action_center = ActionCenter(
         controller, app_settings, i18n, ai_models=ai_model_controller, updater=updater_controller
+    )
+    # Installing or updating ThunderTalk while Wemute runs: pick it up on return.
+    integrations.changed.connect(action_center.menuChanged)
+    app.applicationStateChanged.connect(
+        lambda state: state == Qt.ApplicationState.ApplicationActive and integrations.refresh()
     )
     native_menu = None
     if sys.platform == "darwin":

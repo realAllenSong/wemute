@@ -144,7 +144,12 @@ class NativeMenuBar(QObject):
                 self._fill(child, list(row["children"]))  # type: ignore[arg-type]
             elif kind == "action":
                 action_id = str(row["id"])
-                self._add(menu, str(row["label"]), lambda action_id=action_id: self.center.run(action_id))
+                label = str(row["label"])
+                if row.get("tag"):
+                    # "SRT 字幕（需 ThunderTalk）": still listed so the feature can be found.
+                    tag = self.i18n.t(str(row["tag"]))
+                    label += f"（{tag}）" if self.i18n.language == "zh" else f" ({tag})"
+                self._add(menu, label, lambda action_id=action_id: self.center.run(action_id))
 
     @staticmethod
     def _focus_window():

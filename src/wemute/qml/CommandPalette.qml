@@ -194,8 +194,8 @@ Popup {
                     spacing: 8
                     Tag {
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: !row.modelData.available
-                        text: commandPalette.tr("needs_download")
+                        visible: (row.modelData.tag || "").length > 0
+                        text: visible ? commandPalette.tr(row.modelData.tag) : ""
                     }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter

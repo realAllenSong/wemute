@@ -146,14 +146,16 @@ def plain(path: Path, color: tuple[int, int, int] = (128, 140, 150)) -> Path:
 # ── menus ────────────────────────────────────────────────────────────────
 
 
-def test_tools_are_offered_by_kind_and_count() -> None:
+def test_tools_are_offered_by_kind_and_count(monkeypatch, tmp_path: Path) -> None:  # noqa: ANN001
+    # Speech tools depend on ThunderTalk; keep this test about Vision.
+    monkeypatch.setenv("WEMUTE_THUNDERTALK_APP", str(tmp_path / "none.app"))
     single = {tool.key for tool in tools_for(MediaKind.IMAGE, 1)}
     group = {tool.key for tool in tools_for(MediaKind.IMAGE, 3)}
     assert "Blur faces" in single and "Blurry & duplicates" not in single
     assert {"Blurry & duplicates", "One searchable PDF", "Codes CSV"} <= group
     assert {tool.key for tool in tools_for(MediaKind.PDF, 1)} == {"Text (OCR)", "Searchable PDF"}
     assert not tools_for(MediaKind.AUDIO, 2)
-    assert all(tool_for(tool.key) is tool for tool in TOOLS)
+    assert all(tool_for(tool.key) is tool for tool in TOOLS if tool.needs == "vision")
 
 
 def test_image_menu_has_sections_columns_and_variant_chips(tmp_path: Path) -> None:
