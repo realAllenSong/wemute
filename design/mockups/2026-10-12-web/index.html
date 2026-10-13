@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wemute 网站设计稿</title>
+<style>
+  :root {
+    --bg: #f2f5fb;
+    --glow-1: #dbe4ff;
+    --glow-2: #d5f2ec;
+    --glow-3: #e7e1ff;
+    --glass: rgba(255, 255, 255, 0.7);
+    --glass-line: rgba(255, 255, 255, 0.95);
+    --card: #fff;
+    --text: #141b2d;
+    --body: #3b4459;
+    --muted: #7d869b;
+    --hair: rgba(30, 45, 90, 0.09);
+    --cobalt: #2c4bf0;
+    --cobalt-2: #3d5cff;
+    --teal: #0f8f7e;
+    --violet: #6b4fe0;
+    --pill-shadow: 0 0 0 1px rgba(44, 75, 240, 0.16), 0 8px 18px -10px rgba(44, 75, 240, 0.55);
+    --panel-shadow: 0 0 0 1px var(--glass-line) inset, 0 40px 80px -40px rgba(40, 60, 130, 0.38);
+    --font: ui-rounded, "SF Pro Rounded", -apple-system, "PingFang SC", sans-serif;
+  }
+  .dark {
+    --bg: #0c1120;
+    --glow-1: rgba(61, 92, 255, 0.3);
+    --glow-2: rgba(20, 170, 150, 0.18);
+    --glow-3: rgba(120, 90, 255, 0.2);
+    --glass: rgba(24, 30, 50, 0.66);
+    --glass-line: rgba(255, 255, 255, 0.07);
+    --card: #1c2336;
+    --text: #f1f4fb;
+    --body: #b6bfd3;
+    --muted: #7d879f;
+    --hair: rgba(255, 255, 255, 0.08);
+    --cobalt: #9fb2ff;
+    --teal: #5fe0cb;
+    --violet: #b3a2ff;
+    --pill-shadow: 0 0 0 1px rgba(143, 166, 255, 0.28), 0 10px 22px -12px rgba(61, 92, 255, 0.9);
+    --panel-shadow: 0 0 0 1px var(--glass-line) inset, 0 40px 80px -40px rgba(0, 0, 0, 0.8);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 17px/1.65 var(--font); color: var(--body); background: #d9dce3; -webkit-font-smoothing: antialiased; }
+
+  /* mockup chrome */
+  .switch { position: sticky; top: 0; z-index: 50; display: flex; justify-content: center; gap: 8px; padding: 12px; background: rgba(217, 220, 227, 0.85); backdrop-filter: blur(10px); }
+  .switch button { border: 0; border-radius: 999px; padding: 8px 16px; font: 600 14px -apple-system, "PingFang SC"; background: rgba(0,0,0,.07); cursor: pointer; }
+  .switch button.on { background: #141b2d; color: #fff; }
+  .frame { display: none; max-width: 1440px; margin: 0 auto 60px; border-radius: 16px; overflow: hidden; box-shadow: 0 30px 80px -30px rgba(0,0,0,.4); }
+  .frame.on { display: block; }
+
+  /* page */
+  .site { position: relative; color: var(--body); background:
+      radial-gradient(900px 520px at 8% -6%, var(--glow-1), transparent 70%),
+      radial-gradient(760px 520px at 96% 4%, var(--glow-2), transparent 70%),
+      radial-gradient(1000px 640px at 55% 62%, var(--glow-3), transparent 72%), var(--bg); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
+
+  header.top { display: flex; align-items: center; height: 76px; gap: 28px; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; color: var(--text); text-decoration: none; letter-spacing: -0.01em; }
+  .brand img { width: 30px; height: 30px; border-radius: 8px; }
+  .top nav { display: flex; gap: 26px; margin-left: 12px; }
+  .top nav a { color: var(--body); text-decoration: none; font-weight: 600; font-size: 15px; }
+  .top .lang { margin-left: auto; padding: 8px 14px; border-radius: 12px; background: var(--glass); box-shadow: 0 0 0 1px var(--hair); font-weight: 650; font-size: 14px; color: var(--text); }
+
+  .hero { text-align: center; padding: 40px 0 30px; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: var(--glass); box-shadow: 0 0 0 1px var(--hair); font-size: 14px; font-weight: 650; color: var(--body); }
+  .eyebrow i { width: 8px; height: 8px; border-radius: 50%; background: #2c4bf0; box-shadow: 0 0 0 4px rgba(44,75,240,.15); }
+  h1 { margin: 18px 0 0; font-size: 60px; line-height: 1.08; letter-spacing: -0.03em; font-weight: 800; color: var(--text); }
+  .hero p.lead { margin: 18px auto 0; max-width: 640px; font-size: 20px; color: var(--body); }
+
+  /* the app window */
+  .app { position: relative; margin: 0 auto; max-width: 1056px; border-radius: 32px; background: var(--glass); backdrop-filter: blur(26px); box-shadow: var(--panel-shadow); padding: 44px 48px 38px; overflow: hidden; }
+  .sentence { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 16px; font-size: 36px; font-weight: 800; color: var(--muted); letter-spacing: -0.01em; }
+  .pill { display: inline-flex; align-items: center; gap: 10px; height: 58px; padding: 0 20px 0 22px; border-radius: 18px; background: var(--card); color: var(--cobalt); box-shadow: var(--pill-shadow); cursor: pointer; }
+  .pill .ch { width: 10px; height: 10px; border-right: 2.5px solid currentColor; border-bottom: 2.5px solid currentColor; transform: translateY(-3px) rotate(45deg); opacity: .6; }
+  .pill.open { box-shadow: 0 0 0 2px #2c4bf0, 0 12px 26px -12px rgba(44,75,240,.7); }
+  .go { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; height: 60px; padding: 0 30px; border-radius: 20px; background: linear-gradient(180deg, #3d5cff, #2440e8); color: #fff; font-size: 19px; font-weight: 750; box-shadow: 0 1px 0 rgba(255,255,255,.35) inset, 0 18px 34px -14px rgba(44,75,240,.75); }
+
+  .stage { position: relative; margin-top: 34px; height: 270px; border-radius: 24px; border: 2px dashed var(--hair); display: grid; place-items: center; }
+  .dark .stage { border-color: rgba(255,255,255,.1); }
+  .ghosts { position: absolute; inset: 0; pointer-events: none; }
+  .ghost { position: absolute; width: 132px; height: 164px; border-radius: 22px; background: var(--card); padding: 7px; box-shadow: 0 16px 30px -16px rgba(30,50,110,.45), 0 0 0 1px var(--hair); }
+  .ghost .ph { height: 118px; border-radius: 16px; overflow: hidden; position: relative; }
+  .ghost img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ghost small { display: block; padding: 7px 4px 0; font-size: 12px; font-weight: 650; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ghost .to { position: absolute; left: 6px; bottom: 6px; padding: 2px 8px; border-radius: 8px; background: rgba(44,75,240,.92); color: #fff; font-size: 11px; font-weight: 750; }
+  .ghost .to.v { background: rgba(15,143,126,.92); }
+  .drop-copy { position: relative; text-align: center; max-width: 360px; }
+  .drop-copy strong { display: block; font-size: 22px; color: var(--text); font-weight: 800; }
+  .drop-copy span { display: block; margin-top: 6px; font-size: 15px; color: var(--muted); font-weight: 600; }
+  .menu { position: absolute; z-index: 5; top: 118px; left: 120px; width: 260px; padding: 8px; border-radius: 18px; background: var(--card); box-shadow: 0 0 0 1px var(--hair), 0 30px 60px -20px rgba(30,50,110,.45); }
+  .menu b { display: block; padding: 8px 12px 4px; font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: .04em; }
+  .menu a { display: flex; justify-content: space-between; padding: 9px 12px; border-radius: 11px; font-size: 16px; font-weight: 650; color: var(--text); text-decoration: none; }
+  .menu a.on { background: rgba(44,75,240,.09); color: #2c4bf0; }
+  .dark .menu a.on { color: #9fb2ff; background: rgba(143,166,255,.12); }
+  .trust { display: flex; justify-content: center; gap: 28px; margin-top: 22px; font-size: 15px; font-weight: 650; color: var(--body); }
+  .trust span::before { content: "✓"; color: var(--teal); margin-right: 7px; font-weight: 800; }
+
+  section.block { padding: 96px 0 0; }
+  .kicker { font-size: 14px; font-weight: 750; letter-spacing: .08em; color: var(--cobalt); text-transform: uppercase; }
+  h2 { margin: 10px 0 0; font-size: 40px; letter-spacing: -0.025em; line-height: 1.15; color: var(--text); font-weight: 800; }
+  .sub { margin: 12px 0 0; font-size: 18px; max-width: 620px; }
+
+  .index { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 40px; }
+  .col { padding: 28px 30px 30px; border-radius: 26px; background: var(--glass); box-shadow: var(--panel-shadow); }
+  .col h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 22px; color: var(--text); }
+  .col h3 i { width: 12px; height: 12px; border-radius: 4px; }
+  .col a { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--hair); font-size: 19px; font-weight: 700; color: var(--text); text-decoration: none; }
+  .col a:last-child { border-bottom: 0; }
+  .col a span { color: var(--muted); font-weight: 600; font-size: 14px; }
+  .col a:hover { color: var(--cobalt); }
+
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 40px; }
+  .fact { padding: 30px; border-radius: 26px; background: var(--glass); box-shadow: var(--panel-shadow); }
+  .fact .n { font-size: 54px; font-weight: 800; letter-spacing: -0.03em; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
+  .fact .n em { font-style: normal; color: #2c4bf0; }
+  .dark .fact .n em { color: #9fb2ff; }
+  .fact h4 { margin: 18px 0 6px; font-size: 20px; color: var(--text); }
+  .fact p { margin: 0; font-size: 16px; }
+
+  .ad { margin-top: 96px; height: 120px; border-radius: 22px; border: 1.5px dashed var(--hair); display: grid; place-items: center; font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .1em; }
+  .dark .ad { border-color: rgba(255,255,255,.12); }
+
+  .faq { margin-top: 36px; display: grid; gap: 12px; max-width: 860px; }
+  .q { padding: 22px 26px; border-radius: 22px; background: var(--glass); box-shadow: var(--panel-shadow); }
+  .q b { display: flex; justify-content: space-between; font-size: 19px; color: var(--text); }
+  .q p { margin: 10px 0 0; font-size: 17px; }
+
+  footer { margin-top: 110px; padding: 34px 0 44px; border-top: 1px solid var(--hair); display: flex; align-items: center; gap: 26px; font-size: 15px; font-weight: 600; }
+  footer a { color: var(--body); text-decoration: none; }
+  footer .brand { font-size: 16px; }
+  footer .brand img { width: 24px; height: 24px; }
+  footer small { margin-left: auto; color: var(--muted); }
+
+  /* tool page */
+  .crumbs { padding-top: 26px; font-size: 15px; font-weight: 600; color: var(--muted); }
+  .crumbs b { color: var(--text); }
+  .tool-hero { text-align: center; padding: 26px 0 30px; }
+  .tool-hero h1 { font-size: 56px; margin-top: 0; }
+  .tool-hero .answer { margin: 18px auto 0; max-width: 760px; font-size: 19px; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 40px; }
+  .step { display: flex; gap: 16px; align-items: flex-start; }
+  .step .n { flex: none; width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; font-weight: 800; font-size: 20px; color: #fff; background: linear-gradient(180deg, #3d5cff, #2440e8); box-shadow: 0 12px 24px -12px rgba(44,75,240,.8); }
+  .step p { margin: 8px 0 0; font-size: 18px; color: var(--text); font-weight: 600; }
+  .compare { margin-top: 36px; border-radius: 26px; overflow: hidden; background: var(--glass); box-shadow: var(--panel-shadow); }
+  .compare table { width: 100%; border-collapse: collapse; font-size: 17px; }
+  .compare th, .compare td { padding: 18px 26px; text-align: left; border-bottom: 1px solid var(--hair); vertical-align: top; }
+  .compare tr:last-child td, .compare tr:last-child th { border-bottom: 0; }
+  .compare thead th { font-size: 20px; color: var(--text); }
+  .compare tbody th { color: var(--muted); font-weight: 650; width: 22%; }
+  .compare td { color: var(--text); font-weight: 600; }
+  .related { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+  .related a { padding: 14px 20px; border-radius: 16px; background: var(--card); box-shadow: var(--pill-shadow); font-weight: 750; font-size: 17px; color: var(--cobalt); text-decoration: none; }
+
+  @keyframes drift { 50% { transform: translateY(-8px) rotate(var(--r)); } }
+  .ghost { transform: rotate(var(--r)); animation: drift 6s ease-in-out infinite; animation-delay: var(--d); }
+</style>
+</head>
+<body>
+<div class="switch">
+  <button class="on" data-f="home">首页 · 浅色</button>
+  <button data-f="home-dark">首页 · 深色</button>
+  <button data-f="tool">工具页 · 浅色</button>
+  <button data-f="tool-dark">工具页 · 深色</button>
+</div>
+
+<template id="header">
+  <header class="top wrap">
+    <a class="brand" href="#"><img src="../2026-10-12/img/../../../../src/wemute/assets/brand/wemute-app-icon-1024.png" alt="">Wemute</a>
+    <nav><a href="#">图片工具</a><a href="#">视频工具</a><a href="#">音频工具</a></nav>
+    <span class="lang">English</span>
+  </header>
+</template>
+
+<template id="ghosts">
+  <div class="ghosts">
+    <div class="ghost" style="left:46px;top:30px;--r:-6deg;--d:0s"><div class="ph"><img src="img/1015.jpg" alt=""><span class="to">→ JPG</span></div><small>IMG_0412.HEIC</small></div>
+    <div class="ghost" style="left:196px;top:62px;--r:4deg;--d:-2s"><div class="ph"><img src="img/1025.jpg" alt=""><span class="to">→ JPG</span></div><small>IMG_0431.HEIC</small></div>
+    <div class="ghost" style="right:200px;top:52px;--r:-3deg;--d:-1s"><div class="ph"><img src="img/1044.jpg" alt=""><span class="to v">→ MP4</span></div><small>trip.mov</small></div>
+    <div class="ghost" style="right:48px;top:26px;--r:6deg;--d:-3s"><div class="ph"><img src="img/1039.jpg" alt=""><span class="to">→ WebP</span></div><small>lake.png</small></div>
+  </div>
+</template>
+
+<template id="tpl-home">
+  <div class="site">
+    <slot-header></slot-header>
+    <div class="wrap">
+      <div class="hero">
+        <span class="eyebrow"><i></i>免费 · 在你的浏览器里完成 · 文件不上传</span>
+        <h1>转换文件，无需上传。</h1>
+        <p class="lead">选好要变成什么，把文件拖进来。全部在你自己的设备上完成。</p>
+      </div>
+      <div class="app">
+        <div class="sentence">
+          把 <span class="pill">HEIC 照片 <i class="ch"></i></span> 转成 <span class="pill">JPG <i class="ch"></i></span>
+          <span class="go">选择文件 →</span>
+        </div>
+        <div class="stage">
+          <slot-ghosts></slot-ghosts>
+          <div class="drop-copy"><strong>把照片拖到这里</strong><span>或 ⌘V 粘贴 · 可以拖整个文件夹</span></div>
+        </div>
+      </div>
+      <div class="trust"><span>不上传，文件留在本机</span><span>无需注册</span><span>一次处理整批</span></div>
+
+      <section class="block">
+        <div class="kicker">所有工具</div>
+        <h2>二十六种常用转换，都在这里</h2>
+        <div class="index">
+          <div class="col"><h3><i style="background:#2c4bf0"></i>图片</h3>
+            <a href="#">HEIC 转 JPG <span>→</span></a><a href="#">PNG 转 JPG <span>→</span></a><a href="#">JPG 转 PNG <span>→</span></a><a href="#">WebP 转 JPG <span>→</span></a><a href="#">JPG 转 WebP <span>→</span></a><a href="#">压缩图片 <span>→</span></a><a href="#">压缩到 100KB <span>→</span></a><a href="#">调整尺寸 <span>→</span></a><a href="#">全部 16 个 <span>→</span></a></div>
+          <div class="col"><h3><i style="background:#0f8f7e"></i>视频</h3>
+            <a href="#">MOV 转 MP4 <span>→</span></a><a href="#">MP4 转 MP3 <span>→</span></a><a href="#">视频转 GIF <span>→</span></a><a href="#">压缩视频 <span>→</span></a><a href="#">WebM 转 MP4 <span>→</span></a><a href="#">MKV 转 MP4 <span>→</span></a></div>
+          <div class="col"><h3><i style="background:#6b4fe0"></i>音频</h3>
+            <a href="#">WAV 转 MP3 <span>→</span></a><a href="#">M4A 转 MP3 <span>→</span></a><a href="#">FLAC 转 MP3 <span>→</span></a><a href="#">MP3 转 WAV <span>→</span></a></div>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="kicker">为什么是 Wemute</div>
+        <h2>快、免费，而且你的文件不会离开你。</h2>
+        <div class="facts">
+          <div class="fact"><div class="n"><em>0</em> 次</div><h4>上传</h4><p>转换在浏览器里完成。照片和视频不会经过任何服务器。</p></div>
+          <div class="fact"><div class="n">3 秒</div><h4>不用排队</h4><p>没有上传和下载等待，一批照片几秒就转好。</p></div>
+          <div class="fact"><div class="n"><em>26</em> 种</div><h4>常用转换</h4><p>照片、截图、视频、录音，日常会遇到的格式基本都有。</p></div>
+        </div>
+      </section>
+
+      <div class="ad">广告位 · 只出现在内容之间</div>
+
+      <section class="block">
+        <div class="kicker">常见问题</div>
+        <h2>你可能想知道</h2>
+        <div class="faq">
+          <div class="q"><b>Wemute 真的免费吗？ <span>−</span></b><p>是的。不需要账号，没有试用期，也没有水印。网站依靠少量清楚标注、远离工具区域的广告维持运营。</p></div>
+          <div class="q"><b>网站怎么能不上传就转换文件？ <span>+</span></b></div>
+          <div class="q"><b>手机上可以用吗？ <span>+</span></b></div>
+        </div>
+      </section>
+
+      <footer><a class="brand" href="#"><img src="../../../src/wemute/assets/brand/wemute-app-icon-1024.png" alt="">Wemute</a><a href="#">关于</a><a href="#">隐私政策</a><a href="#">使用条款</a><small>© 2026 Wemute · 在你的浏览器里运行的免费文件工具</small></footer>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-tool">
+  <div class="site">
+    <slot-header></slot-header>
+    <div class="wrap">
+      <div class="crumbs">首页 › 图片 › <b>HEIC 转 JPG</b></div>
+      <div class="tool-hero">
+        <h1>HEIC 转 JPG</h1>
+        <p class="answer">把 iPhone 照片拖进来就会自动转成 JPG。Wemute 在浏览器里解码每张 HEIC 照片，并以原始分辨率保存为高质量 JPG，可以在 Windows、安卓和任何网站上打开，全程不上传照片。</p>
+      </div>
+      <div class="app">
+        <div class="sentence">
+          把 <span class="pill">HEIC 照片 <i class="ch"></i></span> 转成 <span class="pill">JPG <i class="ch"></i></span>
+          <span class="go">选择照片 →</span>
+        </div>
+        <div class="stage">
+          <slot-ghosts></slot-ghosts>
+          <div class="drop-copy"><strong>拖进来就会转成 JPG</strong><span>支持 .heic / .heif · 也可以 ⌘V 粘贴</span></div>
+        </div>
+      </div>
+      <div class="trust"><span>不上传</span><span>保留原始分辨率</span><span>多张打包 ZIP 下载</span></div>
+
+      <section class="block">
+        <div class="kicker">使用步骤</div>
+        <h2>三步完成</h2>
+        <div class="steps">
+          <div class="step"><span class="n">1</span><p>把 HEIC 照片拖进上面的窗口，或点击选择。</p></div>
+          <div class="step"><span class="n">2</span><p>自动转换成 JPG，每张照片完成后会亮起一个勾。</p></div>
+          <div class="step"><span class="n">3</span><p>单张下载，或者一次打包成 ZIP 全部下载。</p></div>
+        </div>
+      </section>
+
+      <div class="ad">广告位</div>
+
+      <section class="block">
+        <div class="kicker">格式对比</div>
+        <h2>HEIC 和 JPG 有什么不同</h2>
+        <div class="compare"><table>
+          <thead><tr><th></th><th>HEIC</th><th>JPG</th></tr></thead>
+          <tbody>
+            <tr><th>压缩方式</th><td>有损（HEVC），压缩率很高</td><td>有损</td></tr>
+            <tr><th>透明背景</th><td>支持</td><td>不支持</td></tr>
+            <tr><th>适合用于</th><td>在 iPhone、iPad 上存储照片</td><td>需要随处分享或上传的照片</td></tr>
+            <tr><th>兼容性</th><td>苹果设备；Windows 和网页支持有限</td><td>几乎所有设备和网站</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <section class="block">
+        <div class="kicker">常见问题</div>
+        <h2>关于 HEIC 转 JPG</h2>
+        <div class="faq">
+          <div class="q"><b>为什么 iPhone 照片是 HEIC 格式？ <span>−</span></b><p>从 iOS 11 开始，iPhone 相机默认以 HEIC 格式保存照片，占用空间约为 JPG 的一半。可以在“设置 → 相机 → 格式”中改为“兼容性最佳”，但对已有照片直接转换更快。</p></div>
+          <div class="q"><b>转成 JPG 会损失画质吗？ <span>+</span></b></div>
+          <div class="q"><b>文件会被上传吗？ <span>+</span></b></div>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="kicker">相关工具</div>
+        <div class="related"><a href="#">HEIC 转 PNG</a><a href="#">压缩图片</a><a href="#">JPG 转 WebP</a><a href="#">调整尺寸</a></div>
+      </section>
+
+      <footer><a class="brand" href="#">Wemute</a><a href="#">关于</a><a href="#">隐私政策</a><a href="#">使用条款</a><small>© 2026 Wemute</small></footer>
+    </div>
+  </div>
+</template>
+
+<div class="frame on" id="home"></div>
+<div class="frame" id="home-dark"></div>
+<div class="frame" id="tool"></div>
+<div class="frame" id="tool-dark"></div>
+
+<script>
+  const icon = "../../../src/wemute/assets/brand/wemute-app-icon-1024.png";
+  function render(templateId, target, dark) {
+    const node = document.getElementById(templateId).content.cloneNode(true);
+    const header = document.getElementById("header").content.cloneNode(true);
+    header.querySelector("img").src = icon;
+    node.querySelector("slot-header").replaceWith(header);
+    node.querySelectorAll("slot-ghosts").forEach((slot) => slot.replaceWith(document.getElementById("ghosts").content.cloneNode(true)));
+    node.querySelectorAll("footer img").forEach((img) => (img.src = icon));
+    const el = document.getElementById(target);
+    el.appendChild(node);
+    if (dark) el.querySelector(".site").classList.add("dark");
+  }
+  render("tpl-home", "home");
+  render("tpl-home", "home-dark", true);
+  render("tpl-tool", "tool");
+  render("tpl-tool", "tool-dark", true);
+  for (const button of document.querySelectorAll(".switch button")) {
+    button.onclick = () => {
+      document.querySelectorAll(".switch button").forEach((b) => b.classList.toggle("on", b === button));
+      document.querySelectorAll(".frame").forEach((f) => f.classList.toggle("on", f.id === button.dataset.f));
+      window.scrollTo({ top: 0 });
+    };
+  }
+</script>
+</body>
+</html>
