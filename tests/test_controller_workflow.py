@@ -72,15 +72,15 @@ def test_files_dropped_while_reading_are_not_lost(tmp_path: Path) -> None:
 
 def test_unsupported_files_are_explained(tmp_path: Path) -> None:
     _app()
-    notes = tmp_path / "notes.txt"
-    notes.write_text("hello")
+    unknown = tmp_path / "capture.bin"
+    unknown.write_bytes(bytes(range(256)) * 4)
     image = tmp_path / "image.png"
     Image.new("RGB", (20, 20), "red").save(image)
     controller = JobController(QueueModel(), QueueStore(tmp_path / "queue.json"))
 
-    controller.add_paths([str(notes), str(image)])
+    controller.add_paths([str(unknown), str(image)])
     wait_until(lambda: not controller.probing and controller.fileCount == 1)
-    assert "notes.txt" in controller.notice
+    assert "capture.bin" in controller.notice
     controller.shutdown()
 
 

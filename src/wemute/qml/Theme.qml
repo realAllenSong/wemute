@@ -55,9 +55,32 @@ QtObject {
     readonly property color menuShadow: dark ? Qt.rgba(0, 0, 0, 0.6) : Qt.rgba(30 / 255, 50 / 255, 110 / 255, 0.28)
     readonly property color transparent: "transparent"
 
+    // Hues for the file kinds beyond media: light, dark.
+    readonly property var fileKindColors: ({
+        "document": ["#1F6FD6", "#8CC0FF"],
+        "spreadsheet": ["#1E8E4E", "#7FDCA4"],
+        "presentation": ["#D2621F", "#FFB27F"],
+        "pdf": ["#CC3D66", "#FF93B3"],
+        "ebook": ["#A86D12", "#F2C66E"],
+        "archive": ["#56607A", "#B0B9CE"],
+        "data": ["#0B86A8", "#72D2EE"],
+        "font": ["#8E3BB0", "#DCA6F2"],
+        "vector": ["#4F8A16", "#B4E07C"]
+    })
     function kindColor(kind) {
+        var file = fileKindColors[kind]
+        if (file)
+            return file[dark ? 1 : 0]
         return kind === "video" ? teal : (kind === "audio" ? violet
             : (kind === "image" ? cobaltText : (kind === "error" ? error : ink)))
+    }
+    function kindIcon(kind) {
+        return ({
+            "image": "image", "video": "film", "audio": "audio-lines",
+            "document": "file-text", "spreadsheet": "sheet", "presentation": "presentation",
+            "pdf": "file-text", "ebook": "book-open", "archive": "package",
+            "data": "braces", "font": "type", "vector": "pen-tool"
+        })[kind] || "file"
     }
     // Pill outline and glow use the kind's hue; in dark mode the lighter tint.
     function kindLine(kind) {
@@ -67,9 +90,10 @@ QtObject {
     function kindGlow(kind) {
         if (kind === "error")
             return Qt.rgba(209 / 255, 67 / 255, 67 / 255, dark ? 0.6 : 0.4)
-        var source = dark
+        var file = fileKindColors[kind]
+        var source = file ? file[0] : (dark
             ? (kind === "video" ? "#14AA96" : (kind === "audio" ? "#785AFF" : (kind === "image" ? "#3D5CFF" : "#000000")))
-            : (kind === "video" ? "#0F8F7E" : (kind === "audio" ? "#6B4FE0" : (kind === "image" ? "#2C4BF0" : "#1E326E")))
+            : (kind === "video" ? "#0F8F7E" : (kind === "audio" ? "#6B4FE0" : (kind === "image" ? "#2C4BF0" : "#1E326E"))))
         var c = Qt.color(source)
         return Qt.rgba(c.r, c.g, c.b, dark ? 0.8 : (kind === "neutral" ? 0.35 : 0.5))
     }

@@ -11,3 +11,4 @@ WButton 1.0 WButton.qml
 Tag 1.0 Tag.qml
 Toggle 1.0 Toggle.qml
 Segmented 1.0 Segmented.qml
+EraseEditor 1.0 EraseEditor.qml

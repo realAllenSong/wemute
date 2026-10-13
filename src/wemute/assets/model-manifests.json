@@ -1,22 +1,6 @@
 {
   "models": [
     {
-      "id": "u2net",
-      "name": "Background Removal · Fast",
-      "version": "2020.1",
-      "capability": "remove-background",
-      "filename": "u2netp.onnx",
-      "download_url": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx",
-      "sha256": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
-      "size_bytes": 4574861,
-      "license": "Apache-2.0",
-      "license_url": "https://github.com/xuebinqin/U-2-Net/blob/master/LICENSE",
-      "backend": "onnxruntime-u2net",
-      "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
-      "minimum_memory_gb": 4,
-      "description": "A small local model for one-click transparent backgrounds. Nothing is uploaded."
-    },
-    {
       "id": "birefnet",
       "name": "Background Removal · High Quality",
       "version": "general-lite-232",

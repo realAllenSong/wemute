@@ -65,10 +65,11 @@ Sheet {
         Segmented {
             Layout.leftMargin: 28
             Layout.topMargin: 14
-            current: panel.tab
+            // "ai" is the older name of the components tab.
+            current: panel.tab === "ai" ? "components" : panel.tab
             options: [
                 { "key": "general", "label": panel.tr("tab_general") },
-                { "key": "ai", "label": panel.tr("ai_models") },
+                { "key": "components", "label": panel.tr("tab_components") },
                 { "key": "about", "label": panel.tr("nav_about") }
             ]
             onActivated: function(key) { panel.tab = key }
@@ -221,15 +222,149 @@ Sheet {
                     }
                 }
 
-                // ── AI models ────────────────────────────────────────────
+                // ── Components: converters, then AI models ───────────────
                 ColumnLayout {
-                    visible: panel.tab === "ai"
+                    visible: panel.tab === "ai" || panel.tab === "components"
                     Layout.fillWidth: true
                     Layout.leftMargin: 28
                     Layout.rightMargin: 28
                     Layout.topMargin: 8
                     Layout.bottomMargin: 20
                     spacing: 12
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: panel.tr("components_subtitle")
+                        color: Theme.muted
+                        font.family: Theme.font
+                        font.pixelSize: 13
+                        font.weight: Font.DemiBold
+                        wrapMode: Text.WordWrap
+                    }
+
+                    RowLabel {
+                        Layout.topMargin: 4
+                        text: panel.tr("converters")
+                        font.pixelSize: 14
+                    }
+
+                    Repeater {
+                        model: componentController.catalog
+                        Rectangle {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            implicitHeight: componentColumn.implicitHeight + 28
+                            radius: 18
+                            color: Theme.card
+                            border.width: 1
+                            border.color: Theme.cardLine
+
+                            ColumnLayout {
+                                id: componentColumn
+                                anchors.left: parent.left
+                                anchors.right: componentAction.left
+                                anchors.leftMargin: 18
+                                anchors.rightMargin: 14
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 6
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.name + "  " + modelData.version
+                                    color: Theme.text
+                                    font.family: Theme.font
+                                    font.pixelSize: 15
+                                    font.weight: Font.Bold
+                                    elide: Text.ElideRight
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: panel.tr("comp_desc_" + modelData.id)
+                                    color: Theme.muted
+                                    font.family: Theme.font
+                                    font.pixelSize: 12
+                                    font.weight: Font.DemiBold
+                                    wrapMode: Text.WordWrap
+                                    maximumLineCount: 2
+                                    elide: Text.ElideRight
+                                }
+                                Flow {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Tag {
+                                        text: modelData.installed ? panel.tr("installed")
+                                            : (modelData.installing
+                                                ? (modelData.stage === "install" ? panel.tr("installing") : panel.tr("downloading"))
+                                                : (modelData.queued ? panel.tr("queued")
+                                                    : (modelData.error.length > 0 ? panel.tr("install_failed") : panel.tr("not_installed"))))
+                                        tone: modelData.installed ? "teal" : (modelData.installing || modelData.queued ? "cobalt" : "neutral")
+                                    }
+                                    Tag {
+                                        text: modelData.installed && modelData.diskLabel.length > 0
+                                            ? panel.tr("on_disk").replace("{size}", modelData.diskLabel)
+                                            : panel.tr("download_size").replace("{size}", modelData.sizeLabel)
+                                    }
+                                    Tag { text: modelData.license }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.topMargin: 2
+                                    implicitHeight: 6
+                                    radius: 3
+                                    color: Theme.track
+                                    visible: modelData.installing
+                                    Rectangle {
+                                        width: parent.width * modelData.progress
+                                        height: parent.height
+                                        radius: 3
+                                        color: Theme.cobalt
+                                    }
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    visible: modelData.error.length > 0 && !modelData.installing
+                                    text: modelData.error
+                                    color: Theme.error
+                                    font.family: Theme.font
+                                    font.pixelSize: 12
+                                    font.weight: Font.DemiBold
+                                    wrapMode: Text.WordWrap
+                                    maximumLineCount: 3
+                                    elide: Text.ElideRight
+                                }
+                            }
+
+                            WButton {
+                                id: componentAction
+                                anchors.right: parent.right
+                                anchors.rightMargin: 14
+                                anchors.verticalCenter: parent.verticalCenter
+                                readonly property bool busy: modelData.installing || modelData.queued
+                                visible: !(modelData.installing && modelData.stage === "install")
+                                kind: modelData.installed ? "ghost" : (busy ? "secondary" : "primary")
+                                iconName: modelData.installed ? "trash" : (busy ? "" : "download")
+                                text: busy
+                                    ? panel.tr("pause")
+                                    : (modelData.installed
+                                        ? panel.tr("remove_model")
+                                        : (modelData.resumable ? panel.tr("resume") : panel.tr("get_model")))
+                                onClicked: {
+                                    if (busy)
+                                        componentController.cancel(modelData.id)
+                                    else if (modelData.installed)
+                                        componentController.remove(modelData.id)
+                                    else
+                                        componentController.install(modelData.id)
+                                }
+                            }
+                        }
+                    }
+
+                    RowLabel {
+                        Layout.topMargin: 10
+                        text: panel.tr("ai_models")
+                        font.pixelSize: 14
+                    }
 
                     Text {
                         Layout.fillWidth: true

@@ -143,7 +143,6 @@ OPTIONS_BY_KIND: dict[MediaKind, list[str]] = {
         "WebM (VP9)",
         "Animated GIF",
     ],
-    MediaKind.DOCUMENT: [],
     MediaKind.OTHER: [],
 }
 
@@ -154,10 +153,181 @@ DEFAULT_BY_KIND: dict[MediaKind, str] = {
 }
 
 
+# ------------------------------------------------------------ files & documents
+
+
+@dataclass(frozen=True, slots=True)
+class FileTarget:
+    """An output for a non-media kind. ``sources`` limits which inputs offer it."""
+
+    label: str
+    extension: str
+    sources: frozenset[str] | None = None
+    folder: bool = False
+
+
+SOURCE_SUFFIXES: dict[MediaKind, frozenset[str]] = {
+    MediaKind.DOCUMENT: frozenset(
+        {".doc", ".docx", ".docm", ".dotx", ".odt", ".fodt", ".rtf", ".pages", ".wps"}
+    ),
+    MediaKind.SPREADSHEET: frozenset(
+        {".xls", ".xlsx", ".xlsm", ".ods", ".fods", ".numbers", ".csv", ".tsv"}
+    ),
+    MediaKind.PRESENTATION: frozenset({".ppt", ".pptx", ".pps", ".ppsx", ".odp", ".key"}),
+    MediaKind.PDF: frozenset({".pdf"}),
+    MediaKind.EBOOK: frozenset({".epub", ".mobi", ".azw3", ".azw", ".fb2"}),
+    MediaKind.ARCHIVE: frozenset(
+        {".zip", ".7z", ".rar", ".tar", ".gz", ".tgz", ".bz2", ".tbz", ".tbz2", ".xz", ".txz"}
+    ),
+    MediaKind.DATA: frozenset({".json", ".md", ".markdown", ".html", ".htm", ".txt"}),
+    MediaKind.FONT: frozenset({".ttf", ".otf", ".woff", ".woff2"}),
+    MediaKind.VECTOR: frozenset({".svg"}),
+}
+
+_TABULAR = frozenset({".xlsx", ".xlsm", ".csv", ".tsv"})
+_MARKDOWN = frozenset({".md", ".markdown"})
+_HTML = frozenset({".html", ".htm"})
+
+PER_PAGE_PNG = "PNG (per page)"
+PER_PAGE_JPG = "JPG (per page)"
+PER_SLIDE_PNG = "PNG (per slide)"
+SMALLER_PDF = "Smaller PDF"
+EXTRACT = "Folder"
+
+FILE_TARGETS: dict[MediaKind, list[FileTarget]] = {
+    MediaKind.DOCUMENT: [
+        FileTarget("PDF", ".pdf"),
+        FileTarget("DOCX", ".docx"),
+        FileTarget("ODT", ".odt"),
+        FileTarget("RTF", ".rtf"),
+        FileTarget("TXT", ".txt"),
+        FileTarget("HTML", ".html"),
+    ],
+    MediaKind.SPREADSHEET: [
+        FileTarget("XLSX", ".xlsx"),
+        FileTarget("CSV", ".csv"),
+        FileTarget("PDF", ".pdf"),
+        FileTarget("ODS", ".ods"),
+        FileTarget("JSON", ".json"),
+    ],
+    MediaKind.PRESENTATION: [
+        FileTarget("PDF", ".pdf"),
+        FileTarget("PPTX", ".pptx"),
+        FileTarget("ODP", ".odp"),
+        FileTarget(PER_SLIDE_PNG, "", folder=True),
+    ],
+    MediaKind.PDF: [
+        FileTarget("DOCX", ".docx"),
+        FileTarget(PER_PAGE_PNG, "", folder=True),
+        FileTarget(PER_PAGE_JPG, "", folder=True),
+        FileTarget("TXT", ".txt"),
+        FileTarget(SMALLER_PDF, ".pdf"),
+    ],
+    MediaKind.EBOOK: [
+        FileTarget("PDF", ".pdf"),
+        FileTarget("EPUB", ".epub"),
+        FileTarget("MOBI", ".mobi"),
+        FileTarget("AZW3", ".azw3"),
+    ],
+    MediaKind.ARCHIVE: [FileTarget(EXTRACT, "", folder=True)],
+    MediaKind.DATA: [
+        FileTarget("DOCX", ".docx", _MARKDOWN | _HTML | {".txt"}),
+        FileTarget("CSV", ".csv", frozenset({".json"})),
+        FileTarget("XLSX", ".xlsx", frozenset({".json"})),
+        FileTarget("MD", ".md", _HTML | {".json"}),
+        FileTarget("HTML", ".html", _MARKDOWN | {".txt", ".json"}),
+        FileTarget("PDF", ".pdf", _MARKDOWN | _HTML | {".txt"}),
+        FileTarget("TXT", ".txt", _MARKDOWN | _HTML),
+    ],
+    MediaKind.FONT: [
+        FileTarget("WOFF2", ".woff2"),
+        FileTarget("TTF", ".ttf"),
+        FileTarget("OTF", ".otf"),
+        FileTarget("WOFF", ".woff"),
+    ],
+    MediaKind.VECTOR: [FileTarget("PNG", ".png"), FileTarget("PDF", ".pdf")],
+}
+
+# One output from the whole group, in list order.
+COMBINE_PDF = "One PDF"
+MERGE_PDF = "Merged PDF"
+PACK_ZIP = "One ZIP"
+PACK_7Z = "One 7Z"
+COMBINE_EXTENSIONS = {COMBINE_PDF: ".pdf", MERGE_PDF: ".pdf", PACK_ZIP: ".zip", PACK_7Z: ".7z"}
+
+
+def combine_choices(kind: MediaKind) -> list[str]:
+    if kind == MediaKind.OTHER:
+        return []
+    special = {MediaKind.IMAGE: [COMBINE_PDF], MediaKind.PDF: [MERGE_PDF]}.get(kind, [])
+    return [*special, PACK_ZIP, PACK_7Z]
+
+
+def is_combine(choice: str) -> bool:
+    return choice in COMBINE_EXTENSIONS
+
+
+def file_target(kind: MediaKind, label: str) -> FileTarget | None:
+    return next((item for item in FILE_TARGETS.get(kind, []) if item.label == label), None)
+
+
+def _offers(target: FileTarget, suffix: str) -> bool:
+    if target.sources is not None and suffix not in target.sources:
+        return False
+    # Re-saving into the same format is a no-op, except deliberate rewrites.
+    return target.label == SMALLER_PDF or target.extension != suffix
+
+
+def file_targets_for(kind: MediaKind, suffix: str) -> list[str]:
+    suffix = suffix.lower()
+    return [item.label for item in FILE_TARGETS.get(kind, []) if _offers(item, suffix)]
+
+
+def default_file_target(kind: MediaKind, suffix: str) -> str | None:
+    suffix = suffix.lower()
+    preferred = {
+        MediaKind.DOCUMENT: "PDF",
+        MediaKind.PRESENTATION: "PDF",
+        MediaKind.PDF: "DOCX",
+        MediaKind.EBOOK: "PDF",
+        MediaKind.ARCHIVE: EXTRACT,
+        MediaKind.VECTOR: "PNG",
+    }.get(kind)
+    if kind == MediaKind.SPREADSHEET:
+        preferred = "XLSX" if suffix in {".csv", ".tsv"} else (
+            "CSV" if suffix in {".xlsx", ".xlsm"} else "XLSX"
+        )
+    elif kind == MediaKind.DATA:
+        preferred = {".json": "CSV", ".html": "MD", ".htm": "MD"}.get(suffix, "DOCX")
+    elif kind == MediaKind.FONT:
+        preferred = "TTF" if suffix in {".woff", ".woff2"} else "WOFF2"
+    available = file_targets_for(kind, suffix)
+    if preferred in available:
+        return preferred
+    return available[0] if available else None
+
+
+def target_extension(kind: MediaKind, label: str) -> str | None:
+    if label in COMBINE_EXTENSIONS:
+        return COMBINE_EXTENSIONS[label]
+    if kind in FILE_TARGETS:
+        target = file_target(kind, label)
+        return target.extension if target else None
+    definition = TARGETS.get(label)
+    return definition.extension if definition else None
+
+
 def options_for(
     kind: MediaKind,
     enabled_actions: set[OperationKind] | None = None,
+    suffixes: set[str] | None = None,
 ) -> list[str]:
+    """Plain outputs for a kind. With ``suffixes``, those any of the sources offer."""
+    if kind in FILE_TARGETS:
+        if suffixes is None:
+            return [item.label for item in FILE_TARGETS[kind]]
+        offered = {label for suffix in suffixes for label in file_targets_for(kind, suffix)}
+        return [item.label for item in FILE_TARGETS[kind] if item.label in offered]
     options = list(OPTIONS_BY_KIND.get(kind, []))
     for action in enabled_actions or set():
         options.extend(
@@ -196,7 +366,7 @@ def apply_choice(job, choice: str) -> bool:  # noqa: ANN001 - avoids a circular 
         job.target_format = action.target_format
         job.operation_options = dict(action.default_options)
         return True
-    if not is_compatible(job.source.kind, choice):
+    if not is_compatible(job.source.kind, choice, job.source.suffix):
         return False
     job.operation = OperationKind.CONVERT
     job.target_format = choice
@@ -216,6 +386,8 @@ def is_choice_compatible(
 
 
 def default_target(kind: MediaKind, source_suffix: str) -> str | None:
+    if kind in FILE_TARGETS:
+        return default_file_target(kind, source_suffix)
     options = options_for(kind)
     if not options:
         return None
@@ -230,7 +402,13 @@ def target_definition(label: str) -> TargetDefinition:
     return TARGETS[label]
 
 
-def is_compatible(kind: MediaKind, target: str) -> bool:
+def is_compatible(kind: MediaKind, target: str, suffix: str | None = None) -> bool:
+    """Whether ``target`` is an output of ``kind`` (and of that source format, if given)."""
+    if target in COMBINE_EXTENSIONS:
+        return target in combine_choices(kind)
+    if kind in FILE_TARGETS:
+        item = file_target(kind, target)
+        return bool(item and (suffix is None or _offers(item, suffix.lower())))
     definition = TARGETS.get(target)
     return bool(definition and definition.kind == kind)
 
@@ -240,10 +418,13 @@ def unique_output_path(
     destination: Path,
     extension: str,
     suffix: str | None = None,
+    stem: str | None = None,
+    plain: bool = False,
 ) -> Path:
-    same_extension = source.suffix.lower() == extension.lower()
-    base = f"{source.stem}{suffix}" if suffix else (
-        f"{source.stem} converted" if same_extension else source.stem
+    stem = stem or source.stem
+    same_extension = not plain and source.suffix.lower() == extension.lower()
+    base = f"{stem}{suffix}" if suffix else (
+        f"{stem} converted" if same_extension else stem
     )
     candidate = destination / f"{base}{extension}"
     number = 2

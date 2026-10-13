@@ -1,0 +1,79 @@
+{
+  "components": [
+    {
+      "id": "libreoffice",
+      "name": "LibreOffice",
+      "version": "26.8.1",
+      "filename": "LibreOffice_26.8.1_MacOS_aarch64.dmg",
+      "download_url": "https://download.documentfoundation.org/libreoffice/stable/26.8.1/mac/aarch64/LibreOffice_26.8.1_MacOS_aarch64.dmg",
+      "sha256": "ca074e0b13571efb30a31fc531c5f95e997030637325e5d5de92d67aefdf0dfc",
+      "size_bytes": 298845477,
+      "license": "MPL-2.0",
+      "license_url": "https://www.libreoffice.org/about-us/licenses/",
+      "archive_format": "dmg",
+      "members": [
+        "LibreOffice.app"
+      ],
+      "executable": "LibreOffice.app/Contents/MacOS/soffice",
+      "platforms": [
+        "macos-arm64"
+      ],
+      "kinds": [
+        "document",
+        "spreadsheet",
+        "presentation"
+      ]
+    },
+    {
+      "id": "calibre",
+      "name": "Calibre",
+      "version": "9.16.0",
+      "filename": "calibre-9.16.0.dmg",
+      "download_url": "https://github.com/kovidgoyal/calibre/releases/download/v9.16.0/calibre-9.16.0.dmg",
+      "sha256": "9e1102559e4118f37ca4f3d65b67a053a8e8d5a8232d469e205bd4145057aba5",
+      "size_bytes": 357044176,
+      "license": "GPL-3.0-only",
+      "license_url": "https://github.com/kovidgoyal/calibre/blob/master/LICENSE",
+      "archive_format": "dmg",
+      "members": [
+        "calibre.app"
+      ],
+      "executable": "calibre.app/Contents/MacOS/ebook-convert",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64"
+      ],
+      "kinds": [
+        "ebook"
+      ],
+      "warmup": [
+        "--version"
+      ]
+    },
+    {
+      "id": "pandoc",
+      "name": "Pandoc",
+      "version": "3.12.1",
+      "filename": "pandoc-3.12.1-arm64-macOS.zip",
+      "download_url": "https://github.com/jgm/pandoc/releases/download/3.12.1/pandoc-3.12.1-arm64-macOS.zip",
+      "sha256": "c2146cf33a583f3ac93eccddf1bb662371d5cfcce1aad1c87ad860cca1435d46",
+      "size_bytes": 42313957,
+      "license": "GPL-2.0-or-later",
+      "license_url": "https://github.com/jgm/pandoc/blob/main/COPYRIGHT",
+      "archive_format": "zip",
+      "members": [
+        "pandoc-3.12.1-arm64/bin/pandoc"
+      ],
+      "executable": "pandoc-3.12.1-arm64/bin/pandoc",
+      "platforms": [
+        "macos-arm64"
+      ],
+      "kinds": [
+        "data"
+      ],
+      "warmup": [
+        "--version"
+      ]
+    }
+  ]
+}

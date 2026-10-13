@@ -33,7 +33,10 @@ ApplicationWindow {
     readonly property bool running: phase === "running"
     // Height of the native title bar row that holds the traffic lights.
     readonly property int chromeHeight: 28
-    readonly property int sentenceSize: glass.width < 820 ? 26 : 30
+    // The sentence gets smaller as more kinds share it.
+    readonly property int groupLines: jobController.groups.length
+    readonly property int sentenceSize: (glass.width < 820 ? 26 : 30)
+        - (groupLines >= 4 ? 6 : (groupLines === 3 ? 3 : 0))
     readonly property int lineHeight: Math.round(sentenceSize * 1.75)
     property int openMenus: 0
     property bool showSelection: false
@@ -78,6 +81,12 @@ ApplicationWindow {
         sequence: "Space"
         enabled: jobController.hasJobs && !window.hasPopupOpen
         onActivated: jobController.quickLookSelected()
+    }
+    Shortcut {
+        // ⌘⌫ on macOS.
+        sequence: "Ctrl+Backspace"
+        enabled: window.phase === "ready" && !window.hasPopupOpen
+        onActivated: jobController.clearWithUndo()
     }
     Shortcut {
         sequences: ["Backspace", "Delete"]
@@ -349,85 +358,148 @@ ApplicationWindow {
                     visible: window.phase === "ready" || window.phase === "running"
                     spacing: 0
 
-                    Repeater {
-                        model: jobController.groups
-
-                        Flow {
-                            id: line
-                            required property var modelData
-                            width: sentence.width
-                            spacing: 12
-
-                            Word { text: window.tr("sentence_lead") }
-                            Word { text: line.modelData.countLabel; strong: true }
-                            Word { text: window.tr("sentence_to") }
-                            Item {
-                                width: formatPill.width
-                                height: window.lineHeight
-                                Pill {
-                                    id: formatPill
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    kind: line.modelData.kind
-                                    fontSize: window.sentenceSize
-                                    enabled: !window.running
-                                    open: formatMenu.opened
-                                    text: line.modelData.target.length > 0 ? line.modelData.target : window.tr("mixed_formats")
-                                    onClicked: formatMenu.open()
-                                    Accessible.name: line.modelData.countLabel + " → " + text
-                                    PillMenu {
-                                        id: formatMenu
-                                        onOpened: window.openMenus++
-                                        onClosed: window.openMenus--
-                                        entries: {
-                                            var plain = jobController.formatOptions(line.modelData.kind)
-                                            var list = line.modelData.options.map(function(option) {
-                                                return {
-                                                    "key": option,
-                                                    "label": option,
-                                                    "checked": option === line.modelData.target,
-                                                    "icon": plain.indexOf(option) < 0 ? "sparkles" : ""
-                                                }
-                                            })
-                                            if (line.modelData.kind === "image") {
-                                                list.push({ "separator": true })
-                                                list.push({ "key": "__options", "label": window.tr("more_options"), "icon": "settings" })
-                                            }
-                                            return list
-                                        }
-                                        onChosen: function(key) {
-                                            if (key === "__options")
-                                                imageOptionsPopup.open()
-                                            else
-                                                jobController.setGroupTargetFormat(line.modelData.kind, key)
-                                        }
-                                    }
-                                }
+                    // Many kinds at once: the lines scroll instead of pushing the cards away.
+                    Flickable {
+                        id: linesScroller
+                        width: sentence.width
+                        // Stop at a line boundary so no sentence is ever cut in half.
+                        readonly property real maxHeight: Math.max(window.lineHeight * 2, glassFrame.height * 0.42)
+                        readonly property real wholeLinesHeight: {
+                            let total = 0
+                            for (let index = 0; index < linesColumn.children.length; ++index) {
+                                const line = linesColumn.children[index]
+                                if (!line.visible || line.height <= 0)
+                                    continue
+                                if (total + line.height > maxHeight)
+                                    break
+                                total += line.height
                             }
-                            Item {
-                                visible: line.modelData.extra.length > 0
-                                width: extraRow.width
-                                height: window.lineHeight
-                                Row {
-                                    id: extraRow
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 6
-                                    Text {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: window.tr("sentence_joiner")
-                                        color: Theme.muted
-                                        font.family: Theme.font
-                                        font.pixelSize: window.sentenceSize
-                                        font.weight: Font.Bold
+                            return total > 0 ? total : maxHeight
+                        }
+                        height: Math.min(contentHeight, wholeLinesHeight)
+                        contentWidth: width
+                        contentHeight: linesColumn.height
+                        interactive: contentHeight > height + 1
+                        boundsBehavior: Flickable.StopAtBounds
+                        clip: interactive
+                        ScrollBar.vertical: ScrollBar { policy: linesScroller.interactive ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff }
+
+                        Column {
+                            id: linesColumn
+                            width: linesScroller.width - (linesScroller.interactive ? 14 : 0)
+                            spacing: 0
+
+                            Repeater {
+                                model: jobController.groups
+
+                                Column {
+                                    id: line
+                                    required property var modelData
+                                    width: linesColumn.width
+                                    spacing: 0
+                                    HoverHandler { id: lineHover }
+
+                                    Flow {
+                                        width: line.width
+                                        spacing: 12
+
+                                        Word { text: line.modelData.lead }
+                                        Word { text: line.modelData.countLabel; strong: true }
+                                        Word { text: line.modelData.verb }
+                                        Item {
+                                            width: formatPill.width
+                                            height: window.lineHeight
+                                            Pill {
+                                                id: formatPill
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                kind: line.modelData.kind
+                                                fontSize: window.sentenceSize
+                                                enabled: !window.running
+                                                open: formatMenu.opened
+                                                text: line.modelData.target.length > 0 ? line.modelData.targetLabel : window.tr("mixed_formats")
+                                                onClicked: formatMenu.open()
+                                                Accessible.name: line.modelData.countLabel + " → " + text
+                                                PillMenu {
+                                                    id: formatMenu
+                                                    onOpened: window.openMenus++
+                                                    onClosed: window.openMenus--
+                                                    entries: {
+                                                        var list = line.modelData.entries.slice()
+                                                        if (line.modelData.kind === "image") {
+                                                            list.push({ "separator": true })
+                                                            list.push({ "key": "__options", "label": window.tr("more_options"), "icon": "settings" })
+                                                        }
+                                                        return list
+                                                    }
+                                                    onChosen: function(key) {
+                                                        if (key === "__options")
+                                                            imageOptionsPopup.open()
+                                                        else
+                                                            jobController.setGroupTargetFormat(line.modelData.kind, key)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        Item {
+                                            visible: line.modelData.extra.length > 0
+                                            width: extraRow.width
+                                            height: window.lineHeight
+                                            Row {
+                                                id: extraRow
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                spacing: 6
+                                                Text {
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    text: window.tr("sentence_joiner")
+                                                    color: Theme.muted
+                                                    font.family: Theme.font
+                                                    font.pixelSize: window.sentenceSize
+                                                    font.weight: Font.Bold
+                                                }
+                                                Pill {
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    kind: "image"
+                                                    chevron: false
+                                                    fontSize: window.sentenceSize - 6
+                                                    implicitHeight: 38
+                                                    enabled: !window.running
+                                                    text: line.modelData.extra
+                                                    onClicked: imageOptionsPopup.open()
+                                                }
+                                            }
+                                        }
+                                        // × on hover removes this whole kind from the batch.
+                                        Item {
+                                            width: 26
+                                            height: window.lineHeight
+                                            visible: window.phase === "ready"
+                                            Rectangle {
+                                                id: removeKindButton
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                width: 26
+                                                height: 26
+                                                radius: 13
+                                                color: removeKindHover.hovered ? Theme.error : (Theme.dark ? "#3A4360" : "#182033")
+                                                opacity: lineHover.hovered || removeKindButton.activeFocus ? 1 : 0
+                                                Behavior on opacity { NumberAnimation { duration: 120 } }
+                                                Image {
+                                                    anchors.centerIn: parent
+                                                    width: 11
+                                                    height: 11
+                                                    sourceSize: Qt.size(11, 11)
+                                                    source: "image://icons/x/ffffff/3.5"
+                                                }
+                                                HoverHandler { id: removeKindHover; cursorShape: Qt.PointingHandCursor }
+                                                TapHandler { onTapped: jobController.removeKind(line.modelData.kind) }
+                                                Accessible.role: Accessible.Button
+                                                Accessible.name: window.tr("remove_kind") + " " + line.modelData.countLabel
+                                            }
+                                        }
                                     }
-                                    Pill {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        kind: "image"
-                                        chevron: false
-                                        fontSize: window.sentenceSize - 6
-                                        implicitHeight: 38
-                                        enabled: !window.running
-                                        text: line.modelData.extra
-                                        onClicked: imageOptionsPopup.open()
+
+                                    ComponentLine {
+                                        group: line.modelData
+                                        width: line.width
                                     }
                                 }
                             }
@@ -444,7 +516,7 @@ ApplicationWindow {
                         Flow {
                             id: destinationFlow
                             anchors.left: parent.left
-                            anchors.right: actionButton.left
+                            anchors.right: clearButton.visible ? clearButton.left : actionButton.left
                             anchors.rightMargin: 20
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 12
@@ -490,6 +562,20 @@ ApplicationWindow {
                         }
 
                         IceButton {
+                            id: clearButton
+                            anchors.right: actionButton.left
+                            anchors.rightMargin: 12
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: window.phase === "ready"
+                            kind: "quiet"
+                            text: window.tr("clear_list")
+                            onClicked: jobController.clearWithUndo()
+                            ToolTip.visible: hovered
+                            ToolTip.delay: 800
+                            ToolTip.text: "⌘⌫"
+                        }
+
+                        IceButton {
                             id: actionButton
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
@@ -525,6 +611,33 @@ ApplicationWindow {
                                     orientation: Gradient.Horizontal
                                     GradientStop { position: 0; color: Theme.gradientTop }
                                     GradientStop { position: 1; color: Theme.meterEnd }
+                                }
+                            }
+                            // Some converters cannot measure progress; a sweep shows they are working.
+                            Item {
+                                anchors.fill: parent
+                                anchors.leftMargin: 5
+                                anchors.rightMargin: 5
+                                clip: true
+                                visible: jobController.anyIndeterminate
+                                Rectangle {
+                                    id: meterSweep
+                                    width: parent.width * 0.22
+                                    height: parent.height
+                                    gradient: Gradient {
+                                        orientation: Gradient.Horizontal
+                                        GradientStop { position: 0; color: Qt.rgba(111 / 255, 168 / 255, 1, 0) }
+                                        GradientStop { position: 0.5; color: Qt.rgba(111 / 255, 168 / 255, 1, Theme.dark ? 0.55 : 0.45) }
+                                        GradientStop { position: 1; color: Qt.rgba(111 / 255, 168 / 255, 1, 0) }
+                                    }
+                                    NumberAnimation on x {
+                                        running: jobController.anyIndeterminate && window.running
+                                        loops: Animation.Infinite
+                                        from: -meterSweep.width
+                                        to: meterSweep.parent.width
+                                        duration: 1600
+                                        easing.type: Easing.InOutSine
+                                    }
                                 }
                             }
                         }
@@ -758,7 +871,9 @@ ApplicationWindow {
     // Skipped or unreadable files: a quiet line, never a toast.
     component NoticeLine: Row {
         property int maxWidth: 600
-        readonly property bool intake: jobController.notice.length > 0 && jobController.noticeAction.length === 0
+        readonly property bool undo: jobController.noticeAction === "undo"
+        readonly property bool intake: jobController.notice.length > 0
+            && (jobController.noticeAction.length === 0 || undo)
         visible: intake || (jobController.probing && window.phase !== "empty")
         spacing: 8
         Image {
@@ -770,13 +885,26 @@ ApplicationWindow {
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            width: Math.min(implicitWidth, parent.maxWidth - 60)
+            width: Math.min(implicitWidth, parent.maxWidth - (parent.undo ? 120 : 60))
             text: parent.intake ? jobController.notice : window.tr("reading_files")
             color: jobController.noticeKind === "error" && parent.intake ? Theme.error : Theme.secondary
             font.family: Theme.font
             font.pixelSize: 13
             font.weight: Font.DemiBold
             elide: Text.ElideRight
+        }
+        Text {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: parent.undo
+            text: window.tr("undo")
+            color: Theme.cobaltText
+            font.family: Theme.font
+            font.pixelSize: 13
+            font.weight: Font.Bold
+            TapHandler { onTapped: jobController.undoClear() }
+            HoverHandler { cursorShape: Qt.PointingHandCursor }
+            Accessible.role: Accessible.Button
+            Accessible.name: text
         }
         Image {
             anchors.verticalCenter: parent.verticalCenter
@@ -787,6 +915,107 @@ ApplicationWindow {
             source: "image://icons/x/" + Theme.hex(Theme.muted) + "/2"
             TapHandler { onTapped: jobController.dismissNotice() }
             HoverHandler { cursorShape: Qt.PointingHandCursor }
+        }
+    }
+
+    // Under a sentence line whose files need a component first:
+    // "需要先下载文档组件 · 300 MB  下载", then its progress.
+    component ComponentLine: Item {
+        id: componentLine
+        property var group: ({})
+        readonly property string phase: group.component ? group.componentState : ""
+        readonly property bool busy: phase === "downloading" || phase === "installing" || phase === "queued"
+        readonly property color tone: phase === "failed" ? Theme.error : Theme.kindColor(group.kind || "neutral")
+        function fill(key) {
+            return window.tr(key)
+                .replace("{name}", group.componentName || "")
+                .replace("{size}", group.componentSize || "")
+                .replace("{percent}", Math.floor((group.componentProgress || 0) * 100))
+        }
+        visible: phase.length > 0
+        width: parent ? parent.width : 0
+        height: visible ? 36 : 0
+
+        Row {
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 10
+
+            Image {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 16
+                height: 16
+                sourceSize: Qt.size(16, 16)
+                source: "image://icons/" + (componentLine.phase === "failed" ? "info" : "download")
+                    + "/" + Theme.hex(componentLine.tone) + "/2.2"
+            }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: componentLine.fill({
+                    "missing": "component_needed",
+                    "queued": "component_queued",
+                    "downloading": "component_downloading",
+                    "installing": "component_installing",
+                    "failed": "component_failed"
+                }[componentLine.phase] || "component_needed")
+                color: componentLine.phase === "failed" ? Theme.error : Theme.secondary
+                font.family: Theme.font
+                font.pixelSize: 15
+                font.weight: Font.DemiBold
+                font.features: { "tnum": 1 }
+            }
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                visible: componentLine.busy
+                width: 120
+                height: 5
+                radius: 2.5
+                color: Theme.track
+                clip: true
+                Rectangle {
+                    visible: componentLine.phase === "downloading"
+                    height: parent.height
+                    radius: 2.5
+                    width: Math.max(height, parent.width * (componentLine.group.componentProgress || 0))
+                    color: componentLine.tone
+                    Behavior on width { NumberAnimation { duration: 200 } }
+                }
+                Rectangle {
+                    id: componentSweep
+                    visible: componentLine.phase !== "downloading"
+                    width: parent.width * 0.35
+                    height: parent.height
+                    radius: 2.5
+                    color: componentLine.tone
+                    NumberAnimation on x {
+                        running: componentLine.busy && componentLine.phase !== "downloading"
+                        loops: Animation.Infinite
+                        from: -componentSweep.width
+                        to: 120
+                        duration: 1300
+                        easing.type: Easing.InOutQuad
+                    }
+                }
+            }
+            Text {
+                id: componentAction
+                anchors.verticalCenter: parent.verticalCenter
+                visible: componentLine.phase !== "installing"
+                text: componentLine.busy ? window.tr("cancel")
+                    : (componentLine.phase === "failed" ? window.tr("retry")
+                        : (componentLine.group.componentResumable ? window.tr("resume") : window.tr("component_get")))
+                color: componentLine.busy ? Theme.secondary : Theme.cobaltText
+                font.family: Theme.font
+                font.pixelSize: 15
+                font.weight: Font.Bold
+                HoverHandler { cursorShape: Qt.PointingHandCursor }
+                TapHandler {
+                    onTapped: componentLine.busy
+                        ? jobController.cancelComponent(componentLine.group.component)
+                        : jobController.installComponent(componentLine.group.component)
+                }
+                Accessible.role: Accessible.Button
+                Accessible.name: text
+            }
         }
     }
 
@@ -803,198 +1032,7 @@ ApplicationWindow {
         objectName: "imageOptionsPopup"
     }
 
-    Sheet {
-        id: eraseMaskPopup
-        objectName: "eraseMaskPopup"
-        property string jobId: ""
-        property url sourceUrl
-        property bool applyGroup: false
-        width: Math.min(920, window.width - 64)
-        height: Math.min(720, window.height - 64)
-        closePolicy: Popup.CloseOnEscape
-
-        function openFor(id, url, group) {
-            jobId = id
-            sourceUrl = url
-            applyGroup = group
-            maskCanvas.strokes = []
-            brushSlider.value = 34
-            open()
-            maskCanvas.requestPaint()
-        }
-
-        contentItem: ColumnLayout {
-            spacing: 14
-
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.leftMargin: 26
-                Layout.rightMargin: 16
-                Layout.topMargin: 20
-                spacing: 12
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 2
-                    Text {
-                        text: window.tr("erase_title")
-                        color: Theme.text
-                        font.family: Theme.font
-                        font.pixelSize: 20
-                        font.weight: Font.ExtraBold
-                    }
-                    Text {
-                        text: window.tr("erase_hint")
-                        color: Theme.muted
-                        font.family: Theme.font
-                        font.pixelSize: 13
-                        font.weight: Font.DemiBold
-                    }
-                }
-                WButton {
-                    kind: "ghost"
-                    iconName: "x"
-                    implicitWidth: 34
-                    onClicked: eraseMaskPopup.close()
-                    Accessible.name: window.tr("cancel")
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.leftMargin: 26
-                Layout.rightMargin: 26
-                color: Theme.field
-                radius: 18
-                clip: true
-
-                Image {
-                    id: eraseSourceImage
-                    anchors.fill: parent
-                    anchors.margins: 12
-                    source: eraseMaskPopup.sourceUrl
-                    fillMode: Image.PreserveAspectFit
-                    asynchronous: true
-                    cache: false
-                }
-
-                Canvas {
-                    id: maskCanvas
-                    property var strokes: []
-                    x: eraseSourceImage.x + (eraseSourceImage.width - eraseSourceImage.paintedWidth) / 2
-                    y: eraseSourceImage.y + (eraseSourceImage.height - eraseSourceImage.paintedHeight) / 2
-                    width: eraseSourceImage.paintedWidth
-                    height: eraseSourceImage.paintedHeight
-                    opacity: 0.58
-                    renderTarget: Canvas.Image
-                    antialiasing: true
-
-                    onPaint: {
-                        var context = getContext("2d")
-                        context.reset()
-                        context.clearRect(0, 0, width, height)
-                        context.strokeStyle = "#FFFFFF"
-                        context.fillStyle = "#FFFFFF"
-                        context.lineCap = "round"
-                        context.lineJoin = "round"
-                        for (var strokeIndex = 0; strokeIndex < strokes.length; strokeIndex++) {
-                            var stroke = strokes[strokeIndex]
-                            var points = stroke.points
-                            context.lineWidth = stroke.width
-                            if (points.length === 0)
-                                continue
-                            if (points.length === 1) {
-                                context.beginPath()
-                                context.arc(points[0].x, points[0].y, stroke.width / 2, 0, Math.PI * 2)
-                                context.fill()
-                                continue
-                            }
-                            context.beginPath()
-                            context.moveTo(points[0].x, points[0].y)
-                            for (var pointIndex = 1; pointIndex < points.length; pointIndex++)
-                                context.lineTo(points[pointIndex].x, points[pointIndex].y)
-                            context.stroke()
-                        }
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.CrossCursor
-                        onPressed: function(mouse) {
-                            var updated = maskCanvas.strokes.slice()
-                            updated.push({ "width": brushSlider.value, "points": [{ "x": mouse.x, "y": mouse.y }] })
-                            maskCanvas.strokes = updated
-                            maskCanvas.requestPaint()
-                        }
-                        onPositionChanged: function(mouse) {
-                            if (!pressed || maskCanvas.strokes.length === 0)
-                                return
-                            maskCanvas.strokes[maskCanvas.strokes.length - 1].points.push({ "x": mouse.x, "y": mouse.y })
-                            maskCanvas.requestPaint()
-                        }
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.leftMargin: 26
-                Layout.rightMargin: 26
-                Layout.bottomMargin: 20
-                spacing: 10
-                Text {
-                    text: window.tr("brush_size")
-                    color: Theme.secondary
-                    font.family: Theme.font
-                    font.pixelSize: 13
-                    font.weight: Font.Bold
-                }
-                Slider {
-                    id: brushSlider
-                    Layout.preferredWidth: 180
-                    from: 10
-                    to: 90
-                    value: 34
-                    stepSize: 2
-                }
-                WButton {
-                    kind: "ghost"
-                    iconName: "retry"
-                    text: window.tr("undo")
-                    enabled: maskCanvas.strokes.length > 0
-                    onClicked: {
-                        var updated = maskCanvas.strokes.slice()
-                        updated.pop()
-                        maskCanvas.strokes = updated
-                        maskCanvas.requestPaint()
-                    }
-                }
-                WButton {
-                    kind: "ghost"
-                    text: window.tr("clear")
-                    enabled: maskCanvas.strokes.length > 0
-                    onClicked: {
-                        maskCanvas.strokes = []
-                        maskCanvas.requestPaint()
-                    }
-                }
-                Item { Layout.fillWidth: true }
-                WButton {
-                    kind: "primary"
-                    implicitHeight: 38
-                    text: eraseMaskPopup.applyGroup ? window.tr("apply_to_all") : window.tr("apply")
-                    enabled: maskCanvas.strokes.length > 0
-                    onClicked: {
-                        var path = jobController.eraseMaskPath(eraseMaskPopup.jobId)
-                        if (path.length > 0 && maskCanvas.save(path)) {
-                            jobController.completeEraseMask(eraseMaskPopup.jobId, path, eraseMaskPopup.applyGroup)
-                            eraseMaskPopup.close()
-                        }
-                    }
-                }
-            }
-        }
-    }
+    EraseEditor { id: eraseMaskPopup; objectName: "eraseMaskPopup" }
 
     DropArea {
         id: dropArea

@@ -45,6 +45,10 @@ class QueueModel(QAbstractListModel):
     ErrorTextRole = Qt.UserRole + 23
     CardIndexRole = Qt.UserRole + 24
     DurationLabelRole = Qt.UserRole + 25
+    StageRole = Qt.UserRole + 26
+    IndeterminateRole = Qt.UserRole + 27
+    StartedAtRole = Qt.UserRole + 28
+    WaitingRole = Qt.UserRole + 29
 
     def __init__(self, jobs: Iterable[JobRecord] | None = None) -> None:
         super().__init__()
@@ -86,6 +90,10 @@ class QueueModel(QAbstractListModel):
             self.ErrorTextRole: QByteArray(b"errorText"),
             self.CardIndexRole: QByteArray(b"cardIndex"),
             self.DurationLabelRole: QByteArray(b"durationLabel"),
+            self.StageRole: QByteArray(b"stage"),
+            self.IndeterminateRole: QByteArray(b"indeterminate"),
+            self.StartedAtRole: QByteArray(b"startedAt"),
+            self.WaitingRole: QByteArray(b"waiting"),
         }
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:  # noqa: N802
@@ -142,6 +150,10 @@ class QueueModel(QAbstractListModel):
             self.ErrorTextRole: job.error or "",
             self.CardIndexRole: self._card_index.get(job.id, 0),
             self.DurationLabelRole: short_duration(job.source.duration),
+            self.StageRole: job.stage,
+            self.IndeterminateRole: job.indeterminate,
+            self.StartedAtRole: job.started_at,
+            self.WaitingRole: bool(job.waiting_component),
         }
         return values.get(role)
 

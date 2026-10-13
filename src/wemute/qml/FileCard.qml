@@ -17,6 +17,11 @@ Item {
     required property string errorText
     required property int cardIndex
     required property string durationLabel
+    required property string sourceFormat
+    required property string stage
+    required property bool indeterminate
+    required property real startedAt
+    required property bool waiting
     property bool removable: true
     property bool showSelection: true
 
@@ -31,6 +36,37 @@ Item {
     readonly property bool isRunning: jobStatus === "running"
     readonly property bool hasThumbnail: mediaKind !== "audio" && thumbnailUrl.length > 0
         && thumbnailUrl.indexOf("image://") !== 0
+    readonly property bool isMedia: mediaKind === "image" || mediaKind === "video" || mediaKind === "audio"
+    // Seconds since this file started, ticking while it runs.
+    property real now: Date.now() / 1000
+    readonly property int elapsed: isRunning && startedAt > 0 ? Math.max(0, Math.floor(now - startedAt)) : 0
+    readonly property string elapsedLabel: {
+        var minutes = Math.floor(elapsed / 60)
+        var seconds = elapsed % 60
+        if (i18n.language === "zh")
+            return minutes > 0 ? minutes + " 分 " + seconds + " 秒" : seconds + " 秒"
+        return minutes > 0 ? minutes + ":" + (seconds < 10 ? "0" : "") + seconds : seconds + "s"
+    }
+    readonly property string detailLine: {
+        if (waiting)
+            return stage
+        if (!isRunning)
+            return ""
+        var parts = []
+        if (stage.length > 0)
+            parts.push(stage)
+        if (indeterminate || !isMedia)
+            parts.push(elapsedLabel)
+        return parts.join(" · ")
+    }
+
+    Timer {
+        interval: 1000
+        repeat: true
+        running: card.isRunning
+        triggeredOnStart: true
+        onTriggered: card.now = Date.now() / 1000
+    }
 
     width: 118
     height: 148
@@ -121,9 +157,63 @@ Item {
                 height: 34
                 sourceSize: Qt.size(34, 34)
                 source: visible
-                    ? "image://icons/" + (card.mediaKind === "audio" ? "audio-lines" : (card.mediaKind === "video" ? "film" : "image"))
+                    ? "image://icons/" + Theme.kindIcon(card.mediaKind)
                         + "/" + Theme.hex(Theme.kindColor(card.mediaKind)) + "/2"
                     : ""
+            }
+
+            // Source format for documents and other files: "DOCX", "PDF".
+            Rectangle {
+                visible: !card.isMedia && card.sourceFormat.length > 0
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.margins: 6
+                width: formatText.implicitWidth + 12
+                height: 18
+                radius: 7
+                color: Theme.kindColor(card.mediaKind)
+                Text {
+                    id: formatText
+                    anchors.centerIn: parent
+                    text: card.sourceFormat
+                    color: Theme.dark ? "#10131C" : "#FFFFFF"
+                    font.family: Theme.latinFont
+                    font.pixelSize: 10
+                    font.weight: Font.Bold
+                }
+            }
+
+            // No measurable progress: a light sweep says it is still working.
+            Item {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
+                anchors.bottomMargin: 5
+                height: 3
+                visible: card.isRunning && card.indeterminate
+                clip: true
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 1.5
+                    color: Theme.track
+                }
+                Rectangle {
+                    id: sweep
+                    width: parent.width * 0.4
+                    height: parent.height
+                    radius: 1.5
+                    color: Theme.kindColor(card.mediaKind)
+                    NumberAnimation on x {
+                        running: card.isRunning && card.indeterminate
+                        loops: Animation.Infinite
+                        from: -sweep.width
+                        to: sweep.parent.width
+                        duration: 1300
+                        easing.type: Easing.InOutQuad
+                    }
+                }
             }
 
             // Duration badge for video.
@@ -194,8 +284,16 @@ Item {
                     id: ring
                     anchors.fill: parent
                     anchors.margins: 3
-                    property real value: card.jobProgress
+                    property real value: card.indeterminate ? 0.28 : card.jobProgress
                     onValueChanged: requestPaint()
+                    RotationAnimation on rotation {
+                        running: card.isRunning && card.indeterminate
+                        loops: Animation.Infinite
+                        from: 0
+                        to: 360
+                        duration: 1100
+                    }
+                    rotation: 0
                     onPaint: {
                         var ctx = getContext("2d")
                         ctx.reset()
@@ -224,6 +322,21 @@ Item {
             font.family: Theme.fontFor(text)
             font.pixelSize: 11
             font.weight: Font.DemiBold
+            elide: Text.ElideMiddle
+        }
+
+        // What the converter is doing right now: "正在启动文档引擎… · 12 秒".
+        Text {
+            x: 10
+            y: photo.y + photo.height + 21
+            width: card.width - 20
+            visible: card.detailLine.length > 0
+            text: card.detailLine
+            color: Theme.muted
+            font.family: Theme.fontFor(text)
+            font.pixelSize: 10
+            font.weight: Font.DemiBold
+            font.features: { "tnum": 1 }
             elide: Text.ElideMiddle
         }
 

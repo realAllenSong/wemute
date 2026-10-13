@@ -14,6 +14,8 @@ from PySide6.QtWidgets import QApplication
 from wemute.app_info import AppInfoController
 from wemute.controller import JobController
 from wemute.ai_packages_qt import AIModelController
+from wemute.components import ComponentManager
+from wemute.components_qt import ComponentController
 from wemute.i18n import I18n
 from wemute.icon_provider import NativeIconProvider, RoundedThumbnailProvider
 from wemute.paths import QML_ROOT
@@ -53,12 +55,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--show-erase-editor", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--show-about", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--show-settings", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--show-components", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--qa-action", choices=["start", "clear"], help=argparse.SUPPRESS)
+    parser.add_argument("--qa-action-delay", type=int, default=1200, help=argparse.SUPPRESS)
     parser.add_argument("--appearance", choices=["light", "dark"], help=argparse.SUPPRESS)
     parser.add_argument("--language", choices=["en", "zh"], help=argparse.SUPPRESS)
     parser.add_argument("--require-updater", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--image-worker", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--ai-worker", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--ai-worker-server", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--convert-worker", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--audio-runtime-smoke-test", action="store_true", help=argparse.SUPPRESS)
     return parser
 
@@ -117,6 +123,10 @@ def main(argv: list[str] | None = None) -> int:
         from wemute.ai_worker import serve as ai_worker_serve
 
         return ai_worker_serve()
+    if arguments.convert_worker:
+        from wemute.convert_worker import main as convert_worker_main
+
+        return convert_worker_main(arguments.paths)
     if arguments.audio_runtime_smoke_test:
         import demucs_mlx  # noqa: F401
         import mlx_audio_io as mac
@@ -142,7 +152,8 @@ def main(argv: list[str] | None = None) -> int:
 
     model = QueueModel()
     packages = ModelPackageManager()
-    controller = JobController(model, packages=packages)
+    component_controller = ComponentController(ComponentManager())
+    controller = JobController(model, packages=packages, components=component_controller)
     ai_model_controller = AIModelController(packages, model.set_enabled_ai_actions)
     app_info_controller = AppInfoController()
     updater_controller = SparkleUpdater()
@@ -185,6 +196,7 @@ def main(argv: list[str] | None = None) -> int:
     context.setContextProperty("queueModel", model)
     context.setContextProperty("jobController", controller)
     context.setContextProperty("aiModelController", ai_model_controller)
+    context.setContextProperty("componentController", component_controller)
     context.setContextProperty("appInfoController", app_info_controller)
     context.setContextProperty("updaterController", updater_controller)
     context.setContextProperty("i18n", i18n)
@@ -204,6 +216,14 @@ def main(argv: list[str] | None = None) -> int:
         QTimer.singleShot(900, lambda: (settings_panel.setProperty("tab", "ai"), settings_panel.open()))
     if arguments.show_settings and settings_panel:
         QTimer.singleShot(900, settings_panel.open)
+    if arguments.show_components and settings_panel:
+        QTimer.singleShot(
+            900, lambda: (settings_panel.setProperty("tab", "components"), settings_panel.open())
+        )
+    if arguments.qa_action == "start":
+        QTimer.singleShot(arguments.qa_action_delay, controller.startAll)
+    elif arguments.qa_action == "clear":
+        QTimer.singleShot(arguments.qa_action_delay, controller.clearWithUndo)
     if arguments.show_erase_editor:
         image_job = next(
             (job for job in model.jobs if job.source.kind.value == "image"), None

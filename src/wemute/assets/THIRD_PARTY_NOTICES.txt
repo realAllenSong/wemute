@@ -65,3 +65,55 @@ License: MIT
 Source and license information: https://github.com/facebookresearch/demucs/blob/main/LICENSE
 The separately downloaded model package includes its license, source URL,
 conversion provenance, and verified outer and inner SHA-256 digests.
+
+File conversion libraries
+-------------------------
+
+PyMuPDF 1.28.2 (MuPDF)
+License: AGPL-3.0-only (Artifex also offers a commercial license)
+Source and license information: https://github.com/pymupdf/PyMuPDF
+Used through pdf2docx for PDF to Word conversion. Wemute's complete source is
+available, as the AGPL requires for this distribution.
+
+pdf2docx 0.5.13
+License: MIT
+Source and license information: https://github.com/ArtifexSoftware/pdf2docx/blob/master/LICENSE
+
+pypdfium2 5.14.0 with PDFium
+License: Apache-2.0 OR BSD-3-Clause; PDFium BSD-3-Clause plus the licenses listed by pypdfium2
+Source and license information: https://github.com/pypdfium2-team/pypdfium2/tree/main/LICENSES
+
+pikepdf 10.17.0 with qpdf
+License: MPL-2.0; qpdf Apache-2.0
+Source and license information: https://github.com/pikepdf/pikepdf
+
+OpenCV (opencv-python-headless) 5.0.0.93, fire 0.7.1
+License: Apache-2.0
+Source and license information: https://github.com/opencv/opencv-python
+
+openpyxl 3.1.5, et-xmlfile 2.0.0, python-docx 1.2.0, fontTools 4.66.1,
+Brotli 1.2.0, texttable 1.7.1, termcolor 3.3.0
+License: MIT
+Source and license information: https://pypi.org/project/<name>/
+
+lxml 6.1.3, Python-Markdown 3.11, psutil 7.2.2
+License: BSD-3-Clause
+Source and license information: https://lxml.de, https://github.com/Python-Markdown/markdown
+
+py7zr 1.1.4, pyppmd 1.3.1, pybcj 1.0.8, inflate64 1.0.4, multivolumefile 0.2.3
+License: LGPL-2.1-or-later
+Source and license information: https://github.com/miurahr/py7zr
+These are dynamically loaded Python packages and may be replaced by the user.
+
+Archive extraction uses macOS's built-in /usr/bin/bsdtar (libarchive, BSD-2-Clause).
+
+Optional conversion components
+------------------------------
+
+These are not shipped with Wemute. They are downloaded on request from their
+official release URLs, verified against a pinned size and SHA-256, and run as
+separate programs.
+
+LibreOffice 26.8.1 — MPL-2.0 — https://www.libreoffice.org/about-us/licenses/
+Calibre 9.16.0 — GPL-3.0-only — https://github.com/kovidgoyal/calibre
+Pandoc 3.12.1 — GPL-2.0-or-later — https://github.com/jgm/pandoc

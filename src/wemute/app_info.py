@@ -127,6 +127,84 @@ THIRD_PARTY_COMPONENTS: tuple[dict[str, str], ...] = (
         "license": "MIT",
         "url": "https://github.com/facebookresearch/demucs/blob/main/LICENSE",
     },
+    {
+        "name": "PyMuPDF (MuPDF)",
+        "version": "1.28.2",
+        "license": "AGPL-3.0-only",
+        "url": "https://github.com/pymupdf/PyMuPDF/blob/main/COPYING",
+    },
+    {
+        "name": "pdf2docx",
+        "version": "0.5.13",
+        "license": "MIT",
+        "url": "https://github.com/ArtifexSoftware/pdf2docx/blob/master/LICENSE",
+    },
+    {
+        "name": "pypdfium2 / PDFium",
+        "version": "5.14.0",
+        "license": "Apache-2.0 OR BSD-3-Clause; PDFium BSD-3-Clause",
+        "url": "https://github.com/pypdfium2-team/pypdfium2/tree/main/LICENSES",
+    },
+    {
+        "name": "pikepdf / qpdf",
+        "version": "10.17.0",
+        "license": "MPL-2.0; qpdf Apache-2.0",
+        "url": "https://github.com/pikepdf/pikepdf/blob/main/LICENSE.txt",
+    },
+    {
+        "name": "OpenCV (headless)",
+        "version": "5.0.0.93",
+        "license": "Apache-2.0",
+        "url": "https://github.com/opencv/opencv-python/blob/4.x/LICENSE.txt",
+    },
+    {
+        "name": "openpyxl / et-xmlfile",
+        "version": "3.1.5 / 2.0.0",
+        "license": "MIT",
+        "url": "https://foss.heptapod.net/openpyxl/openpyxl/-/blob/branch/default/LICENCE.rst",
+    },
+    {
+        "name": "python-docx / lxml",
+        "version": "1.2.0 / 6.1.3",
+        "license": "MIT / BSD-3-Clause",
+        "url": "https://github.com/python-openxml/python-docx/blob/master/LICENSE",
+    },
+    {
+        "name": "fontTools / Brotli",
+        "version": "4.66.1 / 1.2.0",
+        "license": "MIT",
+        "url": "https://github.com/fonttools/fonttools/blob/main/LICENSE",
+    },
+    {
+        "name": "py7zr (pyppmd, pybcj, inflate64, multivolumefile)",
+        "version": "1.1.4",
+        "license": "LGPL-2.1-or-later",
+        "url": "https://github.com/miurahr/py7zr/blob/master/LICENSE",
+    },
+    {
+        "name": "Python-Markdown",
+        "version": "3.11",
+        "license": "BSD-3-Clause",
+        "url": "https://github.com/Python-Markdown/markdown/blob/master/LICENSE.md",
+    },
+    {
+        "name": "LibreOffice optional component",
+        "version": "26.8.1",
+        "license": "MPL-2.0",
+        "url": "https://www.libreoffice.org/about-us/licenses/",
+    },
+    {
+        "name": "Calibre optional component",
+        "version": "9.16.0",
+        "license": "GPL-3.0-only",
+        "url": "https://github.com/kovidgoyal/calibre/blob/master/LICENSE",
+    },
+    {
+        "name": "Pandoc optional component",
+        "version": "3.12.1",
+        "license": "GPL-2.0-or-later",
+        "url": "https://github.com/jgm/pandoc/blob/main/COPYRIGHT",
+    },
 )
 
 

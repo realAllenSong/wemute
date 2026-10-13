@@ -12,6 +12,14 @@ GROUP_LABELS = {
         MediaKind.AUDIO: "Audio",
         MediaKind.VIDEO: "Video",
         MediaKind.DOCUMENT: "Documents",
+        MediaKind.SPREADSHEET: "Spreadsheets",
+        MediaKind.PRESENTATION: "Presentations",
+        MediaKind.PDF: "PDFs",
+        MediaKind.EBOOK: "Ebooks",
+        MediaKind.ARCHIVE: "Archives",
+        MediaKind.DATA: "Text & data",
+        MediaKind.FONT: "Fonts",
+        MediaKind.VECTOR: "Vector graphics",
         MediaKind.OTHER: "Other",
     },
     "zh": {
@@ -19,16 +27,33 @@ GROUP_LABELS = {
         MediaKind.AUDIO: "音频",
         MediaKind.VIDEO: "视频",
         MediaKind.DOCUMENT: "文档",
+        MediaKind.SPREADSHEET: "表格",
+        MediaKind.PRESENTATION: "演示文稿",
+        MediaKind.PDF: "PDF",
+        MediaKind.EBOOK: "电子书",
+        MediaKind.ARCHIVE: "压缩包",
+        MediaKind.DATA: "文本与数据",
+        MediaKind.FONT: "字体",
+        MediaKind.VECTOR: "矢量图",
         MediaKind.OTHER: "其他",
     },
 }
 
+# Card order; the sentence reads in SENTENCE_ORDER below.
 GROUP_ORDER = {
     MediaKind.IMAGE: 0,
     MediaKind.AUDIO: 1,
     MediaKind.VIDEO: 2,
     MediaKind.DOCUMENT: 3,
-    MediaKind.OTHER: 4,
+    MediaKind.SPREADSHEET: 4,
+    MediaKind.PRESENTATION: 5,
+    MediaKind.PDF: 6,
+    MediaKind.EBOOK: 7,
+    MediaKind.DATA: 8,
+    MediaKind.VECTOR: 9,
+    MediaKind.FONT: 10,
+    MediaKind.ARCHIVE: 11,
+    MediaKind.OTHER: 12,
 }
 
 
@@ -194,29 +219,170 @@ def progress_summary(done: int, total: int, language: str = "en") -> str:
     return f"Converting {done} of {total}"
 
 
-# The sentence reads image → video → audio, independent of the list order.
-SENTENCE_ORDER = (MediaKind.IMAGE, MediaKind.VIDEO, MediaKind.AUDIO)
+# The sentence reads image → video → audio → documents…, independent of the list order.
+SENTENCE_ORDER = (
+    MediaKind.IMAGE,
+    MediaKind.VIDEO,
+    MediaKind.AUDIO,
+    MediaKind.DOCUMENT,
+    MediaKind.SPREADSHEET,
+    MediaKind.PRESENTATION,
+    MediaKind.PDF,
+    MediaKind.EBOOK,
+    MediaKind.DATA,
+    MediaKind.VECTOR,
+    MediaKind.FONT,
+    MediaKind.ARCHIVE,
+)
 
 _COUNT_UNITS = {
     "zh": {
         MediaKind.IMAGE: ("张图片", "张图片"),
         MediaKind.VIDEO: ("个视频", "个视频"),
         MediaKind.AUDIO: ("段音频", "段音频"),
+        MediaKind.DOCUMENT: ("个文档", "个文档"),
+        MediaKind.SPREADSHEET: ("个表格", "个表格"),
+        MediaKind.PRESENTATION: ("个演示文稿", "个演示文稿"),
+        MediaKind.PDF: ("个 PDF", "个 PDF"),
+        MediaKind.EBOOK: ("本电子书", "本电子书"),
+        MediaKind.ARCHIVE: ("个压缩包", "个压缩包"),
+        MediaKind.DATA: ("个文本文件", "个文本文件"),
+        MediaKind.FONT: ("个字体", "个字体"),
+        MediaKind.VECTOR: ("个 SVG 图形", "个 SVG 图形"),
     },
     "en": {
         MediaKind.IMAGE: ("image", "images"),
         MediaKind.VIDEO: ("video", "videos"),
         MediaKind.AUDIO: ("audio file", "audio files"),
+        MediaKind.DOCUMENT: ("document", "documents"),
+        MediaKind.SPREADSHEET: ("spreadsheet", "spreadsheets"),
+        MediaKind.PRESENTATION: ("presentation", "presentations"),
+        MediaKind.PDF: ("PDF", "PDFs"),
+        MediaKind.EBOOK: ("ebook", "ebooks"),
+        MediaKind.ARCHIVE: ("archive", "archives"),
+        MediaKind.DATA: ("text file", "text files"),
+        MediaKind.FONT: ("font", "fonts"),
+        MediaKind.VECTOR: ("SVG graphic", "SVG graphics"),
     },
 }
 
+# When every file of a group shares a family, the noun names it: "3 个 Word 文档".
+_FAMILIES: tuple[tuple[frozenset[str], str, tuple[str, str]], ...] = (
+    (frozenset({".doc", ".docx", ".docm", ".dotx"}), "个 Word 文档", ("Word document", "Word documents")),
+    (frozenset({".pages"}), "个 Pages 文稿", ("Pages document", "Pages documents")),
+    (frozenset({".odt", ".fodt"}), "个 ODT 文档", ("ODT document", "ODT documents")),
+    (frozenset({".rtf"}), "个 RTF 文档", ("RTF document", "RTF documents")),
+    (frozenset({".xls", ".xlsx", ".xlsm"}), "个 Excel 表格", ("Excel spreadsheet", "Excel spreadsheets")),
+    (frozenset({".csv", ".tsv"}), "个 CSV 表格", ("CSV file", "CSV files")),
+    (frozenset({".numbers"}), "个 Numbers 表格", ("Numbers spreadsheet", "Numbers spreadsheets")),
+    (frozenset({".ppt", ".pptx", ".pps", ".ppsx"}), "个 PPT 演示文稿", ("PowerPoint presentation", "PowerPoint presentations")),
+    (frozenset({".key"}), "个 Keynote 演示文稿", ("Keynote presentation", "Keynote presentations")),
+    (frozenset({".epub"}), "本 EPUB 电子书", ("EPUB book", "EPUB books")),
+    (frozenset({".mobi", ".azw", ".azw3"}), "本 Kindle 电子书", ("Kindle book", "Kindle books")),
+    (frozenset({".zip"}), "个 ZIP 压缩包", ("ZIP archive", "ZIP archives")),
+    (frozenset({".md", ".markdown"}), "个 Markdown 文件", ("Markdown file", "Markdown files")),
+    (frozenset({".json"}), "个 JSON 文件", ("JSON file", "JSON files")),
+    (frozenset({".html", ".htm"}), "个网页", ("web page", "web pages")),
+    (frozenset({".txt"}), "个纯文本", ("plain-text file", "plain-text files")),
+)
 
-def count_phrase(kind: MediaKind, count: int, language: str = "en") -> str:
-    """"12 张图片", "2 videos", "1 audio file"."""
+
+def count_phrase(
+    kind: MediaKind, count: int, language: str = "en", suffixes: set[str] | None = None
+) -> str:
+    """"12 张图片", "2 videos", "3 个 Word 文档"."""
+    if suffixes:
+        lowered = {suffix.lower() for suffix in suffixes}
+        for members, zh_unit, en_units in _FAMILIES:
+            if lowered <= members:
+                if language == "zh":
+                    return f"{count} {zh_unit}"
+                return f"{count} {en_units[0] if count == 1 else en_units[1]}"
     units = _COUNT_UNITS.get(language, _COUNT_UNITS["en"])
     fallback = ("个文件", "个文件") if language == "zh" else ("file", "files")
     singular, plural = units.get(kind, fallback)
     return f"{count} {singular if count == 1 else plural}"
+
+
+# Menu and pill wording for choices that are not plain format names.
+_CHOICE_LABELS = {
+    "zh": {
+        "PNG (per page)": "每页一张 PNG",
+        "JPG (per page)": "每页一张 JPG",
+        "PNG (per slide)": "每页一张 PNG",
+        "Smaller PDF": "更小的 PDF",
+        "Folder": "文件夹",
+        "One PDF": "一个 PDF",
+        "Merged PDF": "一个 PDF",
+        "One ZIP": "一个 ZIP",
+        "One 7Z": "一个 7Z",
+    },
+    "en": {
+        "PNG (per page)": "PNG per page",
+        "JPG (per page)": "JPG per page",
+        "PNG (per slide)": "PNG per slide",
+        "Smaller PDF": "Smaller PDF",
+        "Folder": "folders",
+        "One PDF": "one PDF",
+        "Merged PDF": "one PDF",
+        "One ZIP": "one ZIP",
+        "One 7Z": "one 7Z",
+    },
+}
+
+# Combined outputs read as a whole phrase in menus: "合成一个 PDF".
+_COMBINE_MENU = {
+    "zh": {
+        "One PDF": "合成一个 PDF",
+        "Merged PDF": "合并成一个 PDF",
+        "One ZIP": "打包成一个 ZIP",
+        "One 7Z": "打包成一个 7Z",
+    },
+    "en": {
+        "One PDF": "Combine into one PDF",
+        "Merged PDF": "Merge into one PDF",
+        "One ZIP": "Pack into one ZIP",
+        "One 7Z": "Pack into one 7Z",
+    },
+}
+
+
+def choice_label(choice: str, language: str = "en") -> str:
+    return _CHOICE_LABELS.get(language, _CHOICE_LABELS["en"]).get(choice, choice)
+
+
+def combine_menu_label(choice: str, language: str = "en") -> str:
+    return _COMBINE_MENU.get(language, _COMBINE_MENU["en"]).get(choice, choice)
+
+
+def sentence_words(kind: MediaKind, target: str, language: str = "en") -> tuple[str, str]:
+    """Lead and verb around the count: "把 … 转成", "Merge … into"."""
+    zh = language == "zh"
+    if target == "One PDF":
+        return ("把", "合成") if zh else ("Combine", "into")
+    if target == "Merged PDF":
+        return ("把", "合并成") if zh else ("Merge", "into")
+    if target in {"One ZIP", "One 7Z"}:
+        return ("把", "打包成") if zh else ("Pack", "into")
+    if kind == MediaKind.ARCHIVE:
+        return ("把", "解压成") if zh else ("Extract", "into")
+    return ("把", "转成") if zh else ("Convert", "to")
+
+
+_COMPONENT_NAMES = {
+    "zh": {"libreoffice": "文档组件", "calibre": "电子书组件", "pandoc": "文本排版组件"},
+    "en": {"libreoffice": "Office component", "calibre": "Ebook component", "pandoc": "Text component"},
+}
+
+
+def component_name(component_id: str, language: str = "en") -> str:
+    return _COMPONENT_NAMES.get(language, _COMPONENT_NAMES["en"]).get(component_id, component_id)
+
+
+def clear_notice(count: int, language: str = "en") -> str:
+    if language == "zh":
+        return f"已清空 {count} 个文件"
+    return f"Cleared {count} file{'s' if count != 1 else ''}"
 
 
 def done_title(succeeded: int, failed: int, language: str = "en") -> str:

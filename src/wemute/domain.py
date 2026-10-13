@@ -11,7 +11,18 @@ class MediaKind(StrEnum):
     AUDIO = "audio"
     VIDEO = "video"
     DOCUMENT = "document"
+    SPREADSHEET = "spreadsheet"
+    PRESENTATION = "presentation"
+    PDF = "pdf"
+    EBOOK = "ebook"
+    ARCHIVE = "archive"
+    DATA = "data"
+    FONT = "font"
+    VECTOR = "vector"
     OTHER = "other"
+
+
+MEDIA_KINDS = frozenset({MediaKind.IMAGE, MediaKind.AUDIO, MediaKind.VIDEO})
 
 
 class JobStatus(StrEnum):
@@ -74,6 +85,11 @@ class JobRecord:
     image_options: ImageOptions = field(default_factory=ImageOptions)
     operation: OperationKind = OperationKind.CONVERT
     operation_options: dict[str, Any] = field(default_factory=dict)
+    # Live progress detail; never persisted as meaningful state.
+    stage: str = ""
+    indeterminate: bool = False
+    started_at: float = 0.0
+    waiting_component: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -85,7 +101,10 @@ class JobRecord:
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "JobRecord":
         source_payload = dict(payload["source"])
-        source_payload["kind"] = MediaKind(source_payload["kind"])
+        try:
+            source_payload["kind"] = MediaKind(source_payload["kind"])
+        except ValueError:
+            source_payload["kind"] = MediaKind.OTHER
         image_options = ImageOptions(**payload.get("image_options", {}))
         status = JobStatus(payload.get("status", JobStatus.QUEUED))
         try:
@@ -121,3 +140,5 @@ class ConversionPlan:
     server_command: list[str] = field(default_factory=list)
     worker_request: dict[str, Any] = field(default_factory=dict)
     additional_outputs: list[tuple[Path, Path]] = field(default_factory=list)
+    # The output is a folder by design (pages, slides, extracted archives).
+    folder_output: bool = False

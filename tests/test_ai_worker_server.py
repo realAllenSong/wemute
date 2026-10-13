@@ -3,14 +3,16 @@ from __future__ import annotations
 import io
 import json
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 from PIL import Image
 
 from wemute.ai_worker import (
     InferenceSessionCache,
+    Reporter,
+    WorkerError,
     erase_object,
     separate_vocals,
     serve,
@@ -83,7 +85,20 @@ def test_worker_server_reuses_cache_across_requests() -> None:
     assert all(event.get("ok", True) for event in events)
 
 
-def test_upscale_worker_selects_scale_and_illustration_model(tmp_path: Path) -> None:
+class FakeHelper:
+    """Stands in for realesrgan-ncnn-vulkan: writes the output, prints tile progress."""
+
+    def __init__(self, command: list[str], stderr: bytes, returncode: int = 0) -> None:
+        self.stderr = io.BufferedReader(io.BytesIO(stderr))
+        self.returncode = returncode
+        if returncode == 0:
+            Path(command[command.index("-o") + 1]).write_bytes(b"upscaled")
+
+    def wait(self) -> int:
+        return self.returncode
+
+
+def upscale_runtime(tmp_path: Path) -> tuple[Path, Path, Path]:
     runtime = tmp_path / "runtime"
     executable = runtime / "realesrgan-ncnn-vulkan"
     executable.parent.mkdir(parents=True)
@@ -91,20 +106,24 @@ def test_upscale_worker_selects_scale_and_illustration_model(tmp_path: Path) -> 
     (runtime / "models").mkdir()
     source = tmp_path / "source.tiff"
     source.write_bytes(b"source")
-    destination = tmp_path / "output.png"
+    return runtime, source, tmp_path / "output.png"
+
+
+def fake_convert(_source: Path, output: Path, _target: str) -> None:
+    output.write_bytes(b"normalized")
+
+
+def test_upscale_worker_selects_scale_and_illustration_model(tmp_path: Path) -> None:
+    runtime, source, destination = upscale_runtime(tmp_path)
     commands: list[list[str]] = []
 
-    def fake_convert(_source: Path, output: Path, _target: str) -> None:
-        output.write_bytes(b"normalized")
-
-    def fake_run(command: list[str], **_kwargs):  # noqa: ANN202, ANN003
+    def fake_popen(command: list[str], **_kwargs):  # noqa: ANN202, ANN003
         commands.append(command)
-        Path(command[command.index("-o") + 1]).write_bytes(b"upscaled")
-        return SimpleNamespace(returncode=0, stdout="", stderr="")
+        return FakeHelper(command, b"[0 Apple M3]  queueC=0[1]\n0.00%\r25.00%\r50.00%\r75.00%\n")
 
     with (
         patch("wemute.image_worker.convert_image", side_effect=fake_convert),
-        patch("wemute.ai_worker.subprocess.run", side_effect=fake_run),
+        patch("wemute.ai_worker.subprocess.Popen", side_effect=fake_popen),
     ):
         upscale_image(
             source,
@@ -116,6 +135,78 @@ def test_upscale_worker_selects_scale_and_illustration_model(tmp_path: Path) -> 
     assert destination.read_bytes() == b"upscaled"
     assert commands[0][commands[0].index("-s") + 1] == "4"
     assert commands[0][commands[0].index("-n") + 1] == "realesrgan-x4plus-anime"
+
+
+def test_upscale_reports_each_tile_and_finishes_at_one(tmp_path: Path) -> None:
+    runtime, source, destination = upscale_runtime(tmp_path)
+    events: list[dict[str, object]] = []
+    tiles = b"".join(f"{value:.2f}%\r".encode() for value in (0, 12.5, 25, 37.5, 50, 62.5, 75, 87.5))
+
+    with (
+        patch("wemute.image_worker.convert_image", side_effect=fake_convert),
+        patch(
+            "wemute.ai_worker.subprocess.Popen",
+            side_effect=lambda command, **_kwargs: FakeHelper(command, tiles),
+        ),
+    ):
+        upscale_image(source, destination, runtime, {"scale": 2}, Reporter(events.append))
+
+    values = [float(event["value"]) for event in events if event["type"] == "progress"]
+    stages = [event["stage"] for event in events if event["type"] == "stage"]
+    assert stages == ["prepare", "process"]
+    assert values == sorted(values)
+    assert values[-1] == 1.0
+    # Eight tiles map onto distinct steps between 12 % and 97 %.
+    assert len([value for value in values if 0.12 <= value < 0.97]) >= 8
+
+
+def test_upscale_failure_surfaces_the_helper_message(tmp_path: Path) -> None:
+    runtime, source, destination = upscale_runtime(tmp_path)
+
+    with (
+        patch("wemute.image_worker.convert_image", side_effect=fake_convert),
+        patch(
+            "wemute.ai_worker.subprocess.Popen",
+            side_effect=lambda command, **_kwargs: FakeHelper(
+                command, b"0.00%\rvkAllocateMemory failed\n", returncode=255
+            ),
+        ),
+        pytest.raises(RuntimeError, match="vkAllocateMemory failed"),
+    ):
+        upscale_image(source, destination, runtime, {"scale": 2})
+
+
+def test_worker_server_forwards_stage_events_and_error_codes() -> None:
+    request = json.dumps(
+        {
+            "job_id": "job-1",
+            "operation": "remove-background",
+            "source": "/tmp/source.png",
+            "destination": "/tmp/output.png",
+            "model": "apple-vision",
+            "backend": "apple-vision",
+            "options": {},
+        }
+    )
+    output = io.StringIO()
+
+    def fake_run(*args, **_kwargs) -> None:  # noqa: ANN002, ANN003
+        reporter = args[7]
+        reporter.stage("process")
+        reporter.progress(0.5)
+        raise WorkerError("no_subject", "No subject found", "没有找到可以抠出的主体")
+
+    with patch("wemute.ai_worker.run", side_effect=fake_run):
+        assert serve(io.StringIO(request + "\n"), output) == 0
+
+    events = [json.loads(line.partition("=")[2]) for line in output.getvalue().splitlines()]
+    assert [event["type"] for event in events] == ["stage", "progress", "result"]
+    assert all(event["job_id"] == "job-1" for event in events)
+    assert events[0]["stage"] == "process"
+    assert events[0]["label"] in {"Processing…", "处理中…"}
+    assert events[-1]["ok"] is False
+    assert events[-1]["code"] == "no_subject"
+    assert events[-1]["error"] in {"No subject found", "没有找到可以抠出的主体"}
 
 
 def test_erase_worker_changes_only_the_masked_area(tmp_path: Path) -> None:
