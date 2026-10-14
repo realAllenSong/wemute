@@ -9,7 +9,7 @@ from pathlib import Path
 from PySide6.QtCore import Property, QObject, QProcess, Qt, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 
-from wemute import finder_actions, shortcut_file
+from wemute import command_line, finder_actions, shortcut_file
 from wemute.integrations import detect_app, thundertalk_app, thundertalk_cli_version
 from wemute.paths import CACHE_ROOT
 from wemute.preferences import APPEARANCES, Preferences, PreferenceStore
@@ -189,6 +189,25 @@ class Integrations(QObject):
             QProcess.startDetached("/usr/bin/open", [str(signed)])
         except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
             self._error = str(exc)
+        self.changed.emit()
+
+    @Property(str, notify=changed)
+    def commandLinePath(self) -> str:
+        path = command_line.installed_path()
+        return str(path) if path else ""
+
+    @Slot()
+    def installCommandLine(self) -> None:
+        try:
+            command_line.install(finder_actions.wemute_command())
+            self._error = ""
+        except OSError as exc:
+            self._error = str(exc)
+        self.changed.emit()
+
+    @Slot()
+    def removeCommandLine(self) -> None:
+        command_line.remove()
         self.changed.emit()
 
     @Slot(result=str)

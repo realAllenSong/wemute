@@ -65,7 +65,13 @@ def _save_encoded(
         image.save(output, format="AVIF", **save_kwargs)
     elif target == "TIFF":
         save_kwargs.update(compression="tiff_deflate")
-        image.save(output, format="TIFF", **save_kwargs)
+        try:
+            image.save(output, format="TIFF", **save_kwargs)
+        except (OSError, ValueError, RuntimeError):
+            # libtiff refuses some EXIF fields from HEIC/camera files ("Error
+            # setting from dictionary"); keep the picture and colour profile.
+            save_kwargs.pop("exif", None)
+            image.save(output, format="TIFF", **save_kwargs)
     elif target == "BMP":
         if image.mode not in {"RGB", "RGBA"}:
             image = image.convert("RGBA" if "transparency" in image.info else "RGB")

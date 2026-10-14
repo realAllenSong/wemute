@@ -1,6 +1,6 @@
 [project]
 name = "wemute"
-version = "0.6.0"
+version = "0.7.0"
 description = "A local-first, cross-platform file conversion workspace."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
@@ -24,6 +24,7 @@ dependencies = [
   "py7zr>=0.22,<2",
   "markdown>=3.7,<4",
   "python-docx>=1.1,<2",
+  "python-pptx>=1.0,<2",
   "pyobjc-framework-quicklookthumbnailing>=11 ; sys_platform == 'darwin'",
 ]
 
@@ -35,7 +36,6 @@ dev = [
   "pyinstaller>=6.12,<7",
   "pytest>=8.3,<10",
   "pytest-cov>=6,<8",
-  "python-pptx>=1.0,<2",
 ]
 
 [build-system]

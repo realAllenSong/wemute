@@ -120,7 +120,9 @@ class FfmpegAdapter:
             if label == "AIFF":
                 return common + ["-c:a", "pcm_s24be"]
             if label == "OGG":
-                return common + ["-c:a", "vorbis", "-strict", "-2", "-q:a", "6"]
+                # FFmpeg's own Vorbis encoder only takes stereo; mono recordings
+                # (calls, voice memos) failed with nothing written.
+                return common + ["-c:a", "vorbis", "-strict", "-2", "-ac", "2", "-q:a", "6"]
             return common + ["-c:a", "libopus", "-b:a", "160k"]
 
         if job.source.kind == MediaKind.VIDEO:

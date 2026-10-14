@@ -925,6 +925,28 @@ Window {
                             }
                         }
                     }
+                    Group {
+                        SettingRow {
+                            divider: false
+                            title: settings.tr("command_line")
+                            description: integrations.commandLinePath.length > 0
+                                ? settings.fill("command_line_installed", "path", integrations.commandLinePath)
+                                : settings.tr("command_line_desc")
+                            Tag {
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: integrations.commandLinePath.length > 0
+                                text: settings.tr("installed")
+                                tone: "teal"
+                            }
+                            WButton {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: integrations.commandLinePath.length > 0 ? settings.tr("uninstall") : settings.tr("install")
+                                onClicked: integrations.commandLinePath.length > 0
+                                    ? integrations.removeCommandLine()
+                                    : integrations.installCommandLine()
+                            }
+                        }
+                    }
                     Note {
                         visible: integrations.lastError.length > 0
                         text: integrations.lastError

@@ -62,7 +62,10 @@ def _notify(title: str, message: str) -> None:
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="Wemute --cli")
+    from wemute import __version__
+
+    parser = argparse.ArgumentParser(prog="wemute", description="Wemute without a window: convert files, or read any file as text for language models.")
+    parser.add_argument("--version", action="version", version=f"wemute {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
     convert = sub.add_parser("convert", help="convert files with the default formats or one tool")
     convert.add_argument("paths", nargs="+")
