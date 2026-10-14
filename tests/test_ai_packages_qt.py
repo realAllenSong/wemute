@@ -10,17 +10,17 @@ def test_catalog_exposes_download_consent_details(tmp_path: Path) -> None:
     app = QCoreApplication.instance() or QCoreApplication([])
     del app
     manifest = ModelManifest(
-        id="u2net",
-        name="Background Removal · Fast",
+        id="realesrgan-photo",
+        name="Image Upscale · Photo",
         version="1",
-        capability="remove-background",
-        filename="u2netp.onnx",
-        download_url="https://example.com/u2netp.onnx",
+        capability="upscale",
+        filename="upscale.onnx",
+        download_url="https://example.com/upscale.onnx",
         sha256="0" * 64,
         size_bytes=4_574_861,
         license="Apache-2.0",
         license_url="https://example.com/license",
-        backend="onnxruntime-u2net",
+        backend="onnxruntime-realesrgan",
         description="Runs locally.",
     )
     controller = AIModelController(
@@ -34,3 +34,19 @@ def test_catalog_exposes_download_consent_details(tmp_path: Path) -> None:
     assert row["license"] == "Apache-2.0"
     assert row["installed"] is False
     controller.shutdown()
+
+
+def test_models_apple_vision_covers_are_not_offered(tmp_path: Path) -> None:
+    from wemute.ai_engine import apple_vision_available
+
+    if not apple_vision_available():
+        import pytest
+
+        pytest.skip("Apple Vision unavailable")
+    manifest = ModelManifest(
+        id="birefnet", name="Background Removal · High Quality", version="1", capability="remove-background",
+        filename="b.onnx", download_url="https://example.com/b.onnx", sha256="0" * 64, size_bytes=1,
+        license="MIT", license_url="https://example.com", backend="onnxruntime-birefnet",
+    )
+    controller = AIModelController(ModelPackageManager(tmp_path, [manifest]), lambda _actions: None)
+    assert controller.catalog == []

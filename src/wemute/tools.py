@@ -76,11 +76,12 @@ TOOLS: tuple[Tool, ...] = (
     Tool("ID photo white", _IMAGE, PHOTO, "id_photo", options=(("color", "white"),), family="id_photo", icon="id-card"),
     Tool("ID photo blue", _IMAGE, PHOTO, "id_photo", options=(("color", "blue"),), family="id_photo", icon="id-card"),
     Tool("ID photo red", _IMAGE, PHOTO, "id_photo", options=(("color", "red"),), family="id_photo", icon="id-card"),
+    Tool("Portrait blur", _IMAGE, PHOTO, "portrait_blur", icon="aperture"),
     Tool("Straighten", _IMAGE, PHOTO, "straighten", icon="level"),
-    Tool("Auto enhance", _IMAGE, PHOTO, "enhance", icon="wand"),
     Tool("Subtitles SRT", _AV, SPEECH, "transcribe", ".srt", options=(("format", "srt"),), family="subtitles", icon="captions"),
     Tool("Subtitles VTT", _AV, SPEECH, "transcribe", ".vtt", options=(("format", "vtt"),), family="subtitles", icon="captions"),
     Tool("Transcript TXT", _AV, SPEECH, "transcribe", ".txt", options=(("format", "txt"),), family="subtitles", icon="captions"),
+    Tool("Transcript speakers", _AV, SPEECH, "transcribe", ".md", options=(("format", "md"), ("speakers", True)), family="subtitles", icon="captions"),
     Tool("Read aloud M4A", _TEXT_PDF, SPEECH, "speak", ".m4a", icon="audio-lines"),
 )
 
@@ -110,7 +111,14 @@ def thundertalk_available() -> bool:
 
 
 def tool_ready(tool: Tool) -> bool:
-    return thundertalk_available() if tool.needs == NEEDS_THUNDERTALK else vision_available()
+    if tool.needs == NEEDS_THUNDERTALK:
+        if ("speakers", True) in tool.options:
+            # Speaker labels arrived with ThunderTalk's CLI version 2.
+            from wemute.integrations import thundertalk_cli_version
+
+            return thundertalk_cli_version() >= 2
+        return thundertalk_available()
+    return vision_available()
 
 
 def tool_for(key: str) -> Tool | None:
@@ -168,11 +176,12 @@ _TEXT = {
         "ID photo white": ("白", "证件照换白底"),
         "ID photo blue": ("蓝", "证件照换蓝底"),
         "ID photo red": ("红", "证件照换红底"),
+        "Portrait blur": ("背景虚化", "背景虚化"),
         "Straighten": ("自动扶正", "自动扶正"),
-        "Auto enhance": ("一键增强", "一键增强"),
         "Subtitles SRT": ("SRT", "SRT 字幕"),
         "Subtitles VTT": ("VTT", "VTT 字幕"),
         "Transcript TXT": ("文字稿", "文字稿"),
+        "Transcript speakers": ("分说话人", "分说话人的文字稿"),
         "Read aloud M4A": ("朗读成音频", "M4A 音频"),
     },
     "en": {
@@ -198,11 +207,12 @@ _TEXT = {
         "ID photo white": ("White", "ID photo · white"),
         "ID photo blue": ("Blue", "ID photo · blue"),
         "ID photo red": ("Red", "ID photo · red"),
+        "Portrait blur": ("Blur background", "a blurred background"),
         "Straighten": ("Straighten", "straightening"),
-        "Auto enhance": ("Auto enhance", "auto enhance"),
         "Subtitles SRT": ("SRT", "SRT subtitles"),
         "Subtitles VTT": ("VTT", "VTT subtitles"),
         "Transcript TXT": ("Transcript", "a transcript"),
+        "Transcript speakers": ("By speaker", "a transcript by speaker"),
         "Read aloud M4A": ("Read aloud", "M4A audio"),
     },
 }
@@ -260,8 +270,8 @@ _NAME_SUFFIX = {
         "crop": " 裁剪",
         "faces": " 打码",
         "id_photo": " 证件照",
+        "portrait_blur": " 虚化",
         "straighten": " 扶正",
-        "enhance": " 增强",
         "searchable": " 可搜索",
     },
     "en": {
@@ -270,8 +280,8 @@ _NAME_SUFFIX = {
         "crop": " crop",
         "faces": " faces hidden",
         "id_photo": " ID photo",
+        "portrait_blur": " blurred",
         "straighten": " straightened",
-        "enhance": " enhanced",
         "searchable": " searchable",
     },
 }

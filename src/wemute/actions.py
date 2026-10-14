@@ -390,17 +390,18 @@ _NAMED: tuple[Action, ...] = (
         requires=VISION,
     ),
     Action(
+        "portrait_blur", "image", ("背景虚化", "Blur background"), "aperture", "image",
+        palette_title=("人像背景虚化", "Portrait mode: blur the background"),
+        category=("照片工具", "Photo tools"), choices=_tool("Portrait blur"),
+        hint=("拖入人像或商品照片就会虚化背景", "drop portraits or product shots to blur the background"),
+        keywords=("虚化", "背景", "人像", "景深", "模糊背景", "portrait", "bokeh", "blur background", "depth"),
+        requires=VISION,
+    ),
+    Action(
         "straighten", "image", ("自动扶正", "Straighten"), "level", "image", group="photo_more",
         category=("照片工具", "Photo tools"), choices=_tool("Straighten"),
         hint=("拖入歪的照片就会自动扶正", "drop tilted photos to level them"),
         keywords=("扶正", "水平", "歪", "旋转", "straighten", "level", "horizon", "rotate"),
-        requires=VISION,
-    ),
-    Action(
-        "enhance", "image", ("一键增强", "Auto enhance"), "wand", "image", group="photo_more",
-        category=("照片工具", "Photo tools"), choices=_tool("Auto enhance"),
-        hint=("拖入照片就会自动调好亮度和颜色", "drop photos to fix their light and color"),
-        keywords=("增强", "调色", "美化", "enhance", "auto", "fix", "color"),
         requires=VISION,
     ),
     Action(
@@ -464,6 +465,8 @@ _NAMED: tuple[Action, ...] = (
             ("Subtitles SRT", "SRT", "SRT 字幕", "SRT subtitles", " SRT 字幕", "SRT subtitles"),
             ("Subtitles VTT", "VTT", "VTT 字幕", "VTT subtitles", " VTT 字幕", "VTT subtitles"),
             ("Transcript TXT", "TXT", "文字稿", "Transcript", "文字稿", "a transcript"),
+            ("Transcript speakers", "MD", "分说话人的文字稿", "Transcript by speaker",
+             "分说话人的文字稿", "a transcript that labels each speaker"),
         )
     ),
     Action(

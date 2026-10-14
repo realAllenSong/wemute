@@ -96,10 +96,18 @@ def text_for_reading(source: Path, suffix: str) -> str:
 
 def _command(binary: Path, tool: str, request: dict, text_file: Path | None) -> list[str]:
     output = request["output"]
+    # Files want accuracy over latency: ThunderTalk's most accurate model and
+    # its best voice, not the dictation model or the Speak page's choice.
+    # CLI version 1 (the first ThunderTalk with --cli) has no `best`.
+    best = ["--engine", "best"] if int(request.get("thundertalk_cli", 1)) >= 2 else []
     if tool == "transcribe":
-        fmt = request.get("options", {}).get("format", "srt")
-        return [str(binary), "--cli", "transcribe", request["sources"][0], "--out", output, "--format", fmt]
-    return [str(binary), "--cli", "speak", "--text-file", str(text_file), "--out", output]
+        options = request.get("options", {})
+        command = [str(binary), "--cli", "transcribe", request["sources"][0], "--out", output,
+                   "--format", options.get("format", "srt")]
+        if options.get("speakers"):
+            return [*command, "--speakers"]
+        return [*command, *best]
+    return [str(binary), "--cli", "speak", "--text-file", str(text_file), "--out", output, *best]
 
 
 def run(request: dict, reporter: Reporter) -> None:

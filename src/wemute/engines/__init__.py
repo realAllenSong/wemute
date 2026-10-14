@@ -223,9 +223,10 @@ def _plan_tool(job: JobRecord, destination: Path, sources: list[Path], language:
         "language": language,
     }
     if tool.engine in SPEECH_ENGINES:
-        from wemute.integrations import thundertalk_binary
+        from wemute.integrations import thundertalk_binary, thundertalk_cli_version
 
         request["thundertalk"] = str(thundertalk_binary())
+        request["thundertalk_cli"] = thundertalk_cli_version()
         request["source_suffix"] = source.suffix.lower()
     return ConversionPlan(
         job.id, source, temporary, final, worker_command(request), folder_output=tool.folder

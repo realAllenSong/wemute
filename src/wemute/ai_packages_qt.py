@@ -55,6 +55,9 @@ class AIModelController(QObject):
         rows: list[dict[str, object]] = []
         for manifest in self.packages.manifests:
             installed = self.packages.installed(manifest)
+            if not installed and self._covered_by_system(manifest):
+                # Apple Vision already does this on this Mac; don't offer a download.
+                continue
             installing = manifest.id == self._active_id
             partial_size = self.packages.partial_size(manifest)
             name, description = manifest.name, manifest.description
@@ -83,6 +86,14 @@ class AIModelController(QObject):
                 }
             )
         return rows
+
+    def _covered_by_system(self, manifest) -> bool:  # noqa: ANN001
+        from wemute.capabilities import ACTIONS
+
+        return any(
+            manifest.id in definition.package_ids and self.adapter.system_backend(operation)
+            for operation, definition in ACTIONS.items()
+        )
 
     @Property(bool, notify=busyChanged)
     def busy(self) -> bool:

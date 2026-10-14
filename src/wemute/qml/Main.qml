@@ -1110,6 +1110,7 @@ ApplicationWindow {
 
     ToolsMenu {
         id: toolsMenu
+        objectName: "toolsMenu"
         parent: window.contentItem
     }
 

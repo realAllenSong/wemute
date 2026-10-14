@@ -87,7 +87,21 @@ Menu {
         return sequence.replace("Ctrl+", "⌘").replace("Shift+", "⇧").replace("Backspace", "⌫")
     }
 
-    onRowsChanged: Qt.callLater(rebuild)
+    // Never rebuild while open: destroying rows the view is still laying out
+    // crashed the app (heap corruption in polishItems). Rebuild on close.
+    property bool dirty: false
+    onRowsChanged: {
+        if (visible)
+            dirty = true
+        else
+            Qt.callLater(rebuild)
+    }
+    onClosed: {
+        if (dirty) {
+            dirty = false
+            Qt.callLater(rebuild)
+        }
+    }
     Component.onCompleted: Qt.callLater(rebuild)
 
     component MenuPanel: Item {

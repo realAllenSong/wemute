@@ -1,5 +1,5 @@
 """Photo tools on Apple Vision and Core Image: smart crop, face blur, ID photo
-backgrounds, QR/barcode reading, straightening, enhancement, and picking out
+backgrounds, QR/barcode reading, straightening, portrait blur, and picking out
 blurry and duplicate shots. Every output is full resolution, upright, and keeps
 the source colour profile."""
 
@@ -248,16 +248,61 @@ def person_mask(image: Image.Image) -> np.ndarray:
     return np.clip(resize_mask(mask, image.size), 0.0, 1.0)
 
 
+def subject_mask(image: Image.Image) -> np.ndarray | None:
+    """Apple's subject cut-out, the same one Remove Background uses."""
+    from wemute.vision_mask import foreground_mask
+
+    return foreground_mask(flatten(image))
+
+
 def replace_background(image: Image.Image, mask: np.ndarray, color: tuple[int, int, int]) -> Image.Image:
-    from wemute.mattes import color_difference_alpha, decontaminate_edges, finish_alpha, guided_refine
+    from wemute.vision_mask import refined_alpha
 
     rgb = np.asarray(flatten(image))
-    radius = max(2, round(max(image.size) / 320))
-    alpha = finish_alpha(guided_refine(rgb, mask, radius))
-    alpha = color_difference_alpha(rgb, alpha, radius)
-    colors = decontaminate_edges(rgb, alpha, radius).astype(np.float32)
+    alpha, colors = refined_alpha(rgb, mask, key=True)
+    colors = colors.astype(np.float32)
     background = np.array(color, np.float32)
     composed = colors * alpha[..., None] + background * (1.0 - alpha[..., None])
+    return Image.fromarray(np.clip(np.rint(composed), 0, 255).astype(np.uint8), "RGB")
+
+
+def blur_background(image: Image.Image, mask: np.ndarray, strength: float = 1.0) -> Image.Image:
+    """Portrait mode: the subject stays sharp, the background is softly blurred.
+
+    The background is blurred with the subject left out (normalised
+    convolution), so the subject's colours don't glow into the blur around it.
+    """
+    from wemute.vision_mask import refined_alpha
+
+    rgb = np.asarray(flatten(image)).astype(np.float32)
+    alpha, colors = refined_alpha(rgb.astype(np.uint8), mask)
+    radius = max(6.0, max(image.size) / 70 * strength)
+    keep = 1.0 - np.clip(alpha * 1.6, 0.0, 1.0)  # background weight, subject edges excluded
+
+    from wemute.mattes import _box_mean
+
+    factor = 4
+    small = (max(1, image.width // factor), max(1, image.height // factor))
+    box = max(1, round(radius / factor / 1.7))
+
+    def blur(values: np.ndarray) -> np.ndarray:
+        # Three box passes ≈ a Gaussian; done at quarter size, then scaled back.
+        low = np.asarray(Image.fromarray(values.astype(np.float32), mode="F").resize(small, Image.Resampling.BOX), dtype=np.float64)
+        for _ in range(3):
+            low = _box_mean(low, box)
+        return np.asarray(Image.fromarray(low.astype(np.float32), mode="F").resize(image.size, Image.Resampling.BICUBIC))
+
+    weight = blur(keep.astype(np.float32))
+    blurred = np.dstack([
+        blur((rgb[..., channel] * keep).astype(np.float32)) / np.maximum(weight, 1e-4)
+        for channel in range(3)
+    ])
+    # Where the background is fully hidden behind the subject, fall back to a plain blur.
+    plain = np.dstack([blur(rgb[..., channel]) for channel in range(3)])
+    trust = np.clip(weight / 0.15, 0.0, 1.0)[..., None]
+    background = blurred * trust + plain * (1.0 - trust)
+    a = alpha[..., None]
+    composed = colors.astype(np.float32) * a + background * (1.0 - a)
     return Image.fromarray(np.clip(np.rint(composed), 0, 255).astype(np.uint8), "RGB")
 
 
@@ -335,36 +380,6 @@ def straighten(image: Image.Image, angle: float) -> Image.Image:
         int(math.floor(top + crop_height)),
     )
     return rotated.crop(box)
-
-
-# ── enhance ──────────────────────────────────────────────────────────────
-
-HIGH_ISO = 1600
-
-
-def enhance(image: Image.Image, iso: int | None = None) -> Image.Image:
-    """Apple's own auto adjustments (no red-eye pass), plus noise reduction for high ISO."""
-    import Quartz
-
-    rgb = flatten(image)
-    source = ci_image(rgb)
-    extent = source.extent()
-    result = source
-    if iso and iso >= HIGH_ISO:
-        # Before brightening, so the lift does not amplify the grain.
-        level = 0.04 if iso < 3200 else 0.06 if iso < 6400 else 0.08
-        result = ci_filter(
-            "CINoiseReduction", inputImage=result, inputNoiseLevel=level, inputSharpness=0.5
-        ).outputImage()
-    filters = source.autoAdjustmentFiltersWithOptions_({Quartz.kCIImageAutoAdjustRedEye: False}) or []
-    for item in filters:
-        item.setValue_forKey_(result, Quartz.kCIInputImageKey)
-        result = item.outputImage()
-    enhanced = render_ci(result.imageByCroppingToRect_(extent), extent)
-    if image.mode == "RGBA":
-        enhanced = enhanced.convert("RGBA")
-        enhanced.putalpha(image.getchannel("A"))
-    return enhanced
 
 
 # ── blurry and duplicate photos ──────────────────────────────────────────
@@ -584,13 +599,16 @@ def run_photo_tool(tool: str, source: Path, output: Path, extension: str, option
             raise reporter.error("no_faces")
         reporter.progress(0.45)
         result = hide_faces(image, faces, str(options.get("style", "blur")))
-    elif tool == "id_photo":
-        mask = person_mask(image)
-        if float(mask.max()) < 0.5 or float(mask.mean()) < 0.01:
+    elif tool in {"id_photo", "portrait_blur"}:
+        mask = subject_mask(image)
+        if mask is None or float(mask.max()) < 0.5 or float(mask.mean()) < 0.01:
             raise reporter.error("no_person")
         reporter.progress(0.5)
         reporter.stage("stage_enhancing")
-        result = replace_background(image, mask, ID_COLORS.get(str(options.get("color")), ID_COLORS["white"]))
+        if tool == "id_photo":
+            result = replace_background(image, mask, ID_COLORS.get(str(options.get("color")), ID_COLORS["white"]))
+        else:
+            result = blur_background(image, mask, float(options.get("strength", 1.0)))
     elif tool == "straighten":
         angle = horizon_angle(image)
         if angle is None:
@@ -599,9 +617,6 @@ def run_photo_tool(tool: str, source: Path, output: Path, extension: str, option
             raise reporter.error("already_level", angle=f"{abs(angle):.1f}")
         reporter.progress(0.4)
         result = straighten(image, angle)
-    elif tool == "enhance":
-        reporter.stage("stage_enhancing")
-        result = enhance(image, photo.iso)
     else:
         raise ValueError(f"Unknown photo tool: {tool}")
     reporter.progress(0.85)

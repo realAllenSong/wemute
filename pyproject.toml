@@ -54,6 +54,7 @@ include = [
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
+markers = ["slow: needs ThunderTalk and synthesizes speech (minutes)"]
 
 [tool.coverage.run]
 source = ["wemute"]

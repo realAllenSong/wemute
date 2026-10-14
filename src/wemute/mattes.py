@@ -168,3 +168,60 @@ def color_difference_alpha(rgb: np.ndarray, alpha: np.ndarray, radius: int) -> n
     result = alpha.copy()
     result[top:bottom, left:right] = mixed.astype(np.float32)
     return finish_alpha(result)
+
+
+def _erode(mask: np.ndarray, radius: int) -> np.ndarray:
+    return ~dilate(~mask, radius)
+
+
+def key_backdrop(rgb: np.ndarray, alpha: np.ndarray, radius: int) -> np.ndarray:
+    """Clear the old backdrop that shows between loose hair strands.
+
+    Subject masks are solid around loose hair, so the wall between strands is
+    kept and shows as a grey patch on a new red or blue background. Near the
+    edge, each pixel is compared with the local backdrop ``B`` (pixels outside
+    the mask) and the deep subject colour ``F`` (well inside it), like a chroma
+    key: ``α = (C − B)·(F − B) / |F − B|²``. Only lowered, never raised, and
+    only where subject and backdrop clearly differ.
+    """
+    outside = alpha <= 0.02
+    if not outside.any() or outside.all():
+        return alpha
+    reach = radius * 8
+    # Backdrop can hide deep inside a mop of hair, well away from the edge.
+    band = dilate(outside, reach * 2) & ~outside
+    rows, cols = np.nonzero(band)
+    if not len(rows):
+        return alpha
+    pad = reach * 3
+    top, left = max(0, rows.min() - pad), max(0, cols.min() - pad)
+    bottom, right = min(alpha.shape[0], rows.max() + 1 + pad), min(alpha.shape[1], cols.max() + 1 + pad)
+    a = alpha[top:bottom, left:right].astype(np.float64)
+    colors = rgb[top:bottom, left:right].astype(np.float64)
+    back_w = (a <= 0.02).astype(np.float64)
+    deep_w = _erode(a >= 0.98, radius * 4).astype(np.float64)
+    # Backdrop colour: nearby where there is some, else the whole backdrop's
+    # average (ID-photo walls are plain enough for that).
+    wide = reach * 3
+    back_n = _box_mean(back_w, wide)
+    deep_n = _box_mean(deep_w, reach * 2)
+    local_back = np.dstack([_box_mean(colors[..., c] * back_w, wide) for c in range(3)]) / np.maximum(back_n, 1e-6)[..., None]
+    overall = rgb[outside].reshape(-1, 3).astype(np.float64).mean(axis=0)
+    near = np.clip(back_n / 0.05, 0.0, 1.0)[..., None]
+    back = local_back * near + overall * (1.0 - near)
+    fore = np.dstack([_box_mean(colors[..., c] * deep_w, reach * 2) for c in range(3)]) / np.maximum(deep_n, 1e-6)[..., None]
+    span = fore - back
+    length2 = np.einsum("...c,...c->...", span, span)
+    t = np.einsum("...c,...c->...", colors - back, span) / np.maximum(length2, 1e-6)
+    # Only pixels that really are a mix of backdrop and subject colour: skin,
+    # lips or a coloured collar next to dark hair lie far off that line.
+    residual = np.linalg.norm(colors - (back + np.clip(t, 0.0, 1.0)[..., None] * span), axis=-1)
+    on_line = np.clip(1.0 - (residual - 6.0) / 10.0, 0.0, 1.0) * (t > -0.2)
+    # Soften the key a little so strands stay continuous.
+    keyed = np.clip((np.clip(t, 0.0, 1.0) - 0.08) / 0.6, 0.0, 1.0)
+    trust = np.clip((np.sqrt(length2) - 45.0) / 45.0, 0.0, 1.0) * (deep_n > 0.02) * on_line
+    local_band = band[top:bottom, left:right]
+    lowered = np.minimum(a, trust * keyed + (1.0 - trust) * a)
+    result = alpha.copy()
+    result[top:bottom, left:right] = np.where(local_band, lowered, a).astype(np.float32)
+    return result

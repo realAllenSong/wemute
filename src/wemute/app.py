@@ -243,7 +243,7 @@ def main(argv: list[str] | None = None) -> int:
         controller, app_settings, i18n, ai_models=ai_model_controller, updater=updater_controller
     )
     # Installing or updating ThunderTalk while Wemute runs: pick it up on return.
-    integrations.changed.connect(action_center.menuChanged)
+    integrations.changed.connect(action_center.recheck)
     app.applicationStateChanged.connect(
         lambda state: state == Qt.ApplicationState.ApplicationActive and integrations.refresh()
     )

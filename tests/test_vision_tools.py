@@ -389,22 +389,10 @@ def test_straighten_levels_a_tilted_horizon(tmp_path: Path) -> None:
     assert "nothing to straighten" in message
 
 
-def test_auto_enhance_lifts_a_dull_photo(tmp_path: Path) -> None:
-    original = Image.open(NASA).convert("RGB")
-    dull = Image.blend(original, Image.new("RGB", original.size, (128, 128, 128)), 0.45)
-    source = tmp_path / "dull.jpg"
-    dull.save(source, quality=92, icc_profile=Image.open(NASA).info.get("icc_profile"))
-    output = ok(source, "Auto enhance", tmp_path / "out")
-    enhanced = Image.open(output)
-    assert enhanced.size == dull.size
-    assert enhanced.info.get("icc_profile")  # colour profile kept
-    assert np.asarray(enhanced.convert("L")).std() > np.asarray(dull.convert("L")).std() * 1.1
-
-
 def test_outputs_never_overwrite(tmp_path: Path) -> None:
     out = tmp_path / "out"
-    first = ok(NASA, "Auto enhance", out)
-    second = ok(NASA, "Auto enhance", out)
+    first = ok(NASA, "Portrait blur", out)
+    second = ok(NASA, "Portrait blur", out)
     assert first != second and first.exists() and second.exists()
 
 
@@ -466,3 +454,52 @@ def test_quick_look_thumbnails_for_every_file_kind(tmp_path: Path, monkeypatch: 
         assert min(image.size) >= 120
         assert np.asarray(image.convert("L")).std() > 2  # a real picture, not a blank tile
     assert create_thumbnail(source, kind) == thumbnail  # cached
+
+
+# ── ID photo and portrait blur (Apple's subject cut-out) ─────────────────
+
+
+def _sharpness(image: Image.Image, box: tuple[int, int, int, int]) -> float:
+    gray = np.asarray(image.convert("L").crop(box), dtype=np.float32)
+    return float(np.abs(np.diff(gray, axis=1)).mean() + np.abs(np.diff(gray, axis=0)).mean())
+
+
+def test_portrait_blur_keeps_people_sharp_and_softens_the_room(tmp_path: Path) -> None:
+    from wemute.engines.photo import subject_mask
+
+    original = Image.open(NASA).convert("RGB")
+    output = ok(NASA, "Portrait blur", tmp_path / "out")
+    blurred = Image.open(output).convert("RGB")
+    assert blurred.size == original.size
+    mask = subject_mask(original)
+    width, height = original.size
+    step = max(width, height) // 40
+    room, people = [], []
+    for y in range(0, height - step, step):
+        for x in range(0, width - step, step):
+            cell = mask[y:y + step, x:x + step]
+            box = (x, y, x + step, y + step)
+            ratio = _sharpness(blurred, box) / max(1e-3, _sharpness(original, box))
+            if cell.max() < 0.02:
+                room.append(ratio)
+            elif cell.min() > 0.98:
+                people.append(ratio)
+    assert np.median(people) > 0.97  # the subject is untouched
+    assert np.median(room) < 0.6  # the background lost its detail
+
+
+def test_id_photo_changes_only_the_backdrop(tmp_path: Path) -> None:
+    from wemute.engines.photo import ID_COLORS, replace_background, subject_mask
+
+    original = Image.open(NASA).convert("RGB")
+    mask = subject_mask(original)
+    red = np.asarray(replace_background(original, mask, ID_COLORS["red"])).astype(np.int16)
+    source = np.asarray(original).astype(np.int16)
+    inside = mask > 0.995
+    # Deep inside the subject nothing moves (faces, shirts, skin near hair).
+    from wemute.mattes import _erode
+
+    core = _erode(inside, 12)
+    assert np.abs(red[core] - source[core]).max(axis=-1).mean() < 2.0
+    outside = mask < 0.005
+    assert (np.abs(red[outside] - np.array(ID_COLORS["red"])).max(axis=-1) < 3).mean() > 0.99

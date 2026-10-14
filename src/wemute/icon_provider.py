@@ -126,6 +126,7 @@ ICON_PATHS: dict[str, str] = {
         '<path fill="{color}" d="M6 4.5a1.5 1.5 0 0 1 2.26-1.3l11 7a1.5 1.5 0 0 1 0 2.6'
         'l-11 7A1.5 1.5 0 0 1 6 18.5z"/>'
     ),
+    "aperture": '<circle cx="12" cy="12" r="10"/><path d="m14.31 8 5.74 9.94M9.69 8h11.48M7.38 12l5.74-9.94M9.69 16 3.95 6.06M14.31 16H2.83M16.62 12l-5.74 9.94"/>',
     "captions": '<rect width="18" height="14" x="3" y="5" rx="2" ry="2"/><path d="M7 15h4M15 15h2M7 11h2M13 11h4"/>',
     "audio-lines": (
         '<path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/>'

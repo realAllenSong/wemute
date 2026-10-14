@@ -275,6 +275,8 @@ Sheet {
                         font.family: Theme.font
                         font.pixelSize: 13
                         font.weight: Font.DemiBold
+                        wrapMode: Text.WordWrap
+                        maximumLineCount: 2
                         elide: Text.ElideRight
                     }
                 }

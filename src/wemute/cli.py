@@ -71,6 +71,15 @@ def _parser() -> argparse.ArgumentParser:
     convert.add_argument("--plain", action="store_true", help="print only the output paths, one per line")
     convert.add_argument("--timeout", type=float, default=6 * 3600)
     sub.add_parser("actions", help="list tool ids for --action")
+    ex = sub.add_parser("extract", help="any file or folder → text a language model can read")
+    ex.add_argument("paths", nargs="+")
+    ex.add_argument("--out", default="", help="write one file per input into this folder (default: stdout)")
+    ex.add_argument("--format", choices=("md", "txt", "json"), default="md")
+    ex.add_argument("--ocr", choices=("auto", "always", "never"), default="auto",
+                    help="auto = only pages and images without a text layer")
+    ex.add_argument("--speakers", action="store_true", help="label speakers in recordings (calls, meetings)")
+    ex.add_argument("--language", default="auto", help="speech language for recordings: auto | zh | en | …")
+    ex.add_argument("--max-rows", type=int, default=5000, help="rows per sheet or table")
     return parser
 
 
@@ -189,10 +198,90 @@ def _convert(arguments: argparse.Namespace, language: str) -> int:
     return state["code"]
 
 
+def _extract(arguments: argparse.Namespace) -> int:
+    """Text for language models. stdout: the Markdown/text itself, or one JSON
+    line per file with --format json; with --out, one result line per input."""
+    from wemute.components import ComponentManager
+    from wemute.extract import ExtractError, Options, extract, flatten_documents, render_markdown
+
+    try:
+        tools = ComponentManager().tools()
+    except Exception:  # noqa: BLE001 - components are optional
+        tools = {}
+    options = Options(
+        ocr=arguments.ocr, speakers=arguments.speakers, language=arguments.language,
+        max_rows=arguments.max_rows, tools=tools,
+    )
+    out_dir = Path(arguments.out).expanduser() if arguments.out else None
+    if out_dir is not None:
+        out_dir.mkdir(parents=True, exist_ok=True)
+    failures = 0
+    first = True
+    for raw in arguments.paths:
+        path = Path(raw).expanduser()
+        try:
+            document = extract(path, options)
+        except ExtractError as exc:
+            failures += 1
+            print(json.dumps({"type": "error", "source": str(path), "code": exc.code, "error": str(exc)},
+                             ensure_ascii=False), file=sys.stdout if arguments.format == "json" or out_dir else sys.stderr, flush=True)
+            continue
+        except Exception as exc:  # noqa: BLE001 - report and continue with the next file
+            failures += 1
+            print(json.dumps({"type": "error", "source": str(path), "code": "failed",
+                              "error": f"{type(exc).__name__}: {exc}"}, ensure_ascii=False),
+                  file=sys.stdout if arguments.format == "json" or out_dir else sys.stderr, flush=True)
+            continue
+        if arguments.format == "json":
+            entries = [entry for entry in flatten_documents(document)]
+            payloads = []
+            for entry in entries:
+                data = entry.to_dict()
+                data.pop("children", None)
+                data["type"] = "document"
+                payloads.append(data)
+            if out_dir is not None:
+                target = _unique(out_dir / f"{path.stem or path.name}.json")
+                target.write_text("\n".join(json.dumps(item, ensure_ascii=False) for item in payloads) + "\n", encoding="utf-8")
+                print(json.dumps({"type": "result", "source": str(path), "ok": True, "output": str(target)}, ensure_ascii=False), flush=True)
+            else:
+                for item in payloads:
+                    print(json.dumps(item, ensure_ascii=False), flush=True)
+            continue
+        rendered = render_markdown(document)
+        if arguments.format == "txt":
+            from wemute.extract import markdown_to_plain
+
+            rendered = markdown_to_plain(rendered)
+        if out_dir is not None:
+            target = _unique(out_dir / f"{path.stem or path.name}.{arguments.format}")
+            target.write_text(rendered, encoding="utf-8")
+            print(json.dumps({"type": "result", "source": str(path), "ok": True, "output": str(target),
+                              "kind": document.kind, "warnings": document.warnings}, ensure_ascii=False), flush=True)
+        else:
+            if not first:
+                sys.stdout.write("\n---\n\n")
+            sys.stdout.write(rendered)
+            sys.stdout.flush()
+        first = False
+    return 1 if failures else 0
+
+
+def _unique(path: Path) -> Path:
+    candidate, number = path, 2
+    while candidate.exists():
+        candidate = path.with_name(f"{path.stem} {number}{path.suffix}")
+        number += 1
+    return candidate
+
+
 def main(argv: list[str]) -> int:
     arguments = _parser().parse_args(argv)
     global _PLAIN
     _PLAIN = bool(getattr(arguments, "plain", False))
+    if arguments.command == "extract":
+        # Reading files needs no Qt application.
+        return _extract(arguments)
     # No window, no Dock icon: the offscreen platform before Qt starts.
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication

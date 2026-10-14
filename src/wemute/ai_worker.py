@@ -336,65 +336,12 @@ def _no_subject() -> WorkerError:
 
 def vision_foreground_mask(image: Image.Image) -> np.ndarray:
     """Soft foreground mask (float32, 0–1) for every instance, at full resolution."""
-    import Quartz
-    import Vision
-    from Foundation import NSData
+    from wemute.vision_mask import foreground_mask
 
-    rgba = image.convert("RGBA")
-    width, height = rgba.size
-    data = NSData.dataWithBytes_length_(rgba.tobytes(), width * height * 4)
-    provider = Quartz.CGDataProviderCreateWithCFData(data)
-    color_space = Quartz.CGColorSpaceCreateWithName(Quartz.kCGColorSpaceSRGB)
-    cg_image = Quartz.CGImageCreate(
-        width,
-        height,
-        8,
-        32,
-        width * 4,
-        color_space,
-        Quartz.kCGImageAlphaNoneSkipLast,
-        provider,
-        None,
-        False,
-        Quartz.kCGRenderingIntentDefault,
-    )
-    request = Vision.VNGenerateForegroundInstanceMaskRequest.alloc().init()
-    handler = Vision.VNImageRequestHandler.alloc().initWithCGImage_options_(cg_image, {})
-    ok, error = handler.performRequests_error_([request], None)
-    if not ok:
-        raise RuntimeError(f"Apple Vision could not analyse the image: {error}")
-    results = request.results() or []
-    if not results:
+    mask = foreground_mask(image)
+    if mask is None:
         raise _no_subject()
-    observation = results[0]
-    instances = observation.allInstances()
-    if instances is None or instances.count() == 0:
-        raise _no_subject()
-    buffer, error = observation.generateScaledMaskForImageForInstances_fromRequestHandler_error_(
-        instances, handler, None
-    )
-    if buffer is None:
-        raise RuntimeError(f"Apple Vision could not build the mask: {error}")
-    Quartz.CVPixelBufferLockBaseAddress(buffer, Quartz.kCVPixelBufferLock_ReadOnly)
-    try:
-        mask_width = Quartz.CVPixelBufferGetWidth(buffer)
-        mask_height = Quartz.CVPixelBufferGetHeight(buffer)
-        row_bytes = Quartz.CVPixelBufferGetBytesPerRow(buffer)
-        raw = Quartz.CVPixelBufferGetBaseAddress(buffer).as_buffer(row_bytes * mask_height)
-        mask = (
-            np.frombuffer(raw, dtype=np.float32)
-            .reshape(mask_height, row_bytes // 4)[:, :mask_width]
-            .copy()
-        )
-    finally:
-        Quartz.CVPixelBufferUnlockBaseAddress(buffer, Quartz.kCVPixelBufferLock_ReadOnly)
-    if (mask_width, mask_height) != (width, height):
-        mask = np.asarray(
-            Image.fromarray(mask, mode="F").resize((width, height), Image.Resampling.BICUBIC)
-        )
-    return np.clip(mask, 0.0, 1.0)
-
-
+    return mask
 
 
 def remove_background_vision(
@@ -646,8 +593,31 @@ def _components(mask: np.ndarray) -> list[tuple[int, int, int, int]]:
 Box = tuple[int, int, int, int]
 
 
+# LaMa darkens a hole that fills much of its 512 px window (a flat grey hole
+# covering 75 % of the window comes back ~18 % darker). Three times the hole's
+# size keeps it small in the window: on a sail at sunset and a painting on a
+# wall this removed the ghost and the dark smear that twice the size left.
+CONTEXT_FACTOR = 3
+
+
 def _context_side(box: Box) -> int:
-    return max(LAMA_SIZE, 2 * max(box[2] - box[0], box[3] - box[1]))
+    return max(LAMA_SIZE, CONTEXT_FACTOR * max(box[2] - box[0], box[3] - box[1]))
+
+
+def _edge_padding(mask: np.ndarray) -> int:
+    """How far to mirror the photo outward when a hole touches its border, so
+    the hole has context on every side instead of the frame edge."""
+    height, width = mask.shape
+    rows = np.flatnonzero(mask.any(axis=1))
+    cols = np.flatnonzero(mask.any(axis=0))
+    if not len(rows):
+        return 0
+    margin = 8
+    touches = rows[0] < margin or cols[0] < margin or rows[-1] >= height - margin or cols[-1] >= width - margin
+    if not touches:
+        return 0
+    size = max(rows[-1] - rows[0], cols[-1] - cols[0]) + 1
+    return int(min(size * 0.6, min(height, width) - 1))
 
 
 def context_crop(box: Box, width: int, height: int) -> Box:
@@ -676,8 +646,8 @@ def _split_long(box: Box, mask: np.ndarray) -> list[Box]:
     x0, y0, x1, y1 = box
     width, height = x1 - x0, y1 - y0
     long_side, short_side = max(width, height), min(width, height)
-    piece = max(short_side, LAMA_SIZE // 2)
-    if 2 * long_side <= LAMA_SIZE * 1.25 or long_side <= piece * 1.25:
+    piece = max(short_side, LAMA_SIZE // CONTEXT_FACTOR)
+    if CONTEXT_FACTOR * long_side <= LAMA_SIZE * 1.25 or long_side <= piece * 1.25:
         return [box]
     count = math.ceil(long_side / piece)
     pieces: list[Box] = []
@@ -824,7 +794,17 @@ def erase_object(
         state["done"] += 1
         return output
 
-    erased = erase_regions(rgb, mask, inpaint, regions)
+    pad = _edge_padding(mask)
+    if pad:
+        # The mirrored copy of the hole is a hole too, so nothing painted leaks back.
+        padded = erase_regions(
+            np.pad(rgb, ((pad, pad), (pad, pad), (0, 0)), mode="reflect"),
+            np.pad(mask, pad, mode="reflect"),
+            inpaint,
+        )
+        erased = padded[pad:-pad, pad:-pad]
+    else:
+        erased = erase_regions(rgb, mask, inpaint, regions)
     reporter.stage("save")
     composed = Image.fromarray(erased, mode="RGB")
     if image.mode == "RGBA":

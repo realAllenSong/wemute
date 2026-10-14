@@ -62,9 +62,20 @@ class ActionCenter(QObject):
         self.settings = settings
         self.i18n = i18n
         self.updater = updater
-        i18n.languageChanged.connect(self.menuChanged)
+        self._last_tree: list[dict[str, object]] | None = None
+        i18n.languageChanged.connect(self.recheck)
         if ai_models is not None:
-            ai_models.catalogChanged.connect(self.menuChanged)
+            # Fires on every download progress tick; recheck() only passes on
+            # real changes, so menus are not torn down while they are drawn.
+            ai_models.catalogChanged.connect(self.recheck)
+
+    @Slot()
+    def recheck(self) -> None:
+        """Announce a new menu only when what it shows actually changed."""
+        tree = self.tree()
+        if tree != self._last_tree:
+            self._last_tree = tree
+            self.menuChanged.emit()
 
     @property
     def language(self) -> str:
