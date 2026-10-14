@@ -1,0 +1,131 @@
+---
+import Icon from "./Icon.astro";
+import { localePath, type Locale } from "../data/locale";
+import { CATEGORY_LABEL, CATEGORY_ORDER, toolsIn } from "../data/tools";
+import { ui } from "../data/ui";
+
+interface Props {
+  locale: Locale;
+  slug: string;
+}
+
+const { locale, slug } = Astro.props;
+const strings = ui(locale);
+const other: Locale = locale === "en" ? "zh" : "en";
+---
+
+<!-- Narrow screens: a compact bar that opens the tool list as a drawer. -->
+<div class="topbar">
+  <a class="brand" href={localePath(locale)} aria-label="Wemute">
+    <img src="/icon-192.png" alt="" width="28" height="28" />
+    <span>Wemute</span>
+  </a>
+  <button type="button" class="topbar__menu" aria-controls="side" aria-expanded="false" data-side-open>
+    <Icon name="menu" size={18} />
+    {strings.openTools}
+  </button>
+</div>
+
+<aside class="side" id="side" aria-label={strings.allTools}>
+  <div class="side__head">
+    <a class="brand" href={localePath(locale)} aria-label="Wemute">
+      <img src="/icon-192.png" alt="" width="30" height="30" />
+      <span>Wemute</span>
+    </a>
+    <button type="button" class="side__close" aria-label={strings.closeTools} data-side-close>×</button>
+  </div>
+  <label class="side__search">
+    <Icon name="search" size={15} />
+    <input type="search" placeholder={strings.searchTools} aria-label={strings.searchTools} data-side-search autocomplete="off" />
+    <kbd aria-hidden="true">⌘K</kbd>
+  </label>
+  <nav class="side__groups">
+    {
+      CATEGORY_ORDER.map((category) => (
+        <div class={`side__group side__group--${category}`}>
+          <h2>
+            <i aria-hidden="true" />
+            {CATEGORY_LABEL[category][locale]}
+          </h2>
+          {toolsIn(category).map((tool) => (
+            <a
+              href={localePath(locale, tool.slug)}
+              aria-current={tool.slug === slug ? "page" : undefined}
+              data-terms={`${tool.name.en} ${tool.name.zh} ${tool.slug.replaceAll("-", " ")}`.toLowerCase()}
+            >
+              {tool.name[locale]}
+            </a>
+          ))}
+        </div>
+      ))
+    }
+    <p class="side__empty" hidden data-side-empty>{strings.noToolMatch}</p>
+  </nav>
+  <div class="side__foot">
+    <a class="side__lang" href={localePath(other, slug)} hreflang={other === "zh" ? "zh-CN" : "en"} lang={other === "zh" ? "zh-CN" : "en"} aria-label={strings.languageLabel}>
+      <Icon name="globe" size={14} />
+      {strings.language}
+    </a>
+    <p><Icon name="lock" size={13} /> {strings.sidePrivacy}</p>
+  </div>
+</aside>
+<div class="side__scrim" data-side-close hidden></div>
+
+<script>
+  const side = document.getElementById("side")!;
+  const scrim = document.querySelector<HTMLElement>(".side__scrim")!;
+  const opener = document.querySelector<HTMLButtonElement>("[data-side-open]")!;
+  const search = side.querySelector<HTMLInputElement>("[data-side-search]")!;
+  const empty = side.querySelector<HTMLElement>("[data-side-empty]")!;
+  const links = Array.from(side.querySelectorAll<HTMLAnchorElement>(".side__group a"));
+
+  function setOpen(open: boolean) {
+    document.documentElement.classList.toggle("side-open", open);
+    opener.setAttribute("aria-expanded", String(open));
+    scrim.hidden = !open;
+    if (open) search.focus();
+  }
+  opener.addEventListener("click", () => setOpen(true));
+  for (const el of document.querySelectorAll("[data-side-close]")) el.addEventListener("click", () => setOpen(false));
+
+  // Live filter: every word must appear in the tool's English, Chinese or slug terms.
+  search.addEventListener("input", () => {
+    const words = search.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    let shown = 0;
+    for (const link of links) {
+      const match = words.every((word) => link.dataset.terms!.includes(word));
+      link.hidden = !match;
+      if (match) shown++;
+    }
+    for (const group of side.querySelectorAll<HTMLElement>(".side__group")) {
+      group.hidden = !group.querySelector("a:not([hidden])");
+    }
+    empty.hidden = shown > 0;
+  });
+  search.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      const first = links.find((link) => !link.hidden);
+      if (first) location.href = first.href;
+    } else if (event.key === "Escape") {
+      search.value = "";
+      search.dispatchEvent(new Event("input"));
+      setOpen(false);
+      search.blur();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      if (getComputedStyle(opener).display !== "none") setOpen(true);
+      search.focus();
+      search.select();
+    }
+  });
+  // Keep the current tool in view in a long list, without scrolling the page.
+  const groups = side.querySelector<HTMLElement>(".side__groups")!;
+  const current = side.querySelector<HTMLElement>('[aria-current="page"]');
+  if (current) {
+    const offset = current.offsetTop - groups.offsetTop - groups.clientHeight / 2 + current.offsetHeight / 2;
+    groups.scrollTop = Math.max(0, offset);
+  }
+</script>

@@ -3,6 +3,14 @@ import type { Locale } from "./locale";
 const en = {
   // chrome
   allTools: "All tools",
+  searchTools: "Search tools",
+  noToolMatch: "No tool matches",
+  openTools: "Tools",
+  closeTools: "Close",
+  sidePrivacy: "Files stay in your browser",
+  macTitle: "Wemute for Mac",
+  macBody: "Word, Excel, PDF, e-books and 100 more conversions, OCR, background removal and subtitles — all on your Mac. Free and open source.",
+  macCta: "Get it on GitHub",
   imageTools: "Image tools",
   videoTools: "Video tools",
   audioTools: "Audio tools",
@@ -125,6 +133,14 @@ const en = {
 
 const zh: typeof en = {
   allTools: "所有工具",
+  searchTools: "搜索工具",
+  noToolMatch: "没有匹配的工具",
+  openTools: "工具",
+  closeTools: "关闭",
+  sidePrivacy: "文件只在你的浏览器里处理",
+  macTitle: "Wemute Mac 版",
+  macBody: "Word、Excel、PDF、电子书等上百种转换，还有文字识别、抠图去背景、生成字幕，全部在你的 Mac 上完成。免费开源。",
+  macCta: "在 GitHub 下载",
   imageTools: "图片工具",
   videoTools: "视频工具",
   audioTools: "音频工具",

@@ -1,0 +1,17 @@
+---
+import Icon from "./Icon.astro";
+import type { Locale } from "../data/locale";
+import { ui } from "../data/ui";
+
+interface Props {
+  locale: Locale;
+}
+
+const strings = ui(Astro.props.locale);
+---
+
+<section class="panel mac" aria-labelledby="mac-title">
+  <h2 id="mac-title"><Icon name="laptop" size={18} /> {strings.macTitle}</h2>
+  <p>{strings.macBody}</p>
+  <a class="mac__cta" href="https://github.com/realAllenSong/wemute" rel="noopener">{strings.macCta} <Icon name="arrow-right" size={15} /></a>
+</section>
