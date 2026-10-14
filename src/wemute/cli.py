@@ -201,7 +201,33 @@ def _convert(arguments: argparse.Namespace, language: str) -> int:
     return state["code"]
 
 
+class _CleanStdout:
+    """Agents parse stdout line by line, so it carries only Wemute's output.
+    Libraries that print (PyMuPDF warnings, native logs) write to fd 1 too;
+    while extracting, fd 1 points at stderr and our output goes to the real
+    stdout through a saved descriptor."""
+
+    def __enter__(self):  # noqa: ANN204
+        sys.stdout.flush()
+        self._saved = os.dup(1)
+        os.dup2(2, 1)
+        self.out = os.fdopen(os.dup(self._saved), "w", encoding="utf-8", buffering=1)
+        return self.out
+
+    def __exit__(self, *exc: object) -> None:
+        self.out.flush()
+        self.out.close()
+        sys.stdout.flush()
+        os.dup2(self._saved, 1)
+        os.close(self._saved)
+
+
 def _extract(arguments: argparse.Namespace) -> int:
+    with _CleanStdout() as stdout:
+        return _extract_to(arguments, stdout)
+
+
+def _extract_to(arguments: argparse.Namespace, stdout) -> int:  # noqa: ANN001
     """Text for language models. stdout: the Markdown/text itself, or one JSON
     line per file with --format json; with --out, one result line per input."""
     from wemute.components import ComponentManager
@@ -227,13 +253,13 @@ def _extract(arguments: argparse.Namespace) -> int:
         except ExtractError as exc:
             failures += 1
             print(json.dumps({"type": "error", "source": str(path), "code": exc.code, "error": str(exc)},
-                             ensure_ascii=False), file=sys.stdout if arguments.format == "json" or out_dir else sys.stderr, flush=True)
+                             ensure_ascii=False), file=stdout if arguments.format == "json" or out_dir else sys.stderr, flush=True)
             continue
         except Exception as exc:  # noqa: BLE001 - report and continue with the next file
             failures += 1
             print(json.dumps({"type": "error", "source": str(path), "code": "failed",
                               "error": f"{type(exc).__name__}: {exc}"}, ensure_ascii=False),
-                  file=sys.stdout if arguments.format == "json" or out_dir else sys.stderr, flush=True)
+                  file=stdout if arguments.format == "json" or out_dir else sys.stderr, flush=True)
             continue
         if arguments.format == "json":
             entries = [entry for entry in flatten_documents(document)]
@@ -246,10 +272,10 @@ def _extract(arguments: argparse.Namespace) -> int:
             if out_dir is not None:
                 target = _unique(out_dir / f"{path.stem or path.name}.json")
                 target.write_text("\n".join(json.dumps(item, ensure_ascii=False) for item in payloads) + "\n", encoding="utf-8")
-                print(json.dumps({"type": "result", "source": str(path), "ok": True, "output": str(target)}, ensure_ascii=False), flush=True)
+                print(json.dumps({"type": "result", "source": str(path), "ok": True, "output": str(target)}, ensure_ascii=False), file=stdout, flush=True)
             else:
                 for item in payloads:
-                    print(json.dumps(item, ensure_ascii=False), flush=True)
+                    print(json.dumps(item, ensure_ascii=False), file=stdout, flush=True)
             continue
         rendered = render_markdown(document)
         if arguments.format == "txt":
@@ -260,12 +286,12 @@ def _extract(arguments: argparse.Namespace) -> int:
             target = _unique(out_dir / f"{path.stem or path.name}.{arguments.format}")
             target.write_text(rendered, encoding="utf-8")
             print(json.dumps({"type": "result", "source": str(path), "ok": True, "output": str(target),
-                              "kind": document.kind, "warnings": document.warnings}, ensure_ascii=False), flush=True)
+                              "kind": document.kind, "warnings": document.warnings}, ensure_ascii=False), file=stdout, flush=True)
         else:
             if not first:
-                sys.stdout.write("\n---\n\n")
-            sys.stdout.write(rendered)
-            sys.stdout.flush()
+                stdout.write("\n---\n\n")
+            stdout.write(rendered)
+            stdout.flush()
         first = False
     return 1 if failures else 0
 

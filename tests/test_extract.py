@@ -129,7 +129,7 @@ def test_textutil_formats(tmp_path: Path, fmt: str) -> None:
 
 
 def test_pdf_text_pages_and_tables(tmp_path: Path) -> None:
-    import fitz
+    import pymupdf as fitz
 
     pdf = fitz.open()
     page = pdf.new_page()
@@ -372,3 +372,32 @@ def test_cli_extract_stdout_and_json(tmp_path: Path) -> None:
     out = tmp_path / "out"
     written = subprocess.run([*run, "--out", str(out), str(note)], capture_output=True, text=True, timeout=120)
     assert written.returncode == 0 and (out / "n.md").read_text(encoding="utf-8").startswith("# n")
+
+
+def test_svg_labels(tmp_path: Path) -> None:
+    path = tmp_path / "chart.svg"
+    path.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200"><title>营收走势</title>'
+                    '<desc>2024–2026 季度营收</desc><text x="10" y="20">Q1</text><text x="50" y="20">'
+                    '<tspan>52.1</tspan> 亿</text></svg>', encoding="utf-8")
+    result = extract(path)
+    assert result.title == "营收走势" and result.kind == "vector"
+    assert "2024–2026 季度营收" in result.markdown and "- Q1" in result.markdown and "- 52.1 亿" in result.markdown
+
+
+def test_cli_json_stdout_stays_pure_with_chatty_libraries(tmp_path: Path) -> None:
+    """PyMuPDF prints notices on stdout; agents must still get JSON only."""
+    import pymupdf
+
+    pdf = pymupdf.open()
+    page = pdf.new_page()
+    page.insert_text((72, 72), "Net income 9.8 billion", fontsize=11)
+    for r in range(3):
+        for c in range(3):
+            page.draw_rect(pymupdf.Rect(72 + c * 90, 120 + r * 20, 162 + c * 90, 140 + r * 20), width=0.6)
+    path = tmp_path / "t.pdf"
+    pdf.save(path)
+    proc = subprocess.run([sys.executable, "-m", "wemute", "--cli", "extract", "--format", "json", str(path)],
+                          capture_output=True, text=True, timeout=120)
+    assert proc.returncode == 0
+    lines = proc.stdout.splitlines()
+    assert lines and all(json.loads(line)["type"] == "document" for line in lines)

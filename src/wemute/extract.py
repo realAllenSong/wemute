@@ -130,6 +130,8 @@ def _handler(suffix: str, path: Path):  # noqa: ANN202
         return _eml
     if suffix in TEXTUTIL_SUFFIXES:
         return _textutil
+    if suffix == ".svg":
+        return _svg
     if suffix in OFFICE_SUFFIXES:
         return _via_office
     if suffix in EBOOK_SUFFIXES:
@@ -549,12 +551,41 @@ def _via_office(path: Path, options: Options) -> Document:
     return document
 
 
+def _svg(path: Path, options: Options) -> Document:
+    """Charts and diagrams: their title, description and every text label."""
+    import xml.etree.ElementTree as ElementTree
+
+    try:
+        root = ElementTree.fromstring(path.read_bytes())
+    except ElementTree.ParseError as exc:
+        raise ExtractError("unreadable", f"Could not read the SVG: {exc}") from exc
+
+    def local(tag: str) -> str:
+        return tag.rsplit("}", 1)[-1]
+
+    title = next((" ".join(e.itertext()).strip() for e in root.iter() if local(e.tag) == "title"), "")
+    desc = next((" ".join(e.itertext()).strip() for e in root.iter() if local(e.tag) == "desc"), "")
+    labels = [
+        re.sub(r"\s+", " ", "".join(e.itertext())).strip()
+        for e in root.iter()
+        if local(e.tag) == "text"
+    ]
+    parts = [desc] if desc else []
+    labels = [label for label in labels if label]
+    if labels:
+        parts.append("Text in the graphic:\n\n" + "\n".join(f"- {label}" for label in labels))
+    meta = {key: root.get(key) for key in ("width", "height", "viewBox") if root.get(key)}
+    markdown = "\n\n".join(parts) or "*(no text in the graphic)*"
+    return Document(str(path), "vector", markdown + "\n", title=title, meta=meta)
+
+
 # ── PDF ──────────────────────────────────────────────────────────────────
 
 
 def _pdf(path: Path, options: Options) -> Document:
-    import fitz  # PyMuPDF
+    import pymupdf as fitz
 
+    fitz.TOOLS.mupdf_display_warnings(False)
     try:
         pdf = fitz.open(str(path))
     except Exception as exc:  # noqa: BLE001 - any parse failure
@@ -638,7 +669,7 @@ def _ocr_pdf_page(page) -> str:  # noqa: ANN001
 
     from wemute.engines import ocr
 
-    pixmap = page.get_pixmap(matrix=__import__("fitz").Matrix(OCR_SCALE, OCR_SCALE), alpha=False)
+    pixmap = page.get_pixmap(matrix=__import__("pymupdf").Matrix(OCR_SCALE, OCR_SCALE), alpha=False)
     image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
     return _paragraphs_markdown(ocr.paragraphs(ocr.recognize(image), *image.size))
 
