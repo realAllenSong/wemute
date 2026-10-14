@@ -89,3 +89,25 @@ def test_run_maps_progress_and_errors(tmp_path: Path) -> None:
     bad = _fake_cli(failing, [{"type": "result", "ok": False, "code": "no_speech", "error": "x"}], code=1)
     with pytest.raises(Exception, match="没有听到说话的声音"):
         run({**request, "thundertalk": str(bad)}, Reporter("zh", io.StringIO()))
+
+
+def test_read_aloud_uses_voxcpm_then_falls_back(tmp_path: Path) -> None:
+    import io
+
+    calls = tmp_path / "calls.txt"
+    script = tmp_path / "ThunderTalk"
+    script.write_text(
+        "#!/bin/sh\n"
+        f"echo \"$*\" >> {calls}\n"
+        'case "$*" in *voxcpm2*) echo \'{"type": "result", "ok": false, "code": "tts_missing", "error": "x"}\'; exit 1;; esac\n'
+        'echo \'{"type": "result", "ok": true, "output": "x"}\'\n'
+    )
+    script.chmod(script.stat().st_mode | stat.S_IXUSR)
+    text = tmp_path / "t.txt"
+    text.write_text("你好", encoding="utf-8")
+    request = {"tool": "speak", "options": {}, "sources": [str(text)], "output": str(tmp_path / "t.m4a"),
+               "thundertalk": str(script), "thundertalk_cli": 2, "source_suffix": ".txt"}
+    run(request, Reporter("zh", io.StringIO()))
+    first, second = calls.read_text().splitlines()
+    assert "--engine voxcpm2" in first
+    assert "--engine best" in second

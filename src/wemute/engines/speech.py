@@ -94,7 +94,11 @@ def text_for_reading(source: Path, suffix: str) -> str:
     raise ValueError(f"cannot read text from {suffix} files")
 
 
-def _command(binary: Path, tool: str, request: dict, text_file: Path | None) -> list[str]:
+# The owner's choice for reading aloud; the best ready voice when it isn't installed.
+READ_ALOUD_ENGINE = "voxcpm2"
+
+
+def _command(binary: Path, tool: str, request: dict, text_file: Path | None, engine: str = READ_ALOUD_ENGINE) -> list[str]:
     output = request["output"]
     # Files want accuracy over latency: ThunderTalk's most accurate model and
     # its best voice, not the dictation model or the Speak page's choice.
@@ -107,7 +111,8 @@ def _command(binary: Path, tool: str, request: dict, text_file: Path | None) -> 
         if options.get("speakers"):
             return [*command, "--speakers"]
         return [*command, *best]
-    return [str(binary), "--cli", "speak", "--text-file", str(text_file), "--out", output, *best]
+    return [str(binary), "--cli", "speak", "--text-file", str(text_file), "--out", output,
+            *(["--engine", engine] if engine else best)]
 
 
 def run(request: dict, reporter: Reporter) -> None:
@@ -156,6 +161,15 @@ def run(request: dict, reporter: Reporter) -> None:
             timeout_message=reporter.text("tool_timeout", seconds=TIMEOUT_SECONDS),
             on_line=on_line,
         )
+        if tool == "speak" and result.get("code") in {"tts_missing", "bad_args"}:
+            # VoxCPM2 isn't downloaded in ThunderTalk here: use the best voice it has.
+            result.clear()
+            completed = run_tool(
+                _command(binary, tool, request, text_file, engine=""),
+                timeout=TIMEOUT_SECONDS,
+                timeout_message=reporter.text("tool_timeout", seconds=TIMEOUT_SECONDS),
+                on_line=on_line,
+            )
         if result.get("ok"):
             reporter.progress(1.0)
             return

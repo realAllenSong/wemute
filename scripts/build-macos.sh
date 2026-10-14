@@ -41,8 +41,8 @@ uv run pyinstaller \
   /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Wemute" dist/Wemute.app/Contents/Info.plist
 /usr/libexec/PlistBuddy -c "Add :LSApplicationCategoryType string public.app-category.utilities" dist/Wemute.app/Contents/Info.plist 2>/dev/null || \
   /usr/libexec/PlistBuddy -c "Set :LSApplicationCategoryType public.app-category.utilities" dist/Wemute.app/Contents/Info.plist
-/usr/libexec/PlistBuddy -c "Add :NSHumanReadableCopyright string 'Copyright © 2026 Wemute. All rights reserved.'" dist/Wemute.app/Contents/Info.plist 2>/dev/null || \
-  /usr/libexec/PlistBuddy -c "Set :NSHumanReadableCopyright 'Copyright © 2026 Wemute. All rights reserved.'" dist/Wemute.app/Contents/Info.plist
+/usr/libexec/PlistBuddy -c "Add :NSHumanReadableCopyright string 'Copyright © 2026 Wemute contributors. Free software under the GNU AGPL-3.0.'" dist/Wemute.app/Contents/Info.plist 2>/dev/null || \
+  /usr/libexec/PlistBuddy -c "Set :NSHumanReadableCopyright 'Copyright © 2026 Wemute contributors. Free software under the GNU AGPL-3.0.'" dist/Wemute.app/Contents/Info.plist
 
 SPARKLE_PUBLIC_KEY="${WEMUTE_SPARKLE_PUBLIC_KEY:-}"
 SPARKLE_FEED_URL="${WEMUTE_SPARKLE_FEED_URL:-https://github.com/realAllenSong/wemute/releases/latest/download/appcast.xml}"

@@ -1085,6 +1085,7 @@ Window {
                         Layout.fillWidth: true
                         Layout.topMargin: 4
                         text: settings.tr("about_copyright")
+                        wrapMode: Text.WordWrap
                         horizontalAlignment: Text.AlignHCenter
                         color: Theme.muted
                         font.family: Theme.font

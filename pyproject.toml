@@ -4,7 +4,8 @@ version = "0.7.0"
 description = "A local-first, cross-platform file conversion workspace."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
-license = { text = "Proprietary" }
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
 authors = [{ name = "Wemute" }]
 dependencies = [
   "numpy>=2.1,<3",
