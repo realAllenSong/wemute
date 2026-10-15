@@ -34,6 +34,11 @@ while IFS= read -r -d '' item; do
   codesign "${sign_flags[@]}" "$item"
 done < <(find "$APP_PATH" -type f -print0)
 
+# Signing rewrote mlx-audio-io's native extension, which checks its own hash
+# against its dist-info RECORD at load time. Refresh the RECORD before the
+# bundle is sealed, since the RECORD is a sealed resource too.
+uv run --project "$PROJECT_DIR" python "$PROJECT_DIR/scripts/refresh-mlx-audio-record.py" "$APP_PATH"
+
 # Seal nested frameworks, helper apps, and XPC services after their contained
 # binaries, deepest paths first. Preserve Sparkle's helper entitlements.
 while IFS= read -r bundle; do
