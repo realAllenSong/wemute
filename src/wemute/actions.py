@@ -756,8 +756,9 @@ def search(query: str, language: str, check: Availability, limit: int = 40) -> l
     candidates = palette_actions(check)
     tokens = query_tokens(query)
     if not tokens:
-        featured = [action for action in candidates if action.section != "app" and not action.id.startswith("format:")]
-        return featured[:limit]
+        # An empty search lists every tool, in menu order, so ⌘K doubles as the
+        # tool browser.
+        return [action for action in candidates if action.section != "app" and not action.id.startswith("format:")]
     compact = "".join(tokens)
     scored: list[tuple[float, int, Action]] = []
     for order, action in enumerate(candidates):

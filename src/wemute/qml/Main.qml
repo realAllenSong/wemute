@@ -42,9 +42,9 @@ ApplicationWindow {
     function openPalette(query) {
         commandPalette.openWith(query || "")
     }
+    // ⌘K lists every tool when nothing is typed, so it is also the tool browser.
     function openToolsMenu() {
-        toolsMenu.maxHeight = window.height - toolsButton.mapToItem(null, 0, 0).y - toolsButton.height - 30
-        toolsMenu.popup(toolsButton, toolsButton.width - toolsMenu.width, toolsButton.height + 6)
+        window.openPalette("")
     }
     function openShortcuts() {
         shortcutsSheet.open()
@@ -222,21 +222,8 @@ ApplicationWindow {
             spacing: 6
 
             ToolbarButton {
-                id: toolsButton
-                text: window.tr("toolbar_tools")
-                iconName: "sparkles"
-                chevron: true
-                open: toolsMenu.visible
-                onClicked: window.openToolsMenu()
-                Accessible.name: window.tr("toolbar_tools")
-                ToolTip.visible: hovered
-                ToolTip.delay: 600
-                ToolTip.text: window.tr("toolbar_tools")
-            }
-            ToolbarButton {
-                text: "⌘K"
+                text: window.tr("toolbar_search") + "  ⌘K"
                 iconName: "search"
-                quiet: true
                 onClicked: window.openPalette("")
                 Accessible.name: window.tr("sc_search")
                 ToolTip.visible: hovered
@@ -1106,12 +1093,6 @@ ApplicationWindow {
         id: settingsWindow
         objectName: "settingsWindow"
         mainWindow: window
-    }
-
-    ToolsMenu {
-        id: toolsMenu
-        objectName: "toolsMenu"
-        parent: window.contentItem
     }
 
     CommandPalette {
