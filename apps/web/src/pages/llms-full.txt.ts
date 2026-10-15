@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { localePath } from "../data/locale";
 import { TOOLS } from "../data/tools";
+import { MAC_APP_LINES } from "../data/mac";
 
 export const GET: APIRoute = ({ site }) => {
   const sections = TOOLS.map((tool) =>
@@ -20,6 +21,6 @@ export const GET: APIRoute = ({ site }) => {
       "",
     ].join("\n"),
   );
-  const body = ["# Wemute — full tool reference", "", "All tools run locally in the browser; files are never uploaded.", "", ...sections].join("\n");
+  const body = ["# Wemute — full tool reference", "", "All tools run locally in the browser; files are never uploaded.", "", ...sections, ...MAC_APP_LINES].join("\n");
   return new Response(body, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
 };

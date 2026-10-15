@@ -1,7 +1,7 @@
 ---
 import Base from "../layouts/Base.astro";
 import { localePath, type Locale } from "../data/locale";
-import { CONTACT_EMAIL, UPDATED, type LegalPage as Page } from "../data/site";
+import { CONTACT_EMAIL, CONTACT_URL, UPDATED, type LegalPage as Page } from "../data/site";
 import { ui } from "../data/ui";
 import { breadcrumbs, graph, organization } from "../lib/site";
 
@@ -26,7 +26,7 @@ const updated = new Date(UPDATED).toLocaleDateString(locale === "zh" ? "zh-CN" :
   day: "numeric",
   timeZone: "UTC",
 });
-const missingContact = locale === "zh" ? "联系邮箱即将公布。" : "A contact address will be published here shortly.";
+const contactLabel = locale === "zh" ? "在 GitHub 上联系我们（Issues）" : "Contact us on GitHub (Issues)";
 ---
 
 <Base locale={locale} slug={page.slug} title={page.metaTitle[locale]} description={page.metaDescription[locale]} jsonLd={jsonLd}>
@@ -51,7 +51,9 @@ const missingContact = locale === "zh" ? "联系邮箱即将公布。" : "A cont
                   <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
                 </p>
               ) : (
-                <p>{missingContact}</p>
+                <p>
+                  <a href={CONTACT_URL} rel="noopener">{contactLabel}</a>
+                </p>
               ))}
           </section>
         ))

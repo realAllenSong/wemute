@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { localePath } from "../data/locale";
 import { CATEGORY_LABEL, CATEGORY_ORDER, toolsIn } from "../data/tools";
+import { MAC_APP_LINES } from "../data/mac";
 
 export const GET: APIRoute = ({ site }) => {
   const url = (path: string) => new URL(path, site).toString();
@@ -21,6 +22,7 @@ export const GET: APIRoute = ({ site }) => {
       ...toolsIn(category).map((tool) => `- [${tool.name.en}](${url(localePath("en", tool.slug))}): ${tool.answer.en}`),
       "",
     ]),
+    ...MAC_APP_LINES,
     "## Optional",
     "",
     `- [Full tool reference](${url("/llms-full.txt")}): steps and FAQs for every tool.`,

@@ -6,6 +6,8 @@ export const UPDATED = "2026-10-12";
 // Operator details shown on legal pages. Set PUBLIC_CONTACT_EMAIL at build time;
 // the pages state plainly when it is missing instead of inventing an address.
 export const CONTACT_EMAIL = (import.meta.env.PUBLIC_CONTACT_EMAIL as string | undefined)?.trim() || "";
+// Without an e-mail address, people reach the maintainer through GitHub Issues.
+export const CONTACT_URL = "https://github.com/realAllenSong/wemute/issues";
 
 export const HOME = {
   metaTitle: text(
@@ -136,8 +138,8 @@ export const LEGAL: LegalPage[] = [
       {
         heading: text("Contact", "联系方式"),
         body: text(
-          "Questions about privacy can be sent to the address below.",
-          "关于隐私的问题可以发送至下方地址。",
+          "Questions about privacy are welcome below; you can open a private security advisory there too.",
+          "关于隐私的问题，欢迎通过下方链接联系；也可以在那里提交不公开的安全报告。",
         ),
       },
     ],
@@ -215,8 +217,8 @@ export const LEGAL: LegalPage[] = [
       {
         heading: text("Contact", "联系"),
         body: text(
-          "Suggestions for new tools and bug reports are welcome at the address below.",
-          "欢迎通过下方地址提出新工具建议或反馈问题。",
+          "Suggestions for new tools and bug reports are welcome below.",
+          "欢迎通过下方链接提出新工具建议或反馈问题。",
         ),
       },
     ],
