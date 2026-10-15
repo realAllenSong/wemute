@@ -21,6 +21,9 @@ const site = Astro.site!;
 const canonical = absolute(site, Astro.url.pathname.replace(/\/$/, "") || "/");
 const robots = INDEXABLE && !noindex ? "index, follow, max-image-preview:large, max-snippet:-1" : "noindex, nofollow";
 const ogImage = absolute(site, "/og.png");
+// Search Console and Bing Webmaster ownership checks (HTML-tag method).
+const googleVerification = (import.meta.env.PUBLIC_GOOGLE_SITE_VERIFICATION as string | undefined)?.trim();
+const bingVerification = (import.meta.env.PUBLIC_BING_SITE_VERIFICATION as string | undefined)?.trim();
 ---
 
 <!doctype html>
@@ -40,6 +43,8 @@ const ogImage = absolute(site, "/og.png");
     <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="sitemap" href="/sitemap-index.xml" />
+    {googleVerification && <meta name="google-site-verification" content={googleVerification} />}
+    {bingVerification && <meta name="msvalidate.01" content={bingVerification} />}
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Wemute" />
