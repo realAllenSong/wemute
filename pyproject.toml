@@ -1,6 +1,6 @@
 [project]
 name = "wemute"
-version = "0.7.0"
+version = "0.7.1"
 description = "A local-first, cross-platform file conversion workspace."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
