@@ -119,7 +119,11 @@ stdout 只输出结果，退出码是 0 或 1，错误码稳定。详见[命令�
 
 ## 安装
 
-需要 macOS 14 或更高版本，Apple 芯片。目前还没有签名的安装包，请从源码构建：
+需要 macOS 14 或更高版本，Apple 芯片。
+
+**[下载最新版本](https://github.com/realAllenSong/wemute/releases/latest)**：打开 DMG，把 Wemute 拖进"应用程序"即可。安装包使用 Developer ID 签名、经过 Apple 公证，之后会通过 Sparkle 自动更新。
+
+也可以从源码构建：
 
 ```sh
 git clone https://github.com/realAllenSong/wemute.git && cd wemute

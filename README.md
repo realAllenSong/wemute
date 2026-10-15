@@ -122,8 +122,13 @@ codes. See the [command line reference](docs/cli.md).
 
 ## Install
 
-Wemute needs macOS 14 or later on Apple Silicon. There is no signed download
-yet, so build the app from source:
+Wemute needs macOS 14 or later on Apple Silicon.
+
+**[Download the latest release](https://github.com/realAllenSong/wemute/releases/latest)**:
+open the DMG and drag Wemute to Applications. It is signed with a Developer
+ID, notarized by Apple, and updates itself through Sparkle.
+
+To build from source instead:
 
 ```sh
 git clone https://github.com/realAllenSong/wemute.git && cd wemute
