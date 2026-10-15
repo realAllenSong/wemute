@@ -6,25 +6,77 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [
-    { "source": "/tools/convert-image", "destination": "/image-converter", "permanent": true },
-    { "source": "/tools/compress-image", "destination": "/compress-image", "permanent": true },
-    { "source": "/tools/resize-image", "destination": "/resize-image", "permanent": true },
-    { "source": "/tools/round-corners", "destination": "/round-corners", "permanent": true },
-    { "source": "/mp4-to-gif", "destination": "/video-to-gif", "permanent": true },
-    { "source": "/zh/mp4-to-gif", "destination": "/zh/video-to-gif", "permanent": true }
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "wemute.vercel.app"
+        }
+      ],
+      "destination": "https://wemute.entropinia.com/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/tools/convert-image",
+      "destination": "/image-converter",
+      "permanent": true
+    },
+    {
+      "source": "/tools/compress-image",
+      "destination": "/compress-image",
+      "permanent": true
+    },
+    {
+      "source": "/tools/resize-image",
+      "destination": "/resize-image",
+      "permanent": true
+    },
+    {
+      "source": "/tools/round-corners",
+      "destination": "/round-corners",
+      "permanent": true
+    },
+    {
+      "source": "/mp4-to-gif",
+      "destination": "/video-to-gif",
+      "permanent": true
+    },
+    {
+      "source": "/zh/mp4-to-gif",
+      "destination": "/zh/video-to-gif",
+      "permanent": true
+    }
   ],
   "headers": [
     {
       "source": "/_astro/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     },
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
       ]
     }
   ]
