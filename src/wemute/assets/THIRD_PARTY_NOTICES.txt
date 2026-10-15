@@ -117,3 +117,10 @@ separate programs.
 LibreOffice 26.8.1 — MPL-2.0 — https://www.libreoffice.org/about-us/licenses/
 Calibre 9.16.0 — GPL-3.0-only — https://github.com/kovidgoyal/calibre
 Pandoc 3.12.1 — GPL-2.0-or-later — https://github.com/jgm/pandoc
+
+x265 and FFmpeg bundled inside OpenCV (opencv-python-headless)
+  OpenCV's wheel carries its own FFmpeg libraries, linked with x265.
+  x265 is licensed GPL-2.0-or-later; FFmpeg there is LGPL-2.1-or-later.
+  Wemute is distributed under the GNU AGPL-3.0, which is compatible.
+  x265 source: https://bitbucket.org/multicoreware/x265_git
+  OpenCV wheel build scripts and sources: https://github.com/opencv/opencv-python

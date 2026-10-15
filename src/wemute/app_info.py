@@ -158,6 +158,12 @@ THIRD_PARTY_COMPONENTS: tuple[dict[str, str], ...] = (
         "url": "https://github.com/opencv/opencv-python/blob/4.x/LICENSE.txt",
     },
     {
+        "name": "x265 and FFmpeg inside OpenCV",
+        "version": "bundled with opencv-python-headless",
+        "license": "GPL-2.0-or-later (x265), LGPL-2.1-or-later (FFmpeg)",
+        "url": "https://bitbucket.org/multicoreware/x265_git/src/master/COPYING",
+    },
+    {
         "name": "openpyxl / et-xmlfile",
         "version": "3.1.5 / 2.0.0",
         "license": "MIT",

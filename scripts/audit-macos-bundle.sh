@@ -25,7 +25,15 @@ for required in \
   fi
 done
 
-for forbidden in '*libx265*' '*pillow_heif*'; do
+# x265 (GPL-2.0-or-later) arrives inside OpenCV's FFmpeg. Wemute is AGPL-3.0,
+# which may carry it, as long as the notices say so.
+if find "$APP_PATH" -iname '*libx265*' -print -quit | grep -q .; then
+  if ! grep -q "x265" "$APP_PATH/Contents/Resources/wemute/assets/THIRD_PARTY_NOTICES.txt"; then
+    echo "Release bundle contains x265 but its notices do not mention it." >&2
+    exit 1
+  fi
+fi
+for forbidden in '*pillow_heif*'; do
   if find "$APP_PATH" -iname "$forbidden" -print -quit | grep -q .; then
     echo "Release bundle contains forbidden component: $forbidden" >&2
     exit 1
