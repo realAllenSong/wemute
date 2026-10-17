@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import hashlib
+import http.client
 import json
 import os
 import shutil
 import stat
 import threading
 import tempfile
+import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from collections.abc import Callable, Iterable
@@ -32,6 +35,10 @@ class ChecksumMismatch(ModelPackageError):
     pass
 
 
+# Seconds a download may go without connecting or receiving data.
+DOWNLOAD_TIMEOUT = 30
+
+
 @dataclass(frozen=True, slots=True)
 class ModelManifest:
     id: str
@@ -51,6 +58,8 @@ class ModelManifest:
     archive_format: str = ""
     runtime_members: tuple[str, ...] = ()
     runtime_executable: str = ""
+    # Byte-identical copies tried in order when the main URL fails.
+    mirrors: tuple[str, ...] = ()
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "ModelManifest":
@@ -72,6 +81,7 @@ class ModelManifest:
             archive_format=str(payload.get("archive_format", "")),
             runtime_members=tuple(str(value) for value in payload.get("runtime_members", [])),
             runtime_executable=str(payload.get("runtime_executable", "")),
+            mirrors=tuple(str(value) for value in payload.get("mirrors", [])),
         )
         manifest.validate()
         return manifest
@@ -192,7 +202,31 @@ class ModelPackageManager:
             return self.package_path(manifest)
         if not manifest.download_url:
             raise ModelPackageError(f"No download URL is configured for {manifest.name}.")
+        if opener is not None:
+            return self._install_from(manifest, manifest.download_url, progress, cancel, opener)
+        # Try the main URL, then each mirror. A stalled or refused connection,
+        # or a file that fails its checksum, moves on to the next source; the
+        # partial download is kept, so the next source resumes it.
+        failures: list[str] = []
+        for url in (manifest.download_url, *manifest.mirrors):
+            try:
+                return self._install_from(manifest, url, progress, cancel, None)
+            except DownloadCancelled:
+                raise
+            except (ModelPackageError, OSError, http.client.HTTPException, ValueError) as exc:
+                failures.append(f"{urllib.parse.urlsplit(url).netloc}: {exc}")
+        raise ModelPackageError(
+            f"Could not download {manifest.name} from any source ({'; '.join(failures)})"
+        )
 
+    def _install_from(
+        self,
+        manifest: ModelManifest,
+        url: str,
+        progress: ProgressCallback | None,
+        cancel: threading.Event | None,
+        opener: Callable[[str], BinaryIO] | None,
+    ) -> Path:
         destination = self.package_path(manifest)
         destination.parent.mkdir(parents=True, exist_ok=True)
         partial = self.partial_path(manifest)
@@ -213,21 +247,23 @@ class ModelPackageManager:
                 partial.unlink(missing_ok=True)
                 downloaded = 0
                 digest = hashlib.sha256()
-            response = opener(manifest.download_url)
+            response = opener(url)
         else:
-            request: str | urllib.request.Request = manifest.download_url
+            headers = {"User-Agent": "Wemute (+https://github.com/realAllenSong/wemute)"}
             if downloaded:
-                request = urllib.request.Request(
-                    manifest.download_url,
-                    headers={"Range": f"bytes={downloaded}-"},
-                )
-            response = urllib.request.urlopen(request)
+                headers["Range"] = f"bytes={downloaded}-"
+            # The timeout covers each connect and read: a stalled connection
+            # fails after it instead of downloading forever.
+            response = urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=DOWNLOAD_TIMEOUT)
             if downloaded and getattr(response, "status", None) != 206:
                 response.close()
                 partial.unlink(missing_ok=True)
                 downloaded = 0
                 digest = hashlib.sha256()
-                response = urllib.request.urlopen(manifest.download_url)
+                response = urllib.request.urlopen(
+                    urllib.request.Request(url, headers={"User-Agent": headers["User-Agent"]}),
+                    timeout=DOWNLOAD_TIMEOUT,
+                )
 
         try:
             if progress:

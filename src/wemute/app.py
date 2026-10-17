@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -80,6 +81,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dump-menu", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--show-components", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--qa-action", choices=["start", "clear"], help=argparse.SUPPRESS)
+    parser.add_argument("--qa-install-model", metavar="ID", help=argparse.SUPPRESS)
     parser.add_argument("--qa-action-delay", type=int, default=1200, help=argparse.SUPPRESS)
     parser.add_argument("--appearance", choices=["system", "light", "dark"], help=argparse.SUPPRESS)
     parser.add_argument("--language", choices=["en", "zh"], help=argparse.SUPPRESS)
@@ -327,6 +329,14 @@ def main(argv: list[str] | None = None) -> int:
         QTimer.singleShot(900, lambda: QMetaObject.invokeMethod(root, "openToolsMenu"))
     if arguments.show_shortcuts:
         QTimer.singleShot(900, lambda: QMetaObject.invokeMethod(root, "openShortcuts"))
+    if arguments.qa_install_model:
+        # Press 「获取」 in Settings › Components for this model, report, quit.
+        def report(package_id: str, error: str) -> None:
+            print(json.dumps({"model": package_id, "ok": not error, "error": error}), flush=True)
+            QTimer.singleShot(200, QCoreApplication.quit)
+
+        ai_model_controller._installFinished.connect(report)
+        QTimer.singleShot(800, lambda: ai_model_controller.installPackage(arguments.qa_install_model))
     if arguments.qa_action == "start":
         QTimer.singleShot(arguments.qa_action_delay, controller.startAll)
     elif arguments.qa_action == "clear":

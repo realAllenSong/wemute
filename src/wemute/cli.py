@@ -74,6 +74,10 @@ def _parser() -> argparse.ArgumentParser:
     convert.add_argument("--plain", action="store_true", help="print only the output paths, one per line")
     convert.add_argument("--timeout", type=float, default=6 * 3600)
     sub.add_parser("actions", help="list tool ids for --action")
+    models = sub.add_parser("models", help="list or download the optional AI models")
+    models.add_argument("action", choices=("list", "install"))
+    models.add_argument("id", nargs="?", default="", help="model id for install (see `models list`)")
+    sub.add_parser("doctor", help="check downloads, certificates, components, models and ThunderTalk")
     ex = sub.add_parser("extract", help="any file or folder → text a language model can read")
     ex.add_argument("paths", nargs="+")
     ex.add_argument("--out", default="", help="write one file per input into this folder (default: stdout)")
@@ -296,6 +300,74 @@ def _extract_to(arguments: argparse.Namespace, stdout) -> int:  # noqa: ANN001
     return 1 if failures else 0
 
 
+def _models(arguments: argparse.Namespace) -> int:
+    from wemute.model_packages import DownloadCancelled, ModelPackageManager
+
+    manager = ModelPackageManager()
+    if arguments.action == "list":
+        for manifest in manager.manifests:
+            _emit(type="model", id=manifest.id, name=manifest.name, size=manifest.size_bytes,
+                  installed=manager.installed(manifest), license=manifest.license)
+        return 0
+    try:
+        manifest = manager.manifest(arguments.id)
+    except KeyError:
+        _emit(type="result", ok=False, code="bad_args", error=f"unknown model: {arguments.id or '(none)'}")
+        return 1
+    last = {"value": -1.0}
+
+    def progress(done: int, total: int) -> None:
+        value = round(done / total, 2) if total else 0.0
+        if value != last["value"]:
+            last["value"] = value
+            _emit(type="progress", value=value)
+
+    try:
+        manager.install(manifest, progress=progress)
+    except DownloadCancelled:
+        _emit(type="result", ok=False, code="cancelled", error="cancelled")
+        return 1
+    except Exception as exc:  # noqa: BLE001 - the reason is the answer
+        _emit(type="result", ok=False, code="failed", error=f"{type(exc).__name__}: {exc}")
+        return 1
+    _emit(type="result", ok=True, id=manifest.id, installed=manager.installed(manifest))
+    return 0
+
+
+def _doctor() -> int:
+    """One JSON line per check, for support: what works on this Mac and what doesn't."""
+    import ssl
+    import urllib.request
+
+    from wemute import __version__
+    from wemute.components import ComponentManager
+    from wemute.integrations import thundertalk_app, thundertalk_cli_version
+    from wemute.model_packages import ModelPackageManager
+
+    ok = True
+    paths = ssl.get_default_verify_paths()
+    cafile = os.environ.get("SSL_CERT_FILE") or paths.cafile or ""
+    _emit(type="check", name="version", ok=True, value=__version__)
+    _emit(type="check", name="certificates", ok=bool(cafile and os.path.exists(cafile)), value=cafile)
+    for name, url in (("github", "https://github.com"), ("huggingface", "https://huggingface.co")):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, method="HEAD"), timeout=15) as response:
+                _emit(type="check", name=f"reach {name}", ok=True, value=response.status)
+        except Exception as exc:  # noqa: BLE001
+            ok = False
+            _emit(type="check", name=f"reach {name}", ok=False, value=f"{type(exc).__name__}: {exc}")
+    tools = ComponentManager().tools()
+    for component in ("libreoffice", "calibre", "pandoc"):
+        _emit(type="check", name=f"component {component}", ok=component in tools, value=tools.get(component, "not installed"))
+    manager = ModelPackageManager()
+    for manifest in manager.manifests:
+        _emit(type="check", name=f"model {manifest.id}", ok=manager.installed(manifest),
+              value="installed" if manager.installed(manifest) else "not installed")
+    version = thundertalk_cli_version()
+    _emit(type="check", name="thundertalk", ok=version >= 1, value=f"{thundertalk_app()} (CLI v{version})")
+    return 0 if ok else 1
+
+
 def _unique(path: Path) -> Path:
     candidate, number = path, 2
     while candidate.exists():
@@ -311,6 +383,10 @@ def main(argv: list[str]) -> int:
     if arguments.command == "extract":
         # Reading files needs no Qt application.
         return _extract(arguments)
+    if arguments.command == "models":
+        return _models(arguments)
+    if arguments.command == "doctor":
+        return _doctor()
     # No window, no Dock icon: the offscreen platform before Qt starts.
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication

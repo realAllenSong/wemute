@@ -98,9 +98,10 @@ def test_interrupted_download_resumes_with_http_range(tmp_path: Path) -> None:
     response = BytesResponse(payload[9:])
     response.status = 206  # type: ignore[attr-defined]
 
-    def open_range(request: object) -> BytesResponse:
+    def open_range(request: object, timeout: float | None = None) -> BytesResponse:
         assert isinstance(request, urllib.request.Request)
         assert request.get_header("Range") == "bytes=9-"
+        assert timeout, "downloads must time out instead of hanging"
         return response
 
     with patch("wemute.model_packages.urllib.request.urlopen", side_effect=open_range):
@@ -157,3 +158,91 @@ def test_verified_archive_extracts_only_declared_runtime_members(tmp_path: Path)
     assert (runtime / "models/photo.bin").read_bytes() == b"model"
     assert not (runtime / "README.md").exists()
     assert (runtime / ".wemute-package-sha256").read_text().strip() == manifest.sha256
+
+
+# ── mirrors and timeouts, against a real local HTTP server ───────────────
+
+import http.server
+import socket
+import time
+
+from wemute import model_packages
+
+
+def _serve(routes: dict[str, bytes | str]):  # noqa: ANN202
+    """routes: path → bytes to serve, or "stall" to accept and never answer."""
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *_args):  # noqa: ANN002
+            pass
+
+        def do_GET(self):  # noqa: N802
+            body = routes.get(self.path)
+            if body == "stall":
+                time.sleep(5)
+                return
+            if body is None:
+                self.send_error(404)
+                return
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, f"http://127.0.0.1:{server.server_address[1]}"
+
+
+def _closed_port() -> int:
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+def _with_sources(payload: bytes, main: str, mirrors: list[str]) -> ModelManifest:
+    base = manifest_for(payload)
+    return ModelManifest(**{**{f: getattr(base, f) for f in base.__dataclass_fields__},
+                            "download_url": main, "mirrors": tuple(mirrors)})
+
+
+def test_falls_back_to_a_mirror_when_the_main_host_is_down(tmp_path: Path) -> None:
+    payload = b"mirror-weights" * 100
+    server, base = _serve({"/model.onnx": payload})
+    try:
+        manifest = _with_sources(payload, f"http://127.0.0.1:{_closed_port()}/model.onnx", [f"{base}/model.onnx"])
+        manager = ModelPackageManager(tmp_path, [manifest])
+        assert manager.install(manifest).read_bytes() == payload
+        assert manager.installed(manifest)
+    finally:
+        server.shutdown()
+
+
+def test_a_stalled_host_times_out_and_the_mirror_finishes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(model_packages, "DOWNLOAD_TIMEOUT", 1)
+    payload = b"weights" * 50
+    server, base = _serve({"/stall": "stall", "/ok": payload})
+    try:
+        manifest = _with_sources(payload, f"{base}/stall", [f"{base}/ok"])
+        manager = ModelPackageManager(tmp_path, [manifest])
+        started = time.monotonic()
+        manager.install(manifest)
+        assert manager.installed(manifest) and time.monotonic() - started < 4.5
+    finally:
+        server.shutdown()
+
+
+def test_a_corrupt_mirror_is_skipped_and_all_failures_are_reported(tmp_path: Path) -> None:
+    payload = b"real-weights" * 10
+    server, base = _serve({"/bad": b"x" * len(payload), "/good": payload})
+    try:
+        manifest = _with_sources(payload, f"{base}/bad", [f"{base}/good"])
+        manager = ModelPackageManager(tmp_path, [manifest])
+        assert manager.install(manifest).read_bytes() == payload
+
+        broken = _with_sources(payload, f"{base}/missing", [f"http://127.0.0.1:{_closed_port()}/x"])
+        manager = ModelPackageManager(tmp_path / "other", [broken])
+        with pytest.raises(model_packages.ModelPackageError, match="any source"):
+            manager.install(broken)
+    finally:
+        server.shutdown()

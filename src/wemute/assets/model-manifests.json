@@ -12,7 +12,11 @@
       "license": "MIT",
       "license_url": "https://github.com/ZhengPeng7/BiRefNet/blob/main/LICENSE",
       "backend": "onnxruntime-birefnet",
-      "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
+      "platforms": [
+        "macos-arm64",
+        "windows-x64",
+        "linux-x64"
+      ],
       "minimum_memory_gb": 16,
       "description": "A larger local model for fine hair, translucent edges, and difficult subjects. Nothing is uploaded."
     },
@@ -28,7 +32,9 @@
       "license": "BSD-3-Clause",
       "license_url": "https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE",
       "backend": "realesrgan-ncnn-vulkan",
-      "platforms": ["macos-arm64"],
+      "platforms": [
+        "macos-arm64"
+      ],
       "minimum_memory_gb": 8,
       "description": "Local 2× and 4× enhancement tuned for photos or illustrations.",
       "archive_format": "zip",
@@ -39,6 +45,9 @@
         "models/realesrgan-x4plus.param",
         "models/realesrgan-x4plus-anime.bin",
         "models/realesrgan-x4plus-anime.param"
+      ],
+      "mirrors": [
+        "https://github.com/realAllenSong/wemute-models/releases/download/model-packages-v1/realesrgan-ncnn-vulkan-20220424-macos.zip"
       ]
     },
     {
@@ -47,15 +56,23 @@
       "version": "2025jan",
       "capability": "erase-object",
       "filename": "inpainting_lama_2025jan.onnx",
-      "download_url": "https://huggingface.co/opencv/inpainting_lama/resolve/main/inpainting_lama_2025jan.onnx",
+      "download_url": "https://github.com/realAllenSong/wemute-models/releases/download/model-packages-v1/inpainting_lama_2025jan.onnx",
       "sha256": "7df918ac3921d3daf0aae1d219776cf0dc4e4935f035af81841b40adcf74fdf2",
       "size_bytes": 92591623,
       "license": "Apache-2.0",
       "license_url": "https://huggingface.co/opencv/inpainting_lama/blob/main/LICENSE",
       "backend": "onnxruntime-lama",
-      "platforms": ["macos-arm64", "windows-x64", "linux-x64"],
+      "platforms": [
+        "macos-arm64",
+        "windows-x64",
+        "linux-x64"
+      ],
       "minimum_memory_gb": 8,
-      "description": "A local brush-based tool for removing objects or marks you have the right to edit."
+      "description": "A local brush-based tool for removing objects or marks you have the right to edit.",
+      "mirrors": [
+        "https://huggingface.co/opencv/inpainting_lama/resolve/main/inpainting_lama_2025jan.onnx",
+        "https://hf-mirror.com/opencv/inpainting_lama/resolve/main/inpainting_lama_2025jan.onnx"
+      ]
     },
     {
       "id": "mlx-audio-separator",
@@ -69,7 +86,9 @@
       "license": "MIT",
       "license_url": "https://github.com/facebookresearch/demucs/blob/main/LICENSE",
       "backend": "mlx-htdemucs",
-      "platforms": ["macos-arm64"],
+      "platforms": [
+        "macos-arm64"
+      ],
       "minimum_memory_gb": 16,
       "description": "Apple Silicon-optimized local separation into Vocals and Instrumental WAV files.",
       "archive_format": "zip",

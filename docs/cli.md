@@ -123,6 +123,27 @@ wemute actions                                     # every tool id and its title
 
 - `--notify` also shows a macOS notification when the run finishes.
 
+## `wemute models` and `wemute doctor`
+
+```sh
+wemute models list                  # the optional AI models and whether each is installed
+wemute models install lama          # download one, with JSON progress lines
+wemute doctor                       # one JSON line per check
+```
+
+Downloads try the main source, then each mirror. A connection that stalls
+for 30 seconds moves on to the next source, and a partial download resumes
+there.
+
+`doctor` checks:
+
+- the certificates the app uses;
+- whether GitHub and Hugging Face can be reached;
+- each component and model;
+- ThunderTalk.
+
+Run it first when something won't download.
+
 ## Requirements
 
 - macOS 14 or later on Apple Silicon.

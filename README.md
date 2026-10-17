@@ -44,6 +44,17 @@ The interface is "Ice": soft glass on a pale background, one cobalt accent,
 and light and dark modes. There are no settings to learn before your first
 conversion.
 
+## New in v0.7.2
+
+- **Downloads that work everywhere.** The app now carries its own HTTPS
+  certificates. Before, Macs without Homebrew could not download models or
+  components.
+- **Downloads that never hang.** A stalled connection gives up after 30
+  seconds and moves on to a mirror. The Erase and Upscale models now come
+  from Wemute's own GitHub mirror first.
+- **`wemute models` and `wemute doctor`:** install models from the command
+  line, and check what works on this Mac.
+
 ## New in v0.7.1
 
 - **One place for every tool:** the toolbar's Tools menu and ⌘K search showed the same tools, so the Tools menu is gone. **Find a tool ⌘K** searches every tool, and shows the full list when you type nothing.
