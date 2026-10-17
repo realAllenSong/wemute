@@ -176,6 +176,33 @@ def test_erase_action_requests_a_mask_before_changing_the_job(tmp_path: Path) ->
     controller.shutdown()
 
 
+def test_editor_strokes_become_a_full_size_mask(tmp_path: Path) -> None:
+    app = QCoreApplication.instance() or QCoreApplication([])
+    del app
+    source = tmp_path / "source.png"
+    Image.new("RGB", (400, 300), "navy").save(source)
+    job = JobRecord("first", probe_file(source, create_preview=False), "WebP")
+    model = QueueModel([job])
+    controller = JobController(model, QueueStore(tmp_path / "queue.json"))
+    model.set_enabled_ai_actions({OperationKind.ERASE_OBJECT})
+    strokes = [
+        {"width": 20, "points": [{"x": 50, "y": 100}, {"x": 250, "y": 100}]},
+        {"width": 10, "points": [{"x": 300, "y": 250}]},
+    ]
+
+    assert controller.applyEraseStrokes(job.id, strokes, 400, 300, False)
+
+    assert job.operation == OperationKind.ERASE_OBJECT
+    with Image.open(job.operation_options["mask_path"]) as mask:
+        assert mask.size == (400, 300)
+        assert mask.getpixel((150, 100)) == 255  # along the stroke
+        assert mask.getpixel((45, 100)) == 255  # inside the round cap
+        assert mask.getpixel((150, 115)) == 0  # beyond the brush
+        assert mask.getpixel((300, 250)) == 255  # a single dab
+        assert mask.getpixel((10, 10)) == 0
+    controller.shutdown()
+
+
 def test_controller_reuses_one_ai_worker_for_a_batch(tmp_path: Path) -> None:
     app = QCoreApplication.instance() or QCoreApplication([])
     del app

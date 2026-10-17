@@ -27,7 +27,6 @@ Sheet {
     property int undoCount: 0
     property int redoCount: 0
     property bool drawing: false
-    property string pendingMaskPath: ""
 
     readonly property int imageWidth: sourceImage.implicitWidth
     readonly property int imageHeight: sourceImage.implicitHeight
@@ -177,14 +176,12 @@ Sheet {
         context.stroke()
     }
 
+    // The mask is drawn at full resolution in Python from the strokes.
     function applyMask() {
-        var path = jobController.eraseMaskPath(jobId)
-        if (path.length === 0)
+        if (strokes.length === 0 || !ready)
             return
-        pendingMaskPath = path
-        exportCanvas.width = imageWidth / exportCanvas.ratio
-        exportCanvas.height = imageHeight / exportCanvas.ratio
-        exportCanvas.requestPaint()
+        if (jobController.applyEraseStrokes(jobId, strokes, imageWidth, imageHeight, applyGroup))
+            close()
     }
 
     Shortcut {
@@ -388,51 +385,6 @@ Sheet {
                                 paintedStrokes = strokes.length
                                 paintedPoints = strokes.length > 0 ? strokes[strokes.length - 1].points.length : 0
                                 context.restore()
-                            }
-                        }
-                    }
-
-                    // Full-resolution mask, drawn once when applying.
-                    Item {
-                        width: 0
-                        height: 0
-                        clip: true
-                        Canvas {
-                            id: exportCanvas
-                            // The backing image is width × the display's pixel ratio,
-                            // so this makes the saved PNG exactly the photo's size.
-                            readonly property real ratio: Math.max(1, Screen.devicePixelRatio)
-                            width: 1
-                            height: 1
-                            renderTarget: Canvas.Image
-                            renderStrategy: Canvas.Immediate
-                            onPaint: {
-                                if (editor.pendingMaskPath.length === 0)
-                                    return
-                                var context = getContext("2d")
-                                context.save()
-                                context.clearRect(0, 0, width, height)
-                                context.scale(1 / ratio, 1 / ratio)
-                                context.strokeStyle = "#FFFFFF"
-                                context.fillStyle = "#FFFFFF"
-                                context.lineCap = "round"
-                                context.lineJoin = "round"
-                                for (var index = 0; index < editor.strokes.length; index++)
-                                    editor.drawStroke(context, editor.strokes[index], 0)
-                                context.restore()
-                            }
-                            onPainted: {
-                                var path = editor.pendingMaskPath
-                                if (path.length === 0 || width <= 1)
-                                    return
-                                editor.pendingMaskPath = ""
-                                var saved = save(path)
-                                width = 1
-                                height = 1
-                                if (saved) {
-                                    jobController.completeEraseMask(editor.jobId, path, editor.applyGroup)
-                                    editor.close()
-                                }
                             }
                         }
                     }
@@ -782,7 +734,7 @@ Sheet {
                     kind: "primary"
                     implicitHeight: 38
                     text: editor.applyGroup ? editor.tr("apply_to_all") : editor.tr("apply")
-                    enabled: editor.strokeCount > 0 && editor.ready && editor.pendingMaskPath.length === 0
+                    enabled: editor.strokeCount > 0 && editor.ready
                     onClicked: editor.applyMask()
                 }
             }

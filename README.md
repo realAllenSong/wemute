@@ -44,6 +44,12 @@ The interface is "Ice": soft glass on a pale background, one cobalt accent,
 and light and dark modes. There are no settings to learn before your first
 conversion.
 
+## New in v0.7.3
+
+- **Erase no longer quits the app.** Pressing **Erase** after painting could
+  crash Wemute. The mask is now drawn from your brush strokes at the photo's
+  full size, without a large on-screen canvas.
+
 ## New in v0.7.2
 
 - **Downloads that work everywhere.** The app now carries its own HTTPS

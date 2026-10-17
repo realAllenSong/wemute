@@ -82,6 +82,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--show-components", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--qa-action", choices=["start", "clear"], help=argparse.SUPPRESS)
     parser.add_argument("--qa-install-model", metavar="ID", help=argparse.SUPPRESS)
+    parser.add_argument("--qa-erase", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--qa-action-delay", type=int, default=1200, help=argparse.SUPPRESS)
     parser.add_argument("--appearance", choices=["system", "light", "dark"], help=argparse.SUPPRESS)
     parser.add_argument("--language", choices=["en", "zh"], help=argparse.SUPPRESS)
@@ -163,6 +164,68 @@ def _native_menu_titles() -> list[str]:
         return titles
     except Exception:  # pragma: no cover - platform specific
         return []
+
+
+def _run_erase_qa(root: QObject, controller: JobController, model: QueueModel) -> None:
+    """Drives the erase editor like a person would, then prints the job's result."""
+    # Files given on the command line are added asynchronously.
+    job = next((item for item in model.jobs if item.source.kind.value == "image"), None)
+    if job is None:
+        tries = getattr(_run_erase_qa, "tries", 0)
+        if tries > 50:
+            print(json.dumps({"ok": False, "error": "no image in the queue"}), flush=True)
+            QTimer.singleShot(0, lambda: QCoreApplication.exit(1))
+            return
+        _run_erase_qa.tries = tries + 1
+        QTimer.singleShot(200, lambda: _run_erase_qa(root, controller, model))
+        return
+    editor = root.findChild(QObject, "eraseMaskPopup")
+    deadline = QTimer(root)
+
+    def call(name: str, *values) -> None:
+        QMetaObject.invokeMethod(editor, name, *[Q_ARG("QVariant", value) for value in values])
+
+    def paint() -> None:
+        width = int(editor.property("imageWidth") or 0)
+        height = int(editor.property("imageHeight") or 0)
+        if not editor.property("ready"):
+            QTimer.singleShot(200, paint)
+            return
+        call("beginStroke", width * 0.3, height * 0.4)
+        for step in range(1, 21):
+            call("extendStroke", width * (0.3 + step * 0.02), height * 0.4)
+        call("endStroke")
+        QTimer.singleShot(300, lambda: call("applyMask"))
+        QTimer.singleShot(1500, start)
+
+    def start() -> None:
+        if editor.property("opened"):
+            report(False, "the editor stayed open after 擦除")
+            return
+        controller.startAll()
+        QTimer.singleShot(500, wait)
+
+    def wait() -> None:
+        if job.status.value in ("queued", "running"):
+            QTimer.singleShot(500, wait)
+            return
+        report(job.status.value == "succeeded", job.error or "", job.output_path or "")
+
+    def report(ok: bool, error: str, output: str = "") -> None:
+        deadline.stop()
+        print(json.dumps({"ok": ok, "error": error, "output": output}), flush=True)
+        QTimer.singleShot(200, lambda: QCoreApplication.exit(0 if ok else 1))
+
+    deadline.setSingleShot(True)
+    deadline.timeout.connect(lambda: report(False, "timed out"))
+    deadline.start(180_000)
+    QTimer.singleShot(
+        900,
+        lambda: controller.eraseMaskRequested.emit(
+            job.id, QUrl.fromLocalFile(job.source.path).toString(), False
+        ),
+    )
+    QTimer.singleShot(1800, paint)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -341,6 +404,9 @@ def main(argv: list[str] | None = None) -> int:
         QTimer.singleShot(arguments.qa_action_delay, controller.startAll)
     elif arguments.qa_action == "clear":
         QTimer.singleShot(arguments.qa_action_delay, controller.clearWithUndo)
+    if arguments.qa_erase:
+        # Paint a stroke, press 「擦除」, run the job, report, quit.
+        _run_erase_qa(root, controller, model)
     if arguments.show_erase_editor:
         image_job = next(
             (job for job in model.jobs if job.source.kind.value == "image"), None

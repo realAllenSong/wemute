@@ -51,6 +51,7 @@ from wemute.components import ComponentManager
 from wemute.components_qt import ComponentController
 from wemute.engine import FfmpegAdapter, finalize_output, remove_partial_output
 from wemute.engines import LANE_LIMITS, lane_for, required_component
+from wemute.erase_mask import draw_erase_mask
 from wemute.model_packages import ModelPackageManager
 from wemute.persistence import QueueStore
 from wemute.paths import CACHE_ROOT
@@ -1164,6 +1165,23 @@ class JobController(QObject):
         masks = CACHE_ROOT / "masks"
         masks.mkdir(parents=True, exist_ok=True)
         return str(masks / f"{job.id}.png")
+
+    @Slot(str, "QVariantList", int, int, bool, result=bool)
+    def applyEraseStrokes(
+        self, job_id: str, strokes: list, width: int, height: int, apply_group: bool
+    ) -> bool:
+        """Draws the editor's strokes (image pixels) into a full-size mask and applies it."""
+        path = self.eraseMaskPath(job_id)
+        if not path or width <= 0 or height <= 0:
+            self._set_error("The erase mask could not be saved. Try drawing it again.")
+            return False
+        try:
+            draw_erase_mask(strokes, (width, height)).save(path)
+        except (OSError, ValueError, TypeError, KeyError) as error:
+            self._set_error(f"The erase mask could not be saved: {error}")
+            return False
+        self.completeEraseMask(job_id, path, apply_group)
+        return True
 
     @Slot(str, str, bool)
     def completeEraseMask(self, job_id: str, mask_path: str, apply_group: bool) -> None:
