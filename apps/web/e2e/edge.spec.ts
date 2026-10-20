@@ -127,3 +127,20 @@ test("Enter starts a ready batch", async ({ page }) => {
   await page.keyboard.press("Enter");
   await waitForPhase(page, "done");
 });
+
+test("Download for Mac downloads the DMG directly and says what to do next", async ({ page }) => {
+  await page.route("https://github.com/realAllenSong/wemute/releases/latest/download/Wemute.dmg", (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { "content-type": "application/octet-stream", "content-disposition": "attachment; filename=Wemute.dmg" },
+      body: "dmg",
+    }),
+  );
+  await page.goto("/zh");
+  const link = page.locator("[data-mac-download]");
+  await expect(link).toHaveText(/下载 Mac 版/);
+  const [download] = await Promise.all([page.waitForEvent("download"), link.click()]);
+  expect(download.suggestedFilename()).toBe("Wemute.dmg");
+  await expect(page).toHaveURL(/\/zh\/?$/);
+  await expect(page.locator("[data-mac-status]")).toHaveText(/拖进「应用程序」/);
+});

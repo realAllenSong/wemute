@@ -55,7 +55,9 @@ macOS account with no Homebrew, Python, or model cache before publishing.
 `appcast.xml` is emitted beside the release archives and is itself backed by
 EdDSA-signed update archives. Upload it as a GitHub Release asset so the stable
 feed URL remains constant. Name the release tag `v<version>` so the generated
-archive URLs resolve. Sparkle retains the latest three versions in its
+archive URLs resolve. Also upload `Wemute.dmg`, the same DMG under a fixed name: the
+website's **Download for Mac** button links to
+`releases/latest/download/Wemute.dmg`, which downloads it directly. Sparkle retains the latest three versions in its
 feed; rollback is performed as a fix-forward release of the last known-good
 source with a higher build number, because secure clients correctly reject
 downgrades.

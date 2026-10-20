@@ -2561,6 +2561,29 @@ h1 {
   font-weight: 750;
   text-decoration: none;
 }
+.mac__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  margin-top: 14px;
+}
+.mac__actions .mac__cta {
+  margin-top: 0;
+}
+.mac__notes {
+  color: var(--body);
+  font-size: 14px;
+}
+.mac p.mac__meta {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.mac p.mac__meta--started {
+  color: var(--text);
+  font-weight: 600;
+}
 .app-main > footer.wrap {
   max-width: 1380px;
   margin: 0;

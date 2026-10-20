@@ -86,6 +86,9 @@ xcrun stapler validate "$DMG_PATH"
 spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG_PATH"
 hdiutil verify "$DMG_PATH"
 shasum -a 256 "$APP_ZIP" "$DMG_PATH" > "${RELEASE_DIR}/${RELEASE_STEM}-macos-arm64.sha256"
+# The website links to releases/latest/download/Wemute.dmg, so every release
+# carries the same DMG under this fixed name too.
+ditto "$DMG_PATH" "${RELEASE_DIR}/Wemute.dmg"
 
 APPCAST_DIR="${PROJECT_DIR}/build/appcast-${VERSION}"
 rm -rf "$APPCAST_DIR"

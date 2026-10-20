@@ -1,6 +1,7 @@
 ---
 import Icon from "./Icon.astro";
 import type { Locale } from "../data/locale";
+import { MAC_DOWNLOAD_URL, MAC_RELEASES_URL } from "../data/mac";
 import { ui } from "../data/ui";
 
 interface Props {
@@ -13,5 +14,26 @@ const strings = ui(Astro.props.locale);
 <section class="panel mac" aria-labelledby="mac-title">
   <h2 id="mac-title"><Icon name="laptop" size={18} /> {strings.macTitle}</h2>
   <p>{strings.macBody}</p>
-  <a class="mac__cta" href="https://github.com/realAllenSong/wemute/releases/latest" rel="noopener">{strings.macCta} <Icon name="arrow-right" size={15} /></a>
+  <div class="mac__actions">
+    <a class="mac__cta" href={MAC_DOWNLOAD_URL} data-mac-download>
+      <Icon name="download" size={15} /> {strings.macCta}
+    </a>
+    <a class="mac__notes" href={MAC_RELEASES_URL} rel="noopener">{strings.macNotes}</a>
+  </div>
+  <p class="mac__meta" data-mac-status aria-live="polite">{strings.macMeta}</p>
+  <template data-mac-started>{strings.macStarted}</template>
 </section>
+
+<script>
+  // GitHub serves the DMG as an attachment, so the page stays put; say what happens next.
+  for (const link of document.querySelectorAll<HTMLAnchorElement>("[data-mac-download]")) {
+    link.addEventListener("click", () => {
+      const section = link.closest(".mac");
+      const status = section?.querySelector<HTMLElement>("[data-mac-status]");
+      const started = section?.querySelector<HTMLTemplateElement>("[data-mac-started]");
+      if (!status || !started) return;
+      status.textContent = started.content.textContent ?? "";
+      status.classList.add("mac__meta--started");
+    });
+  }
+</script>
