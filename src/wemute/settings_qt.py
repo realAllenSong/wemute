@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shlex
 import subprocess
 import sys
@@ -214,6 +215,18 @@ class Integrations(QObject):
     def cliCommand(self) -> str:
         """For 「复制命令」: what to paste into a Run Shell Script action."""
         return shlex.join(finder_actions.wemute_command()) + ' --cli convert --action remove_background "$@"'
+
+    @Slot(result=str)
+    def mcpConfig(self) -> str:
+        """For 「复制配置」: the mcpServers entry for Claude Desktop, Cursor and other JSON clients."""
+        command = finder_actions.wemute_command()
+        entry = {"command": command[0], "args": [*command[1:], "--cli", "mcp"]}
+        return json.dumps({"mcpServers": {"wemute": entry}}, indent=2)
+
+    @Slot(result=str)
+    def mcpClaudeCommand(self) -> str:
+        """For 「复制 Claude Code 命令」: registers Wemute with Claude Code."""
+        return "claude mcp add wemute -- " + shlex.join([*finder_actions.wemute_command(), "--cli", "mcp"])
 
     @Slot()
     def refresh(self) -> None:

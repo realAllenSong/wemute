@@ -144,6 +144,52 @@ there.
 
 Run it first when something won't download.
 
+## `wemute mcp` — Wemute for AI agents
+
+`wemute mcp` runs Wemute as an [MCP](https://modelcontextprotocol.io) server
+on stdin and stdout. Any agent that speaks MCP can then read and convert
+files with it: Claude Code, Claude Desktop, Codex, Cursor and others. It
+needs no account or API key, and nothing is uploaded.
+
+| Tool | What it does |
+|---|---|
+| `extract` | Files or folders → Markdown or plain text. Same coverage as `wemute extract`. |
+| `convert` | Files → new files, with the default formats or one tool (`action`), optionally into `out_dir`. |
+| `list_actions` | The tool ids `convert` accepts, with an optional `query`. |
+| `list_models` / `install_model` | The optional AI models, and downloading one. |
+| `doctor` | What works on this Mac. |
+
+Each tool call runs one `wemute` command in its own process. A file that
+crashes a converter fails that call only, and the server keeps running.
+Messages to agents are always in English.
+
+Add it to your agent. These examples use the `wemute` command from
+**Settings › Integrations › Command line**. Without it, use
+`/Applications/Wemute.app/Contents/MacOS/Wemute` with the arguments
+`--cli mcp`.
+
+```sh
+claude mcp add wemute -- wemute mcp        # Claude Code
+codex mcp add wemute -- wemute mcp         # Codex
+```
+
+Claude Desktop (`claude_desktop_config.json`), Cursor (`~/.cursor/mcp.json`)
+and other clients that take JSON:
+
+```json
+{
+  "mcpServers": {
+    "wemute": {
+      "command": "/Applications/Wemute.app/Contents/MacOS/Wemute",
+      "args": ["--cli", "mcp"]
+    }
+  }
+}
+```
+
+`wemute convert` also takes `--out DIR` to save the outputs of one run in
+a folder of your choice.
+
 ## Requirements
 
 - macOS 14 or later on Apple Silicon.

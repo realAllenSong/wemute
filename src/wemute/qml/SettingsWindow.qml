@@ -946,6 +946,44 @@ Window {
                                     : integrations.installCommandLine()
                             }
                         }
+                        SettingRow {
+                            title: settings.tr("mcp_server")
+                            description: settings.tr("mcp_server_desc")
+                            WButton {
+                                id: mcpConfigButton
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: settings.tr("copy_mcp_config")
+                                onClicked: {
+                                    clipboardHelper.text = integrations.mcpConfig()
+                                    clipboardHelper.selectAll()
+                                    clipboardHelper.copy()
+                                    text = settings.tr("copied")
+                                    mcpConfigReset.restart()
+                                }
+                                Timer {
+                                    id: mcpConfigReset
+                                    interval: 1600
+                                    onTriggered: mcpConfigButton.text = settings.tr("copy_mcp_config")
+                                }
+                            }
+                            WButton {
+                                id: mcpClaudeButton
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: settings.tr("copy_mcp_claude")
+                                onClicked: {
+                                    clipboardHelper.text = integrations.mcpClaudeCommand()
+                                    clipboardHelper.selectAll()
+                                    clipboardHelper.copy()
+                                    text = settings.tr("copied")
+                                    mcpClaudeReset.restart()
+                                }
+                                Timer {
+                                    id: mcpClaudeReset
+                                    interval: 1600
+                                    onTriggered: mcpClaudeButton.text = settings.tr("copy_mcp_claude")
+                                }
+                            }
+                        }
                     }
                     Note {
                         visible: integrations.lastError.length > 0

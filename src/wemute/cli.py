@@ -5,7 +5,7 @@
 
 ``convert`` runs the same queue as the window: each file gets the user's
 default format for its kind (设置 · 转换 · 默认格式), or the tool named by
-``--action`` (an id from the 工具 menu, e.g. ``remove_bg``, ``to_pdf``,
+``--action`` (an id from the 工具 menu, e.g. ``remove_background``, ``to_pdf``,
 ``subtitles_srt``). Save location and naming follow the settings too. The
 open window's file list is never touched.
 
@@ -70,6 +70,7 @@ def _parser() -> argparse.ArgumentParser:
     convert = sub.add_parser("convert", help="convert files with the default formats or one tool")
     convert.add_argument("paths", nargs="+")
     convert.add_argument("--action", default="", help="a tool id from `Wemute --cli actions`")
+    convert.add_argument("--out", default="", help="save outputs in this folder for this run (default: the app's setting)")
     convert.add_argument("--notify", action="store_true", help="show a notification when done")
     convert.add_argument("--plain", action="store_true", help="print only the output paths, one per line")
     convert.add_argument("--timeout", type=float, default=6 * 3600)
@@ -78,6 +79,7 @@ def _parser() -> argparse.ArgumentParser:
     models.add_argument("action", choices=("list", "install"))
     models.add_argument("id", nargs="?", default="", help="model id for install (see `models list`)")
     sub.add_parser("doctor", help="check downloads, certificates, components, models and ThunderTalk")
+    sub.add_parser("mcp", help="run as an MCP server on stdin/stdout, for AI agents")
     ex = sub.add_parser("extract", help="any file or folder → text a language model can read")
     ex.add_argument("paths", nargs="+")
     ex.add_argument("--out", default="", help="write one file per input into this folder (default: stdout)")
@@ -93,6 +95,9 @@ def _parser() -> argparse.ArgumentParser:
 def _language() -> str:
     from wemute.i18n import I18n
 
+    # Agents (the MCP server) ask for English whatever the Mac's language is.
+    if os.environ.get("WEMUTE_LANGUAGE") in ("en", "zh"):
+        return os.environ["WEMUTE_LANGUAGE"]
     return I18n().language
 
 
@@ -121,6 +126,11 @@ def _convert(arguments: argparse.Namespace, language: str) -> int:
     model = QueueModel()
     model.set_language(language)
     controller = JobController(model, store=_ScratchStore())
+    if arguments.out:
+        # This run only; the app's own save location setting is left alone.
+        out = Path(arguments.out).expanduser().resolve()
+        out.mkdir(parents=True, exist_ok=True)
+        controller._destination = str(out)  # noqa: SLF001 - same package
     if action is not None:
         # Armed before the files arrive, exactly like choosing a tool first in
         # the window, so 添加后自动开始 never starts them with the defaults.
@@ -305,7 +315,18 @@ def _models(arguments: argparse.Namespace) -> int:
 
     manager = ModelPackageManager()
     if arguments.action == "list":
+        from wemute.ai_engine import AIEngineAdapter
+        from wemute.capabilities import ACTIONS
+
+        adapter = AIEngineAdapter(manager)
         for manifest in manager.manifests:
+            # Like Settings › Components: a model macOS already does better is not offered.
+            covered = any(
+                manifest.id in definition.package_ids and adapter.system_backend(operation)
+                for operation, definition in ACTIONS.items()
+            )
+            if covered and not manager.installed(manifest):
+                continue
             _emit(type="model", id=manifest.id, name=manifest.name, size=manifest.size_bytes,
                   installed=manager.installed(manifest), license=manifest.license)
         return 0
@@ -387,6 +408,10 @@ def main(argv: list[str]) -> int:
         return _models(arguments)
     if arguments.command == "doctor":
         return _doctor()
+    if arguments.command == "mcp":
+        from wemute.mcp_server import serve
+
+        return serve()
     # No window, no Dock icon: the offscreen platform before Qt starts.
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
