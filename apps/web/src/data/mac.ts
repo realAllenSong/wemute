@@ -13,6 +13,7 @@ export const MAC_APP_LINES = [
   "- Subtitles (SRT, VTT, transcripts, speaker labels) and read-aloud, through ThunderTalk.",
   "- Finder Quick Actions, a Shortcuts action, ⌘K tool search.",
   "- Command line for scripts and AI agents: `wemute extract FILE_OR_FOLDER` turns any file into Markdown, text or JSON lines a language model can read (PDF pages and tables with OCR for scanned pages, Word, Excel, PowerPoint with notes, screenshots, call recordings with speaker labels, e-mails with attachments, archives). `wemute convert --action ID FILES` runs any tool without the window. Reference: https://github.com/realAllenSong/wemute/blob/main/docs/cli.md",
+  "- For AI agents: `wemute mcp` is an MCP server (tools: extract, convert, list_actions, list_models, install_model, doctor) for Claude Code, Codex, Cursor, Claude Desktop and other MCP clients; the app also installs a `wemute` agent skill for Claude Code and Codex.",
   "- Open-source alternative to Permute, CloudConvert, Convertio and iLovePDF.",
   "",
 ];

@@ -38,6 +38,11 @@ Wemute 采用 AGPL 许可证，可以看作 Permute、CloudConvert、Convertio�
 
 界面风格叫"冰面"：浅色底上的柔和玻璃质感，只有一种钴蓝色点缀，支持浅色和深色。第一次转换之前，不需要先学会任何设置。
 
+## v0.7.4 新功能
+
+- **给 AI 智能体用**：`wemute mcp` 是一个 MCP 服务器，Claude Code、Codex、Cursor、Claude Desktop 等智能体可以直接用 Wemute 读取和转换文件。**设置 › 集成** 里还能一键安装 `wemute` 技能，教 Claude Code 和 Codex 使用命令行。详见 [docs/cli.md](docs/cli.md#wemute-mcp--wemute-for-ai-agents)。
+- `wemute convert --out 目录`：把这一次的输出存到你指定的文件夹。
+
 ## v0.7.3 新功能
 
 - **擦除不再闪退**：涂抹完按「擦除」时 Wemute 可能直接退出。现在蒙版按你的笔画、以照片原尺寸生成，不再借助一块巨大的屏幕画布。
@@ -161,6 +166,8 @@ wemute actions                                       # 列出所有工具的 id
 - 每种文件类型都有一项验收测试，在打包后的 app 上运行。
 
 在**设置 › 集成 › 命令行工具**里安装这个命令。完整说明见 [docs/cli.md](docs/cli.md)。
+
+智能体也可以直接用 Wemute：`claude mcp add wemute -- wemute mcp`（或 `codex mcp add …`）把它加成 MCP 服务器；**设置 › 集成 › AI 智能体技能** 会教 Claude Code 和 Codex 使用这些命令。
 
 ## 安装
 

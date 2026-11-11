@@ -44,6 +44,15 @@ The interface is "Ice": soft glass on a pale background, one cobalt accent,
 and light and dark modes. There are no settings to learn before your first
 conversion.
 
+## New in v0.7.4
+
+- **Wemute for AI agents.** `wemute mcp` is an MCP server, so Claude Code,
+  Codex, Cursor, Claude Desktop and other agents can read and convert files
+  with Wemute. **Settings › Integrations** also installs a `wemute` skill
+  that teaches Claude Code and Codex the command line. See
+  [docs/cli.md](docs/cli.md#wemute-mcp--wemute-for-ai-agents).
+- `wemute convert --out DIR` saves one run's outputs in a folder you choose.
+
 ## New in v0.7.3
 
 - **Erase no longer quits the app.** Pressing **Erase** after painting could
@@ -195,6 +204,10 @@ wemute actions                                       # every tool id
 
 Install the command from **Settings › Integrations › Command line**. The full
 reference is in [docs/cli.md](docs/cli.md).
+
+Agents can also use Wemute directly. `claude mcp add wemute -- wemute mcp`
+(or `codex mcp add …`) adds it as an MCP server, and **Settings ›
+Integrations › AI agent skill** teaches Claude Code and Codex the commands.
 
 ## Install
 
