@@ -10,7 +10,7 @@ from pathlib import Path
 from PySide6.QtCore import Property, QObject, QProcess, Qt, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 
-from wemute import command_line, finder_actions, shortcut_file
+from wemute import agent_skill, command_line, finder_actions, shortcut_file
 from wemute.integrations import detect_app, thundertalk_app, thundertalk_cli_version
 from wemute.paths import CACHE_ROOT
 from wemute.preferences import APPEARANCES, Preferences, PreferenceStore
@@ -209,6 +209,25 @@ class Integrations(QObject):
     @Slot()
     def removeCommandLine(self) -> None:
         command_line.remove()
+        self.changed.emit()
+
+    @Property(int, notify=changed)
+    def agentSkillCount(self) -> int:
+        """In how many agents' skills folders the Wemute skill is installed."""
+        return len(agent_skill.installed())
+
+    @Slot()
+    def installAgentSkill(self) -> None:
+        try:
+            agent_skill.install(finder_actions.wemute_command())
+            self._error = ""
+        except OSError as exc:
+            self._error = str(exc)
+        self.changed.emit()
+
+    @Slot()
+    def removeAgentSkill(self) -> None:
+        agent_skill.remove()
         self.changed.emit()
 
     @Slot(result=str)

@@ -947,6 +947,25 @@ Window {
                             }
                         }
                         SettingRow {
+                            title: settings.tr("agent_skill")
+                            description: integrations.agentSkillCount > 0
+                                ? settings.fill("agent_skill_installed", "count", integrations.agentSkillCount)
+                                : settings.tr("agent_skill_desc")
+                            Tag {
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: integrations.agentSkillCount > 0
+                                text: settings.tr("installed")
+                                tone: "teal"
+                            }
+                            WButton {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: integrations.agentSkillCount > 0 ? settings.tr("uninstall") : settings.tr("install")
+                                onClicked: integrations.agentSkillCount > 0
+                                    ? integrations.removeAgentSkill()
+                                    : integrations.installAgentSkill()
+                            }
+                        }
+                        SettingRow {
                             title: settings.tr("mcp_server")
                             description: settings.tr("mcp_server_desc")
                             WButton {
