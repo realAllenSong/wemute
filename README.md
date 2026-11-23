@@ -44,6 +44,12 @@ The interface is "Ice": soft glass on a pale background, one cobalt accent,
 and light and dark modes. There are no settings to learn before your first
 conversion.
 
+## New in v0.7.5
+
+- **Settings › About** names realAllenSong as the copyright holder, matching
+  [NOTICE](NOTICE). Contributors now sign a [Contributor License
+  Agreement](CLA.md) on their first pull request.
+
 ## New in v0.7.4
 
 - **Wemute for AI agents.** `wemute mcp` is an MCP server, so Claude Code,

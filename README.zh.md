@@ -38,6 +38,10 @@ Wemute 采用 AGPL 许可证，可以看作 Permute、CloudConvert、Convertio�
 
 界面风格叫"冰面"：浅色底上的柔和玻璃质感，只有一种钴蓝色点缀，支持浅色和深色。第一次转换之前，不需要先学会任何设置。
 
+## v0.7.5 新功能
+
+- **设置 › 关于** 中的版权方改为 realAllenSong，与 [NOTICE](NOTICE) 一致。外部贡献者在第一次提交 PR 时需签署[贡献者许可协议](CLA.md)。
+
 ## v0.7.4 新功能
 
 - **给 AI 智能体用**：`wemute mcp` 是一个 MCP 服务器，Claude Code、Codex、Cursor、Claude Desktop 等智能体可以直接用 Wemute 读取和转换文件。**设置 › 集成** 里还能一键安装 `wemute` 技能，教 Claude Code 和 Codex 使用命令行。详见 [docs/cli.md](docs/cli.md#wemute-mcp--wemute-for-ai-agents)。
