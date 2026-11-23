@@ -9,8 +9,9 @@ Thanks for helping. Bug reports, conversions that fail, and pull requests are al
 ## License and contributor agreement
 
 Wemute is offered under the [GNU AGPL v3](LICENSE) (with the attribution terms in
-[NOTICE](NOTICE)) and, separately, under commercial licences. So that both stay possible, by
-opening a pull request you agree that:
+[NOTICE](NOTICE)) and, separately, under commercial licences. So that both stay possible, every
+contributor signs the [Contributor License Agreement](CLA.md) once. A bot asks you on your first
+pull request, and the pull request can be merged after you sign. In short, you agree that:
 
 - the contribution is your own original work, and you have the right to submit it;
 - you assign the copyright in your contribution to realAllenSong. Where an assignment is not
