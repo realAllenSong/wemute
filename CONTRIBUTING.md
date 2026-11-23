@@ -14,8 +14,8 @@ contributor signs the [Contributor License Agreement](CLA.md) once. A bot asks y
 pull request, and the pull request can be merged after you sign. In short, you agree that:
 
 - the contribution is your own original work, and you have the right to submit it;
-- you assign the copyright in your contribution to realAllenSong. Where an assignment is not
-  possible, you grant realAllenSong a perpetual, irrevocable, worldwide, royalty-free licence to
+- you assign the copyright in your contribution to Zhiyuan Song. Where an assignment is not
+  possible, you grant Zhiyuan Song a perpetual, irrevocable, worldwide, royalty-free licence to
   use, modify, sublicense and relicense it, including under commercial terms.
 
 Your contribution is released to everyone under the AGPL v3.

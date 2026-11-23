@@ -8,8 +8,8 @@ By signing, you agree that, for every contribution you submit to Wemute:
 
 1. The contribution is your own original work, and you have the right to submit it. If your
    employer has rights to your work, you have their permission to submit it under these terms.
-2. You assign the copyright in your contribution to realAllenSong. Where an assignment is not
-   possible, you grant realAllenSong a perpetual, irrevocable, worldwide, royalty-free licence
+2. You assign the copyright in your contribution to Zhiyuan Song. Where an assignment is not
+   possible, you grant Zhiyuan Song a perpetual, irrevocable, worldwide, royalty-free licence
    to use, modify, sublicense and relicense it, including under commercial terms.
 3. Your contribution is released to everyone under the AGPL v3.
 

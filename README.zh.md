@@ -38,6 +38,10 @@ Wemute 采用 AGPL 许可证，可以看作 Permute、CloudConvert、Convertio�
 
 界面风格叫"冰面"：浅色底上的柔和玻璃质感，只有一种钴蓝色点缀，支持浅色和深色。第一次转换之前，不需要先学会任何设置。
 
+## v0.7.6 新功能
+
+- **设置 › 关于**、[NOTICE](NOTICE) 和[贡献者许可协议](CLA.md)中的版权方改为 Zhiyuan Song。
+
 ## v0.7.5 新功能
 
 - **设置 › 关于** 中的版权方改为 realAllenSong，与 [NOTICE](NOTICE) 一致。外部贡献者在第一次提交 PR 时需签署[贡献者许可协议](CLA.md)。
@@ -230,7 +234,7 @@ uv run python -m wemute --smoke-test   # 加载完整界面后退出
 
 ## 许可证
 
-Wemute 是自由软件，采用 [GNU Affero 通用公共许可证 v3.0](LICENSE)，署名要求见 [NOTICE](NOTICE)。如果分发 Wemute 或基于它的作品，或通过网络把它提供给别人使用，需要以同样的许可证公开源代码，并保留“Based on Wemute by realAllenSong”的署名。
+Wemute 是自由软件，采用 [GNU Affero 通用公共许可证 v3.0](LICENSE)，署名要求见 [NOTICE](NOTICE)。如果分发 Wemute 或基于它的作品，或通过网络把它提供给别人使用，需要以同样的许可证公开源代码，并保留“Based on Wemute by Zhiyuan Song”的署名。
 
 **商业授权：**如果想在闭源产品或服务中使用 Wemute 的代码，或需要 AGPL 以外的条款，请[联系我们](mailto:song@entropinia.com)。欢迎按 [CONTRIBUTING](CONTRIBUTING.md) 中的条款贡献代码。
 

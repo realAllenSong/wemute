@@ -44,6 +44,11 @@ The interface is "Ice": soft glass on a pale background, one cobalt accent,
 and light and dark modes. There are no settings to learn before your first
 conversion.
 
+## New in v0.7.6
+
+- **Settings › About**, [NOTICE](NOTICE) and the [CLA](CLA.md) name Zhiyuan
+  Song as the copyright holder.
+
 ## New in v0.7.5
 
 - **Settings › About** names realAllenSong as the copyright holder, matching
@@ -279,7 +284,7 @@ Wemute is free software under the [GNU Affero General Public License
 v3.0](LICENSE), with the attribution terms in [NOTICE](NOTICE). If you distribute
 Wemute or a work based on it, or let people use it over a network, publish your
 source under the same licence and keep the credit "Based on Wemute by
-realAllenSong".
+Zhiyuan Song".
 
 **Commercial licence:** to use Wemute's code in a closed-source product or
 service, or on terms other than the AGPL, [contact us](mailto:song@entropinia.com).
