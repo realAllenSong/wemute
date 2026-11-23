@@ -270,7 +270,14 @@ uv run python -m wemute --smoke-test   # loads the full interface and exits
 ## License
 
 Wemute is free software under the [GNU Affero General Public License
-v3.0](LICENSE).
+v3.0](LICENSE), with the attribution terms in [NOTICE](NOTICE). If you distribute
+Wemute or a work based on it, or let people use it over a network, publish your
+source under the same licence and keep the credit "Based on Wemute by
+realAllenSong".
+
+**Commercial licence:** to use Wemute's code in a closed-source product or
+service, or on terms other than the AGPL, [contact us](mailto:song@entropinia.com).
+Contributions are welcome under the terms in [CONTRIBUTING](CONTRIBUTING.md).
 
 It builds on these projects, which keep their own licenses:
 
