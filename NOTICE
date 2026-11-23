@@ -1,0 +1,21 @@
+Wemute
+Copyright (C) 2026 realAllenSong <https://github.com/realAllenSong>
+
+This program is free software: you can redistribute it and/or modify it under the terms of
+the GNU Affero General Public License, version 3, as published by the Free Software
+Foundation (see LICENSE). It comes with no warranty.
+
+Additional terms, under section 7(b) of the license:
+
+  Anyone who conveys this program or a work based on it, or lets users interact with it over
+  a network, must keep the attribution "Based on Wemute by realAllenSong
+  (https://github.com/realAllenSong/wemute)" in the program's Appropriate Legal Notices (in
+  Wemute, Settings › About) and in the documentation or about page of their work, and must
+  not present the work as wholly their own.
+
+Commercial licence: to use Wemute's own code in a closed-source product or service, or on
+terms other than the AGPL, contact song@entropinia.com. A commercial licence covers Wemute's
+code only. Wemute uses PyMuPDF, which is itself AGPL; closed-source use of the features built
+on it also needs a licence from its owner, Artifex.
+
+Third-party components keep their own licenses; Settings › About lists each one.
