@@ -1,14 +1,18 @@
 ---
 import Icon from "./Icon.astro";
 import type { Locale } from "../data/locale";
+import { localePath } from "../data/locale";
 import { MAC_DOWNLOAD_URL, MAC_RELEASES_URL } from "../data/mac";
 import { ui } from "../data/ui";
 
 interface Props {
   locale: Locale;
+  /** Link to the Mac app page; off on that page itself. */
+  more?: boolean;
 }
 
-const strings = ui(Astro.props.locale);
+const { locale, more = true } = Astro.props;
+const strings = ui(locale);
 ---
 
 <section class="panel mac" aria-labelledby="mac-title">
@@ -18,6 +22,7 @@ const strings = ui(Astro.props.locale);
     <a class="mac__cta" href={MAC_DOWNLOAD_URL} data-mac-download>
       <Icon name="download" size={15} /> {strings.macCta}
     </a>
+    {more && <a class="mac__notes" href={localePath(locale, "mac")}>{strings.macMore}</a>}
     <a class="mac__notes" href={MAC_RELEASES_URL} rel="noopener">{strings.macNotes}</a>
   </div>
   <p class="mac__meta" data-mac-status aria-live="polite">{strings.macMeta}</p>

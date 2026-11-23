@@ -1,0 +1,152 @@
+---
+import Base from "../layouts/Base.astro";
+import Faq from "./Faq.astro";
+import MacPromo from "./MacPromo.astro";
+import { HTML_LANG, localePath, type Locale } from "../data/locale";
+import { MAC_DOWNLOAD_URL } from "../data/mac";
+import { MAC_PAGES, type MacPage } from "../data/mac-pages";
+import { ui } from "../data/ui";
+import { absolute, breadcrumbs, faqPage, graph, organization } from "../lib/site";
+
+interface Props {
+  locale: Locale;
+  page: MacPage;
+}
+
+const { locale, page } = Astro.props;
+const strings = ui(locale);
+const site = Astro.site!;
+const home = localePath(locale);
+const crumbs = [
+  { name: strings.breadcrumbHome, path: home },
+  ...(page.slug === "mac" ? [] : [{ name: strings.macTitle, path: localePath(locale, "mac") }]),
+  { name: page.name[locale], path: localePath(locale, page.slug) },
+];
+const app = {
+  "@type": "SoftwareApplication",
+  name: "Wemute",
+  url: absolute(site, localePath(locale, "mac")),
+  downloadUrl: MAC_DOWNLOAD_URL,
+  description: page.metaDescription[locale],
+  applicationCategory: "UtilitiesApplication",
+  operatingSystem: "macOS 14 or later (Apple silicon)",
+  license: "https://www.gnu.org/licenses/agpl-3.0.html",
+  inLanguage: HTML_LANG[locale],
+  isAccessibleForFree: true,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  sameAs: "https://github.com/realAllenSong/wemute",
+  publisher: { "@id": absolute(site, "/") + "#organization" },
+};
+const jsonLd = graph(organization(site), app, faqPage(page.faqs, locale), breadcrumbs(site, crumbs));
+const others = MAC_PAGES.filter((item) => item.slug !== page.slug);
+---
+
+<Base locale={locale} slug={page.slug} title={page.metaTitle[locale]} description={page.metaDescription[locale]} jsonLd={jsonLd}>
+  <main class="page">
+    <div class="topline">
+      <div>
+        <nav class="crumbs" aria-label="Breadcrumb">
+          {
+            crumbs.map((crumb, index) =>
+              index < crumbs.length - 1 ? (
+                <>
+                  <a href={crumb.path}>{crumb.name}</a>
+                  <span aria-hidden="true">›</span>
+                </>
+              ) : (
+                <span aria-current="page">{crumb.name}</span>
+              ),
+            )
+          }
+        </nav>
+        <h1>{page.h1[locale]}</h1>
+        <p class="answer">{page.answer[locale]}</p>
+      </div>
+      <ul class="badges">
+        <li>{strings.macBadgeFree}</li>
+        <li>{strings.macBadgeOffline}</li>
+        <li>{strings.macBadgeOpen}</li>
+      </ul>
+    </div>
+
+    <div class="below">
+      <div class="below__main">
+        <section class="panel" aria-labelledby="points">
+          <h2 id="points">{page.pointsTitle[locale]}</h2>
+          <ol class="steps points">
+            {
+              page.points.map((point, index) => (
+                <li>
+                  <span class="steps__n" aria-hidden="true">{index + 1}</span>
+                  <div>
+                    <h3>{point.title[locale]}</h3>
+                    <p>{point.body[locale]}</p>
+                  </div>
+                </li>
+              ))
+            }
+          </ol>
+        </section>
+
+        <section class="panel" aria-labelledby="compare">
+          <h2 id="compare">{page.compare.title[locale]}</h2>
+          <div class="compare">
+            <table>
+              <thead>
+                <tr>
+                  <td />
+                  {page.compare.columns.map((column) => <th scope="col">{column[locale]}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {
+                  page.compare.rows.map((row) => (
+                    <tr>
+                      <th scope="row">{row.label[locale]}</th>
+                      {row.cells.map((cell) => <td>{cell[locale]}</td>)}
+                    </tr>
+                  ))
+                }
+              </tbody>
+            </table>
+          </div>
+          {page.compare.note && <p class="compare__notes">{page.compare.note[locale]}</p>}
+        </section>
+
+        <section class="panel" aria-labelledby="how">
+          <p class="kicker">{strings.howItWorks}</p>
+          <h2 id="how">{strings.macStepsTitle}</h2>
+          <ol class="steps">
+            {
+              page.steps.map((step, index) => (
+                <li>
+                  <span class="steps__n" aria-hidden="true">{index + 1}</span>
+                  <p>{step[locale]}</p>
+                </li>
+              ))
+            }
+          </ol>
+          <div class="uses uses--stack">
+            <h3>{page.elseTitle[locale]}</h3>
+            <ul>
+              {page.otherChoices.map((item) => <li>{item[locale]}</li>)}
+            </ul>
+          </div>
+        </section>
+
+        <Faq kicker={strings.faq} title={page.name[locale]} faqs={page.faqs} locale={locale} />
+      </div>
+
+      <div class="below__side">
+        <MacPromo locale={locale} more={false} />
+        <section class="panel" aria-labelledby="related">
+          <h2 id="related">{strings.macRelated}</h2>
+          <div class="related">
+            {others.map((item) => <a href={localePath(locale, item.slug)}>{item.name[locale]}</a>)}
+            <a href={home}>{strings.macWebTools}</a>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</Base>

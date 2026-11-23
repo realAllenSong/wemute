@@ -25,8 +25,8 @@ function walk(dir, prefix = "") {
   return found;
 }
 const pages = ["", ...walk(client)];
-// 26 tools + 3 legal pages + home, in two languages.
-const MINIMUM_PAGES = 60;
+// 26 tools + 3 legal pages + 3 Mac app pages + home, in two languages.
+const MINIMUM_PAGES = 66;
 
 const failures = [];
 const titles = new Map();

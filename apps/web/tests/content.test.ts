@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FORMATS } from "../src/data/formats";
 import { LEGAL } from "../src/data/site";
+import { MAC_PAGES } from "../src/data/mac-pages";
 import { TOOLS, TOOL_BY_SLUG } from "../src/data/tools";
 import { UI } from "../src/data/ui";
 
@@ -48,6 +49,25 @@ describe("tool content", () => {
 
   it("never collides with legal pages", () => {
     for (const page of LEGAL) expect(TOOL_BY_SLUG.has(page.slug)).toBe(false);
+  });
+});
+
+describe("Mac app pages", () => {
+  it("never collide with tools or legal pages", () => {
+    for (const page of MAC_PAGES) {
+      expect(TOOL_BY_SLUG.has(page.slug), page.slug).toBe(false);
+      expect(LEGAL.some((legal) => legal.slug === (page.slug as string)), page.slug).toBe(false);
+    }
+  });
+
+  it("are complete in both languages, with tables that line up", () => {
+    for (const page of MAC_PAGES) {
+      expect(page.metaTitle.en.length, page.slug).toBeLessThanOrEqual(70);
+      expect(page.metaDescription.en.length, page.slug).toBeLessThanOrEqual(170);
+      expect(page.faqs.length).toBeGreaterThanOrEqual(3);
+      for (const row of page.compare.rows) expect(row.cells.length, `${page.slug} ${row.label.en}`).toBe(page.compare.columns.length);
+      for (const locale of LOCALES) for (const value of [page.name, page.h1, page.answer]) expect(value[locale].trim().length).toBeGreaterThan(2);
+    }
   });
 });
 

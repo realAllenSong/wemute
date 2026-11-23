@@ -771,6 +771,28 @@ h1 {
   box-shadow: 0 0 0 1.5px var(--cobalt-ring), 0 14px 24px -12px var(--cobalt-glow);
 }
 
+/* Mac app pages */
+.points h3 {
+  margin: 6px 0 4px;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.points p {
+  margin: 0;
+  color: var(--body);
+  font-size: 15px;
+  font-weight: 500;
+}
+.uses--stack {
+  display: block;
+}
+.uses--stack ul {
+  flex-direction: column;
+  margin-top: 10px;
+}
+
 /* prose pages */
 .wrap--prose {
   max-width: 924px;
@@ -2440,6 +2462,8 @@ h1 {
 .below__main,
 .below__side {
   display: grid;
+  /* An implicit auto track grows to its widest child (a wide table) and overflows phones. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
   min-width: 0;
 }

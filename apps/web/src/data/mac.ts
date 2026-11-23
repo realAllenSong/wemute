@@ -16,4 +16,10 @@ export const MAC_APP_LINES = [
   "- For AI agents: `wemute mcp` is an MCP server (tools: extract, convert, list_actions, list_models, install_model, doctor) for Claude Code, Codex, Cursor, Claude Desktop and other MCP clients; the app also installs a `wemute` agent skill for Claude Code and Codex.",
   "- Open-source alternative to Permute, CloudConvert, Convertio and iLovePDF.",
   "",
+  "Pages about the Mac app:",
+  "",
+  "- [Wemute for Mac](https://wemute.entropinia.com/mac): what it converts, requirements, FAQ.",
+  "- [Free Permute alternative](https://wemute.entropinia.com/permute-alternative): Wemute and Permute 4 compared (price, macOS version, document support).",
+  "- [Turn any file into text for AI](https://wemute.entropinia.com/file-to-text-for-ai): `wemute extract` compared with MarkItDown and Docling.",
+  "",
 ];
