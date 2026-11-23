@@ -44,69 +44,18 @@ The interface is "Ice": soft glass on a pale background, one cobalt accent,
 and light and dark modes. There are no settings to learn before your first
 conversion.
 
-## New in v0.7.6
+## What's new in v0.7
 
-- **Settings › About**, [NOTICE](NOTICE) and the [CLA](CLA.md) name Zhiyuan
-  Song as the copyright holder.
-
-## New in v0.7.5
-
-- **Settings › About** names realAllenSong as the copyright holder, matching
-  [NOTICE](NOTICE). Contributors now sign a [Contributor License
-  Agreement](CLA.md) on their first pull request.
-
-## New in v0.7.4
-
-- **Wemute for AI agents.** `wemute mcp` is an MCP server, so Claude Code,
+- **Wemute for AI agents (v0.7.4).** `wemute mcp` is an MCP server, so Claude Code,
   Codex, Cursor, Claude Desktop and other agents can read and convert files
   with Wemute. **Settings › Integrations** also installs a `wemute` skill
   that teaches Claude Code and Codex the command line. See
   [docs/cli.md](docs/cli.md#wemute-mcp--wemute-for-ai-agents).
-- `wemute convert --out DIR` saves one run's outputs in a folder you choose.
+- **`wemute extract` (v0.7.0)** turns any file or folder into Markdown, text or
+  JSON lines for language models: PDFs with OCR for scanned pages, Office
+  files, screenshots, call recordings with speaker labels, e-mails and archives.
 
-## New in v0.7.3
-
-- **Erase no longer quits the app.** Pressing **Erase** after painting could
-  crash Wemute. The mask is now drawn from your brush strokes at the photo's
-  full size, without a large on-screen canvas.
-
-## New in v0.7.2
-
-- **Downloads that work everywhere.** The app now carries its own HTTPS
-  certificates. Before, Macs without Homebrew could not download models or
-  components.
-- **Downloads that never hang.** A stalled connection gives up after 30
-  seconds and moves on to a mirror. The Erase and Upscale models now come
-  from Wemute's own GitHub mirror first.
-- **`wemute models` and `wemute doctor`:** install models from the command
-  line, and check what works on this Mac.
-
-## New in v0.7.1
-
-- **One place for every tool:** the toolbar's Tools menu and ⌘K search showed the same tools, so the Tools menu is gone. **Find a tool ⌘K** searches every tool, and shows the full list when you type nothing.
-
-## New in v0.7.0
-
-- **First signed release.** Wemute is signed with a Developer ID and notarized
-  by Apple, and it updates itself through Sparkle.
-- **`wemute extract`** turns any file or folder into Markdown, text or JSON
-  lines for language models. It reads:
-  - PDF pages and tables, with OCR for scanned pages;
-  - Word headings, Excel sheets, and slides with their speaker notes;
-  - screenshots;
-  - call recordings, with speaker labels;
-  - e-mails with their attachments, and archives.
-
-  See [For scripts and AI agents](#for-scripts-and-ai-agents).
-- **Subtitles and read-aloud through ThunderTalk.** Subtitles can be SRT,
-  VTT, a transcript, or a transcript that labels each speaker. Transcription
-  uses the most accurate model you have downloaded. Read-aloud uses VoxCPM2.
-- **Better photo tools:**
-  - ID photos and the new portrait blur use Apple's subject cut-out, and keep
-    loose hair clean on red and blue backdrops.
-  - Erase no longer leaves a ghost or a dark smear on larger objects.
-- **Built into macOS:** Finder Quick Actions, a Shortcuts action, a `wemute`
-  shell command, a Settings window, the native menu bar, and ⌘K search.
+Every release: [Changelog](CHANGELOG.md) · [GitHub Releases](https://github.com/realAllenSong/wemute/releases).
 
 ## Features
 
@@ -283,8 +232,8 @@ uv run python -m wemute --smoke-test   # loads the full interface and exits
 Wemute is free software under the [GNU Affero General Public License
 v3.0](LICENSE), with the attribution terms in [NOTICE](NOTICE). If you distribute
 Wemute or a work based on it, or let people use it over a network, publish your
-source under the same licence and keep the credit "Based on Wemute by
-Zhiyuan Song".
+source under the same licence and keep the credit required by
+[NOTICE](NOTICE).
 
 **Commercial licence:** to use Wemute's code in a closed-source product or
 service, or on terms other than the AGPL, [contact us](mailto:song@entropinia.com).
